@@ -1,0 +1,9 @@
+.control-state/
+.beads/
+.dolt/
+
+# Beads / Dolt files (added by bd init)
+*.db
+.beads-credential-key
+.beads/proxieddb/
+*.gate.lock*

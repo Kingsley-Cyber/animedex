@@ -1,0 +1,45 @@
+# Generic URCP control map emitted by `harness adopt`/`scaffold`.
+# Minimal, valid, zero-LLM. Extend per project; changes are contract changes.
+schema_version: "1.0"
+project:
+  id: "animedex"
+  kind: "generic"
+  root: "."
+  control_dir: ".control"
+  state_dir: ".control-state"
+core:
+  llm_required: false
+  reconcile_authority: git_fingerprint
+  task_authority: beads
+  proof_authority: harness_proof
+  context_authority: harness_context
+capabilities:
+  repository_state: { required: true, canonical_owner: git }
+  environment: { required: true, canonical_owner: mise }
+  task_state: { required: true, canonical_owner: beads }
+  structural_impact: { required: true, canonical_owner: codegraph }
+  semantic_contracts: { required: true, canonical_owner: harness_contracts }
+  validation: { required: true, canonical_owner: harness_validation }
+  proof: { required: true, canonical_owner: harness_proof }
+  context_compilation: { required: true, canonical_owner: harness_context }
+providers:
+  git: { type: cli, required: true, authority: SOURCE, capabilities: [repository_state] }
+  mise: { type: cli, required: true, authority: DECLARED, capabilities: [environment] }
+  beads: { type: cli, required: true, authority: DECLARED, capabilities: [task_state] }
+  codegraph: { type: cli_mcp, required: true, authority: DETERMINISTIC, capabilities: [structural_impact] }
+  harness_contracts: { type: internal, required: true, authority: DECLARED, capabilities: [semantic_contracts] }
+  harness_validation: { type: internal, required: true, authority: DETERMINISTIC, capabilities: [validation] }
+  harness_proof: { type: internal, required: true, authority: DETERMINISTIC, capabilities: [proof] }
+  harness_context: { type: internal, required: true, authority: DETERMINISTIC, capabilities: [context_compilation] }
+events:
+  SESSION_START: { actions: [bootstrap, doctor, reconcile, task_bind, proof_freshness, context_compile] }
+  CONTRACT_CHANGED: { actions: [mark_contract_dirty, invalidate_contract_proof, mark_context_dirty] }
+  PRE_COMPACTION: { actions: [checkpoint, persist_handoff, verify_next_action] }
+proof:
+  stale_proof_satisfies_completion: false
+  computation: { manual_agent_declaration_allowed: false }
+completion:
+  requires: [acceptance_satisfied, proof_current, contracts_dispositioned, required_validation_passed, no_blockers]
+  model_may_override: false
+plugins:
+  generic: { required: true, enabled: true }
