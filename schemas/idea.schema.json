@@ -1,0 +1,614 @@
+{
+  "$defs": {
+    "ConsequenceTest": {
+      "additionalProperties": false,
+      "properties": {
+        "choices": {
+          "title": "Choices",
+          "type": "boolean"
+        },
+        "h1_pass": {
+          "title": "H1 Pass",
+          "type": "boolean"
+        },
+        "outcomes": {
+          "title": "Outcomes",
+          "type": "boolean"
+        },
+        "relationships": {
+          "title": "Relationships",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "choices",
+        "relationships",
+        "outcomes",
+        "h1_pass"
+      ],
+      "title": "ConsequenceTest",
+      "type": "object"
+    },
+    "Consequences": {
+      "additionalProperties": false,
+      "properties": {
+        "choices": {
+          "title": "Choices",
+          "type": "string"
+        },
+        "outcomes": {
+          "title": "Outcomes",
+          "type": "string"
+        },
+        "relationships": {
+          "title": "Relationships",
+          "type": "string"
+        }
+      },
+      "required": [
+        "choices",
+        "relationships",
+        "outcomes"
+      ],
+      "title": "Consequences",
+      "type": "object"
+    },
+    "Gates": {
+      "additionalProperties": false,
+      "properties": {
+        "coherence": {
+          "enum": [
+            "pass",
+            "fail"
+          ],
+          "title": "Coherence",
+          "type": "string"
+        },
+        "consequence_test": {
+          "$ref": "#/$defs/ConsequenceTest"
+        },
+        "failure_conditions_triggered": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Failure Conditions Triggered",
+          "type": "array"
+        },
+        "graveyard_hits": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Graveyard Hits",
+          "type": "array"
+        },
+        "novel_combo": {
+          "title": "Novel Combo",
+          "type": "boolean"
+        },
+        "premise_cosine_max": {
+          "maximum": 1.0,
+          "minimum": -1.0,
+          "title": "Premise Cosine Max",
+          "type": "number"
+        },
+        "procedural_jaccard_max": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Procedural Jaccard Max",
+          "type": "number"
+        },
+        "structural_jaccard_max": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Structural Jaccard Max",
+          "type": "number"
+        }
+      },
+      "required": [
+        "structural_jaccard_max",
+        "procedural_jaccard_max",
+        "premise_cosine_max",
+        "novel_combo",
+        "consequence_test",
+        "coherence"
+      ],
+      "title": "Gates",
+      "type": "object"
+    },
+    "HumanRating": {
+      "additionalProperties": false,
+      "description": "Kingsley's blind-review verdict. 'Elite' is his call, never the pipeline's.",
+      "properties": {
+        "criteria": {
+          "items": {
+            "enum": [
+              "T1",
+              "T2",
+              "T3",
+              "T4",
+              "T5"
+            ],
+            "type": "string"
+          },
+          "title": "Criteria",
+          "type": "array"
+        },
+        "greenlight": {
+          "title": "Greenlight",
+          "type": "boolean"
+        },
+        "rating": {
+          "maximum": 5,
+          "minimum": 1,
+          "title": "Rating",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "rating",
+        "greenlight"
+      ],
+      "title": "HumanRating",
+      "type": "object"
+    },
+    "IdeaEngine": {
+      "additionalProperties": false,
+      "properties": {
+        "benefit": {
+          "minLength": 1,
+          "title": "Benefit",
+          "type": "string"
+        },
+        "constraint": {
+          "minLength": 1,
+          "title": "Constraint",
+          "type": "string"
+        },
+        "cost": {
+          "minLength": 1,
+          "title": "Cost",
+          "type": "string"
+        },
+        "dilemma": {
+          "minLength": 1,
+          "title": "Dilemma",
+          "type": "string"
+        },
+        "dramatic_question": {
+          "minLength": 1,
+          "title": "Dramatic Question",
+          "type": "string"
+        },
+        "goal": {
+          "minLength": 1,
+          "title": "Goal",
+          "type": "string"
+        },
+        "strategy": {
+          "minLength": 1,
+          "title": "Strategy",
+          "type": "string"
+        }
+      },
+      "required": [
+        "goal",
+        "constraint",
+        "strategy",
+        "benefit",
+        "cost",
+        "dilemma",
+        "dramatic_question"
+      ],
+      "title": "IdeaEngine",
+      "type": "object"
+    },
+    "IdeaProfile": {
+      "additionalProperties": false,
+      "description": "Same enums as title profiles so overlap is computable.",
+      "properties": {
+        "cost_of_power": {
+          "enum": [
+            "physical_toll",
+            "lifespan",
+            "memory",
+            "identity_or_humanity",
+            "relationships",
+            "resource",
+            "moral",
+            "none",
+            "other"
+          ],
+          "title": "Cost Of Power",
+          "type": "string",
+          "x-vocab": "power_combat.cost_of_power"
+        },
+        "fight_medium": {
+          "enum": [
+            "unarmed",
+            "weapon",
+            "energy",
+            "summon",
+            "vehicle_or_mech",
+            "mixed"
+          ],
+          "title": "Fight Medium",
+          "type": "string",
+          "x-vocab": "power_combat.fight_medium"
+        },
+        "gate": {
+          "enum": [
+            "innate",
+            "trained",
+            "inherited",
+            "contract",
+            "system_granted",
+            "artifact",
+            "death_or_ritual",
+            "mutation",
+            "none",
+            "other"
+          ],
+          "title": "Gate",
+          "type": "string",
+          "x-vocab": "power_combat.gate"
+        },
+        "power_is": {
+          "enum": [
+            "individual",
+            "paired",
+            "collective"
+          ],
+          "title": "Power Is",
+          "type": "string",
+          "x-vocab": "relationships.power_is"
+        },
+        "progression": {
+          "enum": [
+            "lateral",
+            "linear",
+            "hybrid",
+            "none"
+          ],
+          "title": "Progression",
+          "type": "string",
+          "x-vocab": "power_combat.progression"
+        },
+        "visible_counter": {
+          "enum": [
+            "numeric_level",
+            "rank_tier",
+            "collectible_count",
+            "transformation_stage",
+            "none",
+            "other"
+          ],
+          "title": "Visible Counter",
+          "type": "string",
+          "x-vocab": "power_combat.visible_counter"
+        }
+      },
+      "required": [
+        "gate",
+        "cost_of_power",
+        "progression",
+        "visible_counter",
+        "fight_medium",
+        "power_is"
+      ],
+      "title": "IdeaProfile",
+      "type": "object"
+    },
+    "Provenance": {
+      "additionalProperties": false,
+      "properties": {
+        "cache_key": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Cache Key"
+        },
+        "created_at": {
+          "title": "Created At",
+          "type": "string"
+        },
+        "model": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Model"
+        },
+        "pass": {
+          "enum": [
+            "P1",
+            "VERIFY",
+            "P2",
+            "P3",
+            "CHECK",
+            "P4",
+            "CANONICALIZE",
+            "EP",
+            "ROLLUP",
+            "PATTERNS",
+            "IDEATE"
+          ],
+          "title": "Pass",
+          "type": "string"
+        },
+        "prompt_version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Prompt Version"
+        },
+        "run_id": {
+          "minLength": 1,
+          "title": "Run Id",
+          "type": "string"
+        },
+        "schema_version": {
+          "minLength": 1,
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "vocab_version": {
+          "minLength": 1,
+          "title": "Vocab Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "run_id",
+        "pass",
+        "schema_version",
+        "vocab_version",
+        "created_at"
+      ],
+      "title": "Provenance",
+      "type": "object"
+    },
+    "Taste": {
+      "additionalProperties": false,
+      "properties": {
+        "criteria_met": {
+          "items": {
+            "enum": [
+              "T1",
+              "T2",
+              "T3",
+              "T4",
+              "T5"
+            ],
+            "type": "string"
+          },
+          "title": "Criteria Met",
+          "type": "array"
+        },
+        "evidence": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Evidence",
+          "type": "object"
+        },
+        "hard_fail": {
+          "default": false,
+          "title": "Hard Fail",
+          "type": "boolean"
+        }
+      },
+      "title": "Taste",
+      "type": "object"
+    },
+    "Transformation": {
+      "additionalProperties": false,
+      "properties": {
+        "operator": {
+          "enum": [
+            "reverse_incentive",
+            "redistribute_knowledge",
+            "transfer_cost",
+            "change_rule",
+            "combine_mechanisms",
+            "import_lane"
+          ],
+          "title": "Operator",
+          "type": "string",
+          "x-vocab": "transformation.operator"
+        },
+        "source_transfer_ids": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Source Transfer Ids",
+          "type": "array"
+        },
+        "what_changed": {
+          "title": "What Changed",
+          "type": "string"
+        }
+      },
+      "required": [
+        "operator",
+        "source_transfer_ids",
+        "what_changed"
+      ],
+      "title": "Transformation",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "appetite": {
+      "default": "",
+      "title": "Appetite",
+      "type": "string"
+    },
+    "atoms_used": {
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1,
+      "title": "Atoms Used",
+      "type": "array"
+    },
+    "borrowed_from": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Borrowed From",
+      "type": "array"
+    },
+    "bridge": {
+      "items": {
+        "enum": [
+          "borrowed_system",
+          "broken_rule",
+          "unserved_appetite",
+          "visible_progress_counter",
+          "cost_of_advancement",
+          "access_gate",
+          "core_tension",
+          "information_asymmetry",
+          "bond_as_power"
+        ],
+        "type": "string"
+      },
+      "title": "Bridge",
+      "type": "array"
+    },
+    "broken_rule": {
+      "default": "",
+      "title": "Broken Rule",
+      "type": "string"
+    },
+    "closest_existing": {
+      "title": "Closest Existing",
+      "type": "string"
+    },
+    "consequences": {
+      "$ref": "#/$defs/Consequences"
+    },
+    "engine": {
+      "$ref": "#/$defs/IdeaEngine"
+    },
+    "gates": {
+      "$ref": "#/$defs/Gates"
+    },
+    "generation": {
+      "minimum": 0,
+      "title": "Generation",
+      "type": "integer"
+    },
+    "grid_cell": {
+      "minLength": 1,
+      "title": "Grid Cell",
+      "type": "string"
+    },
+    "human_rating": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/HumanRating"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "idea_id": {
+      "title": "Idea Id",
+      "type": "string"
+    },
+    "logline": {
+      "title": "Logline",
+      "type": "string"
+    },
+    "parent_ids": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Parent Ids",
+      "type": "array"
+    },
+    "premise": {
+      "title": "Premise",
+      "type": "string"
+    },
+    "profile": {
+      "$ref": "#/$defs/IdeaProfile"
+    },
+    "provenance": {
+      "$ref": "#/$defs/Provenance"
+    },
+    "status": {
+      "enum": [
+        "candidate",
+        "champion",
+        "rejected"
+      ],
+      "title": "Status",
+      "type": "string"
+    },
+    "target_domain": {
+      "minLength": 1,
+      "title": "Target Domain",
+      "type": "string"
+    },
+    "taste": {
+      "$ref": "#/$defs/Taste"
+    },
+    "theme_root": {
+      "minLength": 1,
+      "title": "Theme Root",
+      "type": "string"
+    },
+    "transformation": {
+      "$ref": "#/$defs/Transformation"
+    },
+    "why_not_a_clone": {
+      "title": "Why Not A Clone",
+      "type": "string"
+    }
+  },
+  "required": [
+    "idea_id",
+    "target_domain",
+    "logline",
+    "premise",
+    "theme_root",
+    "engine",
+    "transformation",
+    "consequences",
+    "profile",
+    "grid_cell",
+    "atoms_used",
+    "closest_existing",
+    "why_not_a_clone",
+    "gates",
+    "taste",
+    "status",
+    "generation",
+    "provenance"
+  ],
+  "title": "IdeaCard",
+  "type": "object"
+}

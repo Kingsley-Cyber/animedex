@@ -7,3 +7,17 @@
 .beads-credential-key
 .beads/proxieddb/
 *.gate.lock*
+
+# ANIMEDEX: only data/canonical/ is committed (owner ruling, G0)
+data/raw/
+data/candidates/
+data/quarantine/
+data/cache/
+/build/
+.env
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+graft/

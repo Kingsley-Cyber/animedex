@@ -1,0 +1,160 @@
+{
+  "$defs": {
+    "PartnerOverrides": {
+      "additionalProperties": false,
+      "properties": {
+        "cross_medium": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Cross Medium"
+        },
+        "flop": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Flop"
+        },
+        "nearest_neighbor": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Nearest Neighbor"
+        }
+      },
+      "title": "PartnerOverrides",
+      "type": "object"
+    },
+    "Scope": {
+      "additionalProperties": false,
+      "properties": {
+        "exclude": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Exclude",
+          "type": "array"
+        },
+        "numbering": {
+          "default": null,
+          "title": "Numbering"
+        },
+        "seasons": {
+          "items": {
+            "type": "integer"
+          },
+          "title": "Seasons",
+          "type": "array"
+        },
+        "version": {
+          "minLength": 1,
+          "title": "Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "version"
+      ],
+      "title": "Scope",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "One title in corpus/titles.yaml (01): medium, format, scope, role tags, partner overrides.",
+  "properties": {
+    "format": {
+      "enum": [
+        "film",
+        "episodic",
+        "serialized",
+        "hybrid"
+      ],
+      "title": "Format",
+      "type": "string",
+      "x-vocab": "format"
+    },
+    "medium": {
+      "enum": [
+        "anime",
+        "western_animation",
+        "adult_animation",
+        "live_action",
+        "film"
+      ],
+      "title": "Medium",
+      "type": "string",
+      "x-vocab": "medium"
+    },
+    "partners": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/PartnerOverrides"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "role_tags": {
+      "items": {
+        "enum": [
+          "gold",
+          "hit",
+          "mixed",
+          "flop",
+          "contrast"
+        ],
+        "type": "string"
+      },
+      "title": "Role Tags",
+      "type": "array"
+    },
+    "scope": {
+      "$ref": "#/$defs/Scope"
+    },
+    "title": {
+      "minLength": 1,
+      "title": "Title",
+      "type": "string"
+    },
+    "title_id": {
+      "title": "Title Id",
+      "type": "string"
+    },
+    "year": {
+      "maximum": 2100,
+      "minimum": 1900,
+      "title": "Year",
+      "type": "integer"
+    }
+  },
+  "required": [
+    "title_id",
+    "title",
+    "year",
+    "medium",
+    "format",
+    "scope"
+  ],
+  "title": "CorpusEntry",
+  "type": "object"
+}

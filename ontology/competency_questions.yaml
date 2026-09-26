@@ -1,0 +1,98 @@
+# Competency questions (01, spec v1.2). `requires:` lists the fields each question
+# reads: P1 lens paths (core.*, <module>.*) or record paths (<record>.<field>).
+# Every lens field, module, vocab field, and bridge concept must trace to >= 1 CQ.
+version: "1.2.0"
+questions:
+  # Gap analysis
+  - id: CQ-G01
+    text: Which gate x cost-of-power combinations have zero titles, given adequate coverage?
+    requires: [power_combat.gate, power_combat.cost_of_power, coverage.field_completion, coverage.modules_active]
+  - id: CQ-G02
+    text: For each empty cell, untried or tried by a mixed/flop title, and what was its recorded failure reason?
+    requires: [power_combat.gate, power_combat.cost_of_power, core.outcome, outcome.label, outcome.failure_reason]
+  - id: CQ-G03
+    text: Which unserved appetites (and the borrowed templates and broken rules that served them) appear in hits but in only one title's load-bearing atoms?
+    requires: [core.unserved_appetite, core.borrowed_template, core.broken_rule, core.outcome, mechanism.atom_kind, proof.ablation.verdict]
+  - id: CQ-G04
+    text: Which progression types have never been paired with a given fight medium?
+    requires: [power_combat.progression, power_combat.fight_medium, coverage.field_completion]
+  - id: CQ-G05
+    text: Which load-bearing patterns appear in >= 2 non-anime titles and 0 anime titles? (imported lanes)
+    requires: [transfer.pattern, transfer.bridge, title.medium, proof.ablation.verdict]
+  - id: CQ-G06
+    text: Which load-bearing anime patterns never appear in Western media? (export lanes)
+    requires: [transfer.pattern, transfer.bridge, title.medium, proof.ablation.verdict]
+  - id: CQ-G07
+    text: Where is coverage too thin to trust a zero?
+    requires: [coverage.field_completion, coverage.modules_active, coverage.verified_share]
+  - id: CQ-G08
+    text: Which tone x premise-engine combinations are unused in battle anime?
+    requires: [core.tone, core.premise_engine, title.modules_active, title.medium]
+  - id: CQ-G09
+    text: Which source mediums, demographics, and adaptation-fidelity levels cluster among hits vs. flops, with confounders shown?
+    requires: [anime_production.source_medium, anime_production.demographic, anime_production.adaptation_fidelity, core.outcome, outcome.confounders.studio, outcome.confounders.budget_signal, outcome.confounders.source_popularity, outcome.confounders.platform, outcome.confounders.release_context]
+  # Ideation
+  - id: CQ-I01
+    text: Which load-bearing transfer atoms share a bridge concept but come from different media?
+    requires: [transfer.bridge, title.medium, proof.ablation.verdict]
+  - id: CQ-I02
+    text: Which pairs of load-bearing atoms both appear in hits but never co-occur?
+    requires: [mechanism.atom_id, mechanism.explanation, proof.ablation.verdict, core.outcome]
+  - id: CQ-I03
+    text: For a chosen theme (core_question), which power gates have never embodied it?
+    requires: [core.core_question, power_combat.gate]
+  - id: CQ-I04
+    text: What is the nearest existing title to a candidate idea, by structural overlap and logline/premise similarity?
+    requires: [power_combat.gate, power_combat.cost_of_power, power_combat.progression, power_combat.visible_counter, power_combat.fight_medium, relationships.power_is, core.logline_hook, core.premise_engine, idea.logline, idea.premise]
+  - id: CQ-I05
+    text: Does a candidate's key combination match a flop's load-bearing combination?
+    requires: [idea.profile, proof.ablation.verdict, core.outcome, outcome.failure_reason]
+  - id: CQ-I06
+    text: Which information-economy patterns (central mystery x knowledge gap x reveal cadence) have never been used with a visible power counter?
+    requires: [core.central_mystery, core.knowledge_gap, core.reveal_cadence, power_combat.visible_counter]
+  - id: CQ-I07
+    text: Which relationship structures (power_is = paired/collective; core bond, rival, mentor, team structure) are unused in battle anime?
+    requires: [relationships.power_is, relationships.core_bond, relationships.rival, relationships.mentor, relationships.team_structure, title.modules_active]
+  - id: CQ-I08
+    text: Which comedic engines from Western/adult animation have never been paired with a power ladder?
+    requires: [comedy_satire.comedic_engine, power_combat.ranking_ladder, title.medium]
+  - id: CQ-I09
+    text: Which film structures (act structure, runtime compression, set pieces, closure) could compress into a single anime arc or cour?
+    requires: [film.act_structure, film.runtime_compression, film.set_pieces, film.closure, anime_production.arc_cour_structure]
+  - id: CQ-I10
+    text: Which character and world structures (want vs. need, flaw and its condition, moral line and its condition, opposition and its logic, stakes/clock, world rules) recur in hits' load-bearing atoms?
+    requires: [core.want_vs_need, core.flaw, core.moral_line, core.central_opposition, core.opposition_logic, core.stakes_clock, core.world_rules, proof.ablation.verdict, core.outcome]
+  - id: CQ-I11
+    text: Which engine atoms from hits (goal, constraint, strategy, cost, dilemma) have never been combined with a given gate or cost of power?
+    requires: [mechanism.engine.goal, mechanism.engine.constraint, mechanism.engine.strategy, mechanism.engine.cost, mechanism.engine.dilemma, power_combat.gate, power_combat.cost_of_power, core.outcome]
+  - id: CQ-I12
+    text: For a transfer pattern, which variable details have only ever taken one value across the corpus?
+    requires: [transfer.pattern, transfer.variable_details]
+  - id: CQ-I13
+    text: Which transformation operators produce champions, and which mostly fail gates?
+    requires: [idea.transformation.operator, idea.status, idea.gates]
+  # Episodes and moments
+  - id: CQ-E01
+    text: Which moment types recur across the most iconic fights, and what mechanism and primary feeling explain each?
+    requires: [moment.moment_type, moment.why_it_hit, core.primary_feeling, mechanism.effect.feeling, mechanism.effect.because]
+  - id: CQ-E02
+    text: Which pilot structures (function, end hook, information shift) precede hits vs. flops? (M6)
+    requires: [episode.selection_reason, episode.function, episode.end_hook, episode.info_shift.gap_change, core.outcome]
+  - id: CQ-E03
+    text: For an iconic fight, what are its power rules, choreography, and visual signature? (fight brief)
+    requires: [power_combat.power_source, power_combat.gate, power_combat.cost_of_power, power_combat.signature_technique, sensory.choreography_style, sensory.power_visual_signature, sensory.color_motif, sensory.animation_signature, moment.moment_type]
+  - id: CQ-E04
+    text: Which series engines (episodic vs. serialized, reset, episode template, cliffhanger cadence, season arc shape) pair with hits in each medium?
+    requires: [series_engine.episodic_vs_serialized, series_engine.status_quo_reset, series_engine.episode_template, series_engine.cliffhanger_cadence, series_engine.season_arc_shape, title.medium, title.format, core.outcome]
+  - id: CQ-E05
+    text: Does each title's engine run in ordinary (control) episodes, or only in highlight episodes? (M6)
+    requires: [episode.selection_reason, episode.engine_beat.engine_atom_id, mechanism.atom_kind]
+  - id: CQ-E06
+    text: How far apart are setups and payoffs, and which setups stay unresolved? (M6)
+    requires: [episode.setups, episode.payoffs.setup_episode_id, link.type, title.scope.numbering]
+  - id: CQ-E07
+    text: Which show-level atoms are episode-backed, mixed, or contradicted? (M6)
+    requires: [mechanism.support.status]
+  - id: CQ-E08
+    text: Which decision shapes (options, rejected alternative, expected vs. actual outcome) recur in hits' key episodes? (M6)
+    requires: [episode.decisions.options, episode.decisions.rejected, episode.decisions.expected, episode.decisions.actual, core.outcome]

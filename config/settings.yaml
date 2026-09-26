@@ -1,0 +1,98 @@
+# ANIMEDEX settings (05, spec v1.2).
+# Values in <angle brackets> are placeholders. Offline work (mock provider, tests, builds) runs
+# without them; live runs refuse to start until they are filled (G1a). Secrets go in .env only.
+# `uv run animedex smoke` lists exactly what is still missing.
+
+providers:
+  openai_compatible:            # any OpenAI-compatible API: OpenRouter, vLLM, LM Studio, hosted
+    type: openai_compatible
+    base_url_env: OPENAI_COMPATIBLE_BASE_URL
+    api_key_env: OPENAI_COMPATIBLE_API_KEY
+    structured_output: json_schema   # json_schema | json_object | prompt
+    send_params: [max_tokens]
+  anthropic:
+    type: anthropic
+    api_key_env: ANTHROPIC_API_KEY
+    fallbacks: default               # server-side refusal fallbacks; set to null to disable
+    send_params: [max_tokens, effort]
+  local:                        # local OpenAI-compatible endpoint (Ollama, LM Studio); also embeddings
+    type: openai_compatible
+    base_url: http://localhost:11434/v1
+    structured_output: json_object
+    send_params: [max_tokens, temperature]
+  mock:
+    type: mock
+
+models:
+  p1:              {provider: openai_compatible, model: "<cheap-model>"}
+  verify:          {provider: openai_compatible, model: "<cheap-model>"}
+  p2:              {provider: anthropic, model: "<strong-model>"}
+  p3:              {provider: anthropic, model: "<strong-model>"}
+  check:           {provider: openai_compatible, model: "<strong-model-different-family>"}
+  p4:              {provider: openai_compatible, model: "<cheap-model>"}
+  ep:              {provider: openai_compatible, model: "<cheap-model>"}
+  rollup_match:    {provider: openai_compatible, model: "<cheap-model>"}
+  ideate_generate: {provider: anthropic, model: "<strong-model>"}
+  ideate_judge:    {provider: openai_compatible, model: "<strong-model-different-family>"}
+  embeddings:      {provider: local, model: "<embedding-model>"}
+  eval_match:      {provider: openai_compatible, model: "<cheap-model>"}
+
+# USD per 1M tokens for every "<provider>/<model>" used live (local models: 0). Example:
+#   "anthropic/<model-id>": {input_per_mtok: 5.0, output_per_mtok: 25.0}
+pricing: {}
+
+search: {backend: "<search-backend>"}
+
+budget:
+  run_cap_usd: "<set>"
+  per_title_cap_usd: "<set>"
+  per_episode_cap_usd: "<set>"
+
+verify:
+  conf_threshold: 0.7
+  max_searches_per_title: 3
+  outcome_extra_searches: 2
+  always_verify: ["core.outcome", "sensory.*", "moments.*.locator"]
+p2:
+  max_atoms: 15
+  max_effect_atoms: 12
+  engine_atoms: {min: 1, max: 3}
+  low_atom_alarm: 5
+p3: {load_bearing_alarm: 8, load_bearing_low_flag: 3}
+check: {reject_rate_alarm: 0.30}
+coverage: {min_titles_with_module: 5, min_field_completion: 0.8}
+episodes:
+  selection: [pilot, moment, finale, control]
+  max_per_title: 6
+  max_moment_episodes: 3
+  require_fetched_source: true
+  summary_max_words: 60
+  max_decisions_per_episode: 2
+  match_similarity: 0.85
+  promote_threshold: 2
+  derive_min_episodes: 3
+  contradiction_storm_alarm: 0.30
+gates:
+  structural_jaccard_reject: 0.70
+  procedural_jaccard_reject: 0.75
+  premise_cosine_reject: 0.90
+  premise_cosine_with_structural: 0.55
+ideate:
+  target_domain: anime
+  grid_dims: ["power_combat.gate", "power_combat.cost_of_power", "power_combat.progression"]
+  operators: [reverse_incentive, redistribute_knowledge, transfer_cost, change_rule, combine_mechanisms, import_lane]
+  h1_min_changed_dimensions: 2
+  generations: 3
+  candidates_per_generation: 12
+  diversity_alarm: {champion_share: 0.40, cell_share: 0.10}
+eval:
+  gold_key_fields:
+    - power_combat.gate
+    - power_combat.cost_of_power
+    - power_combat.progression
+    - power_combat.visible_counter
+    - power_combat.fight_medium
+    - relationships.power_is
+    - core.outcome
+  gold_elements: {min: 3, max: 5}
+  bars: {p1_enum_agreement: 0.80, p3_load_bearing_agreement: 0.70, load_bearing_recall: 0.60}

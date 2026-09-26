@@ -1,0 +1,41 @@
+{
+  "version": "1.1.0",
+  "concepts": {
+    "borrowed_system": {
+      "definition": "A rule system the audience already knows from another domain, imported whole as the story's scaffolding.",
+      "cq_refs": ["CQ-G03", "CQ-I01"]
+    },
+    "broken_rule": {
+      "definition": "One expected rule of the borrowed system or genre is deliberately violated, and the story runs on that violation.",
+      "cq_refs": ["CQ-G03", "CQ-I01"]
+    },
+    "unserved_appetite": {
+      "definition": "A desire the audience has that existing works in the space rarely satisfy.",
+      "cq_refs": ["CQ-G03", "CQ-I01"]
+    },
+    "visible_progress_counter": {
+      "definition": "Advancement is measured on a scale the audience can read and track.",
+      "cq_refs": ["CQ-I06", "CQ-I01"]
+    },
+    "cost_of_advancement": {
+      "definition": "Gaining power or progress takes something the agent values.",
+      "cq_refs": ["CQ-G01", "CQ-I11", "CQ-I01"]
+    },
+    "access_gate": {
+      "definition": "The condition that decides who can obtain power or enter the arena.",
+      "cq_refs": ["CQ-G01", "CQ-I03", "CQ-I01"]
+    },
+    "core_tension": {
+      "definition": "The central opposition whose logic keeps generating conflict.",
+      "cq_refs": ["CQ-I10", "CQ-I01"]
+    },
+    "information_asymmetry": {
+      "definition": "A gap in what the audience and characters know, or between characters, that drives choices.",
+      "cq_refs": ["CQ-I06", "CQ-I01"]
+    },
+    "bond_as_power": {
+      "definition": "A relationship itself is the source or multiplier of power.",
+      "cq_refs": ["CQ-I07", "CQ-I01"]
+    }
+  }
+}
