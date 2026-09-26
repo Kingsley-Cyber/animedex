@@ -1,0 +1,18 @@
+# Blind gold annotation: Fullmetal Alchemist: Brotherhood (fullmetal_alchemist_brotherhood_2009)
+# Fill this BEFORE any model output for this title is shown to you, then commit it.
+# Live runs on this title refuse to start until every field is filled and committed.
+title_id: fullmetal_alchemist_brotherhood_2009
+key_enums:   # one value each; allowed values are in the comment
+  power_combat.gate: ""   # innate | trained | inherited | contract | system_granted | artifact | death_or_ritual | mutation | none | other
+  power_combat.cost_of_power: ""   # physical_toll | lifespan | memory | identity_or_humanity | relationships | resource | moral | none | other
+  power_combat.progression: ""   # lateral | linear | hybrid | none
+  power_combat.visible_counter: ""   # numeric_level | rank_tier | collectible_count | transformation_stage | none | other
+  power_combat.fight_medium: ""   # unarmed | weapon | energy | summon | vehicle_or_mech | mixed
+  relationships.power_is: ""   # individual | paired | collective
+  core.outcome: ""   # hit | mixed | flop
+load_bearing_elements:   # 3-5 elements, in your own words
+  - ""
+  - ""
+  - ""
+main_engine: ""   # one sentence: who wants what, what blocks them, what it costs
+notes: ""
