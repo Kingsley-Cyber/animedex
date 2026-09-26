@@ -38,16 +38,42 @@ None.
 None.
 
 ## Decisions needed from Kingsley
-G0 approval + D1–D9, listed with recommendations in `M0_GAP_REPORT.md` §11 (D1–D4 needed during M1; D5–D9 can wait).
+None open. All were resolved at G0 (below).
+
+## G0 outcome (2026-09-26)
+Kingsley approved the gap report and answered every decision:
+
+| # | Answer | Applied as |
+|---|---|---|
+| D1 | Yes. Also gitignore `data/candidates/` and `data/quarantine/`; only `data/canonical/` is committed. | 03 storage tiers + 06 redaction control; `.gitignore` in M1 |
+| D2 | Yes. `scope.version` stays required for films. | 04 scope note |
+| D3 | Yes. | 04 `provenance.pass` |
+| D4 | Approve, but drop any question that exists only to keep a field alive and delete that field. | See dropped/kept below |
+| D5 | Yes, but the code status is `champion`; "elite" is Kingsley's verdict. | 01, 04, 05, 06, 09 |
+| D6 | Yes, up to the budget cap. Never loosen a gate to reach 20; if the cap hits first, run N vs. N. | 09 blind protocol |
+| D7 | Yes. | 09 |
+| D8 | Yes, delete the root duplicates. | 14 root spec copies + zip moved to the macOS Trash |
+| D9 | No: create a private GitHub repo and push after each milestone tag. | `Kingsley-Cyber/animedex` (private) |
+| + | G1 blocks M2 live runs in Beads; a code guard refuses live gold runs without filled, committed annotations. | Beads `animedex-b1o.5.1`; guard in M1 |
+| + | URCP issues never block ANIMEDEX. | Operating brief, owner rulings |
+| §7 | Defaults accepted. | CHANGELOG v1.2 clarifications |
+
+**D4: what was dropped and what was kept**
+| Appendix B item | Verdict | Why | Field effect |
+|---|---|---|---|
+| CQ-E03 + "color and sound motifs" | Dropped | Existed only to keep `sensory.sound_motif`; color and animation signature already fall under E03's "visual signature" | `sensory.sound_motif` deleted |
+| CQ-I08 + comic roles, satire targets, running-gag systems | Dropped | Existed only to keep three comedy fields | `comedy_satire.satire_target`, `.comic_roles`, `.running_gag_system` deleted |
+| CQ-E04 + "episode template" | Kept | A series-engine property that ROLLUP (05) already re-derives from episodes | `series_engine.episode_template` stays |
+| New CQ-I13 (operator yield) | Kept | Formalizes 09's operator stats; the operator field is core to IDEATE | `transformation.operator` covered |
 
 ## Known issues and risks
 1. No reusable code: M1 is a full build (about half a day of agent work).
-2. G-1 doc conflict (raw logs vs. never storing web text) blocks the run logger until D1.
-3. The 20-elite target is tight at 3 generations × 12 candidates (D6).
+2. G-1 doc conflict resolved by D1: the M1 run logger redacts fetched web text.
+3. The 20-champion target is tight at 3 generations × 12 candidates; per D6, gates never loosen and the review falls back to N vs. N.
 4. VERIFY's 3-search cap will leave many sensory fields and moment locators `unresolved`.
 5. URCP is alpha: its `AGENTS.md` generator hardcodes `planning/`, and 2 of its tests fail on macOS (environment assumptions). Flagged as a separate URCP task.
 
 ## Next milestone readiness
-- [ ] All ACs pass (M0 has none; exit = G0 approval)
+- [x] Exit met: G0 approved 2026-09-26 (M0 has no ACs)
 - [x] Report filed
-- [ ] Tagged commit pushed (tag on approval; no remote yet, D9)
+- [x] Tagged `m0-complete`; pushed to the private `Kingsley-Cyber/animedex` repo right after tagging (D9)

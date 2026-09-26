@@ -1,5 +1,39 @@
 # Changelog — docs/implementation
 
+## v1.2 — 2026-09-26
+G0 decisions, approved by Kingsley (recorded in `reports/M0_REPORT.md`).
+
+**Contracts (04)**
+- Films use `scope.seasons: []` and `scope.numbering: null`; `scope.version` stays required. (D2)
+- `provenance.pass` adds `CANONICALIZE` (coverage ledger) and `PATTERNS` (from M7). (D3)
+- Idea `status` is `candidate | champion | rejected`. A champion holds its MAP-Elites cell; "elite" is reserved for Kingsley's verdict. (D5)
+- P1 fields deleted because no competency question needs them: `sensory.sound_motif`, `comedy_satire.satire_target`, `comedy_satire.comic_roles`, `comedy_satire.running_gag_system`. (D4)
+- `schema_version` 1.2.0.
+
+**Competency questions (01)**
+- CQ-E04 adds episode template. New CQ-I13: which transformation operators produce champions, and which mostly fail gates. (D4)
+
+**Storage (03)**
+- Only `data/canonical/` is committed; `data/raw/`, `data/candidates/`, `data/quarantine/` are gitignored. Raw logs replace fetched web text with URL + sha256 + length. (D1)
+- CANONICALIZE runs after P1 + VERIFY for a batch and again after P4.
+
+**Controls (06)**
+- Gold blind guard: a live run on a gold title refuses to start unless `eval/gold/<title_id>/` annotations are filled and committed.
+- Raw-log redaction. Diversity alarm counts champions.
+
+**Eval (09)**
+- Blind review: 20 champions vs. 20 baseline premises. Never loosen a gate to reach 20; if the budget cap hits first, review N vs. N. (D6)
+- The AC-17 spot-check is recorded in the M3 completion report. (D7)
+
+**Config (05)**
+- `pricing:` per model, `models.eval_match`, `diversity_alarm.champion_share`. The verify list is recomputed in code.
+
+**Clarifications (accepted defaults, no contract change)**
+- `make build` runs BUILD plus ANALYZE's deterministic CQ step (from M4). Determinism hashes cover sorted table contents, not the DuckDB file.
+- IDEATE writes candidates; CANONICALIZE promotes ideas and the archive.
+- Prompts use synthetic worked examples only, never gold or partner titles.
+- AC-16 also flags fewer than 3 `load_bearing` atoms. Agreement reruns use distinct params so the cache cannot return run 1.
+
 ## v1.1 — 2026-09-26
 From the extraction-framework review and the episode decision.
 

@@ -11,7 +11,7 @@ Pydantic models in `src/animedex/models/` are the source of truth for shapes. JS
 ```json
 {
   "run_id": "run_20260926_001",
-  "pass": "P1|VERIFY|P2|P3|CHECK|P4|EP|ROLLUP|IDEATE",
+  "pass": "P1|VERIFY|P2|P3|CHECK|P4|CANONICALIZE|EP|ROLLUP|PATTERNS|IDEATE",
   "model": "provider/model-id or null for deterministic stages",
   "prompt_version": "1.0.0",
   "schema_version": "1.1.0",
@@ -30,7 +30,7 @@ Pydantic models in `src/animedex/models/` are the source of truth for shapes. JS
   "exclude": ["e.g., source-material arcs not yet adapted"]
 }
 ```
-Every pass uses only events inside scope. Different adaptations of the same story are different titles (`hunter_x_hunter_1999` vs. `hunter_x_hunter_2011`; `fullmetal_alchemist_2003` vs. `fullmetal_alchemist_brotherhood_2009`).
+Films use `seasons: []` and `numbering: null`; `version` is always required. Every pass uses only events inside scope. Different adaptations of the same story are different titles (`hunter_x_hunter_1999` vs. `hunter_x_hunter_2011`; `fullmetal_alchemist_2003` vs. `fullmetal_alchemist_brotherhood_2009`).
 
 ## Field value shape (every P1 field)
 ```json
@@ -83,7 +83,7 @@ Every pass uses only events inside scope. Different adaptations of the same stor
   },
   "sensory": {
     "power_visual_signature": {}, "choreography_style": {}, "color_motif": {},
-    "sound_motif": {}, "animation_signature": {}
+    "animation_signature": {}
   },
   "anime_production": {
     "source_medium": {}, "demographic": {}, "arc_cour_structure": {}, "adaptation_fidelity": {}
@@ -93,7 +93,7 @@ Every pass uses only events inside scope. Different adaptations of the same stor
     "season_arc_shape": {}, "cliffhanger_cadence": {}
   },
   "comedy_satire": {
-    "comedic_engine": {}, "satire_target": {}, "comic_roles": {}, "running_gag_system": {}
+    "comedic_engine": {}
   },
   "film": {
     "act_structure": {}, "runtime_compression": {}, "set_pieces": {}, "closure": {}
@@ -332,12 +332,13 @@ Corpus-level coverage is derived in DuckDB. A zero-count gap is reportable as "o
     "coherence": "pass|fail"
   },
   "taste": {"criteria_met": ["T1"], "evidence": {"T1": "..."}, "hard_fail": false},
-  "status": "candidate|elite|rejected",
+  "status": "candidate|champion|rejected",
   "generation": 0, "parent_ids": [],
   "human_rating": null,
   "provenance": {}
 }
 ```
+- `champion` means the card holds its MAP-Elites cell. "Elite" is reserved for Kingsley's verdict (`human_rating`, `eval/blind/`).
 - The `profile` uses the same enums as titles so overlap is computable.
 - `consequence_test` records, per dimension, whether the idea's consequences differ from what happens in `closest_existing`. `h1_pass` requires at least `ideate.h1_min_changed_dimensions` of 3.
 

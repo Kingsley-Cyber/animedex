@@ -40,7 +40,7 @@ Flags: `--all` (every title in the corpus), `--dry-run` (print prompts and cache
 - Character fields `flaw` and `moral_line` carry a `condition`.
 - Sensory fields: documented signatures only; no framing/blocking/editing claims.
 - Unknown field → `value: null`, `conf: 0`. Never guess to fill. Fields under the confidence threshold carry an `uncertainty_reason`.
-- `verify` list = fields with `conf < verify.conf_threshold` + `core.outcome` + all sensory fields + all moment locators.
+- `verify` list = fields with `conf < verify.conf_threshold` + `core.outcome` + all sensory fields + all moment locators. Code recomputes it from `conf` and `verify.always_verify`; the model's list is advisory.
 
 ### VERIFY
 - **In:** P1 candidate + verify list. **Out:** updated fields (`source: web`, verification status, `source_ref`) + outcomes record.
@@ -146,7 +146,7 @@ Deterministic except steps 3 and 5, which call a model.
 | T5 | Named source title + a specific improvement mapped to its recorded weakness |
 
 - **Fitness (lexicographic, no invented scores):** (1) all gates and H1 pass; (2) number of evidenced taste criteria; (3) more episode-backed atoms used; (4) lower max structural overlap; (5) Kingsley's rating overrides when present.
-- **Archive:** place if the cell is empty or fitness beats the incumbent. Elites are parents for the next generation; empty-cell targeting picks the operator most likely to move a parent toward the target cell.
+- **Archive:** place if the cell is empty or fitness beats the incumbent. Champions are parents for the next generation; empty-cell targeting picks the operator most likely to move a parent toward the target cell.
 
 ## Caching and idempotency
 `cache_key = sha256(id | pass | prompt_version | schema_version | vocab_version | model | params | upstream_hash)`, where `upstream_hash` hashes the canonical inputs the pass reads.
@@ -177,6 +177,9 @@ models:
   ideate_generate: {provider: anthropic, model: "<strong-model>"}
   ideate_judge:    {provider: openai_compatible, model: "<strong-model-different-family>"}
   embeddings:      {provider: local, model: "<embedding-model>"}
+  eval_match:      {provider: openai_compatible, model: "<cheap-model>"}
+pricing:          # USD per 1M tokens, per provider/model used above
+  "<provider/model>": {input_per_mtok: "<set>", output_per_mtok: "<set>"}
 search: {backend: "<search-backend>"}
 budget:
   run_cap_usd: "<set>"
@@ -217,7 +220,7 @@ ideate:
   h1_min_changed_dimensions: 2
   generations: 3
   candidates_per_generation: 12
-  diversity_alarm: {elite_share: 0.40, cell_share: 0.10}
+  diversity_alarm: {champion_share: 0.40, cell_share: 0.10}
 ```
 Gate and episode thresholds are initial calibration values, not truths. Recalibrate in M7.
 

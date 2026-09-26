@@ -29,7 +29,7 @@ ROLLUP ◄── EP (key episodes, M6)   BUILD ─► ANALYZE ─► IDEATE
  status changes re-run P3/CHECK/P4
  for the affected atoms only
 ```
-Batch order: run P1 + VERIFY for every title in a batch before P3, because P3 needs its contrast partners' profiles.
+Batch order: run P1 + VERIFY for every title in a batch before P3, because P3 needs its contrast partners' profiles. CANONICALIZE runs after P1 + VERIFY for the batch (P3 partner selection reads canonical P1) and again after P4.
 
 ## Breadth vs. depth
 - **Breadth** = P1 fields: a small lens of core fields + modules.
@@ -90,10 +90,10 @@ Result: every episode added makes the show model more trustworthy, and the cost 
 ## Storage tiers
 | Tier | Location | Rules |
 |---|---|---|
-| Raw runs | `data/raw/runs/<run_id>/` | Every request/response + token/cost log |
-| Candidates | `data/candidates/` | Pre-canonical outputs per pass |
-| Quarantine | `data/quarantine/` | Invalid JSON, schema failures, rejected atoms, with reasons |
-| Canonical | `data/canonical/*.jsonl` | Source of truth; written only by CANONICALIZE and ROLLUP; atomic writes; committed to git |
+| Raw runs | `data/raw/runs/<run_id>/` | Every request/response + token/cost log; fetched web text replaced by URL + sha256 + length; gitignored |
+| Candidates | `data/candidates/` | Pre-canonical outputs per pass; gitignored |
+| Quarantine | `data/quarantine/` | Invalid JSON, schema failures, rejected atoms, with reasons; gitignored |
+| Canonical | `data/canonical/*.jsonl` | Source of truth; written only by CANONICALIZE and ROLLUP; atomic writes; the only data tier committed to git |
 | Derived | `build/` | DuckDB, CSV, MD; gitignored; fully rebuildable |
 
 ## Repo layout

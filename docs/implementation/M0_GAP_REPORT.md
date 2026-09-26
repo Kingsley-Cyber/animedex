@@ -7,6 +7,7 @@
 | Author | Claude Code (claude-opus-5-5) |
 | Code changed | None |
 | Cost | $0 (no model or web calls) |
+| Status | **Approved at G0, 2026-09-26.** Decisions and changes: `reports/M0_REPORT.md` (G0 outcome), `CHANGELOG.md` v1.2 |
 
 ## 1. Verdict
 - **No ANIMEDEX code exists.** The repo holds only the v1.1 spec. A search of the home folder found no code that mentions ANIMEDEX or the anime atom graph.

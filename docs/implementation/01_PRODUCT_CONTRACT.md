@@ -28,7 +28,7 @@
 | Intra-title links (M6) | `links.jsonl` | Information economy, setup/payoff, episode generation |
 | Pattern cards (M7) | `patterns.jsonl` | Ideation, gap reports |
 | Idea cards | `ideas.jsonl` + `build/reports/ideas.md` | Kingsley |
-| Elite archive | `archive.jsonl` | Kingsley, ideation |
+| Champion archive | `archive.jsonl` | Kingsley, ideation |
 | Gap report | `build/reports/gaps.md` (derived) | Kingsley, ideation |
 
 ## Promises
@@ -78,12 +78,13 @@ Every field, module, vocabulary entry, and bridge concept must trace to at least
 - **CQ-I10** Which character and world structures (want vs. need, flaw and its condition, moral line and its condition, opposition and its logic, stakes/clock, world rules) recur in hits' load-bearing atoms?
 - **CQ-I11** Which engine atoms from hits (goal, constraint, strategy, cost, dilemma) have never been combined with a given gate or cost of power?
 - **CQ-I12** For a transfer pattern, which variable details have only ever taken one value across the corpus?
+- **CQ-I13** Which transformation operators produce champions, and which mostly fail gates?
 
 **Episodes and moments**
 - **CQ-E01** Which moment types recur across the most iconic fights, and what mechanism and primary feeling explain each?
 - **CQ-E02** Which pilot structures (function, end hook, information shift) precede hits vs. flops? *(answered from pilot episode records, M6)*
 - **CQ-E03** For an iconic fight, what are its power rules, choreography, and visual signature? *(fight brief)*
-- **CQ-E04** Which series engines (episodic vs. serialized, reset, cliffhanger cadence, season arc shape) pair with hits in each medium?
+- **CQ-E04** Which series engines (episodic vs. serialized, reset, episode template, cliffhanger cadence, season arc shape) pair with hits in each medium?
 - **CQ-E05** Does each title's engine run in ordinary (control) episodes, or only in highlight episodes?
 - **CQ-E06** How far apart are setups and payoffs, and which setups stay unresolved?
 - **CQ-E07** Which show-level atoms are episode-backed, mixed, or contradicted?

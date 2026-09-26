@@ -75,3 +75,14 @@ Begin M0: audit the existing repo against 03, 04, and 05 and write
 docs/implementation/M0_GAP_REPORT.md, marking each component reuse / adapt / replace, including
 how any existing layer extractors map onto P1 fields and passes P2–P4. Then give me the G0
 decision list.
+
+---
+
+## Owner rulings (G0, 2026-09-26)
+- **URCP never blocks ANIMEDEX.** URCP issues live in their own task. If the harness gets in the way, the spec's own gates (`make validate`, `make test`, completion reports) are enough to proceed.
+- **GitHub:** private repo; push after each milestone tag.
+- **G1 blocks every M2 live run** (Beads `animedex-b1o.5.1`). The blind is also enforced in code: a live run on a gold title refuses to start unless that title's `eval/gold/` annotation files are filled and committed.
+- **Naming:** the code's archive status is `champion`. "Elite" is reserved for Kingsley's verdict.
+- **Blind packet:** 20 champions vs. 20 baseline premises, up to the budget cap. Never loosen a gate to reach 20; if the cap hits first, review N vs. N.
+- **Data tiers:** only `data/canonical/` is committed.
+- Spec amendments from G0 are in `docs/implementation/CHANGELOG.md` v1.2.

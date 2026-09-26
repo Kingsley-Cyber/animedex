@@ -48,8 +48,10 @@
 | IDEATE | H1 consequence test | Preventive | <2 of choices/relationships/outcomes differ from closest title | Reject (surface change) |
 | IDEATE | Failure-condition check | Preventive | Idea triggers an atom's failure condition | Rework once → reject |
 | IDEATE | Coherence gate | Preventive | Theme ↔ mechanic; dilemma follows from cost | Reject |
-| IDEATE | Diversity alarm | Detective | >40% of elites in 10% of cells | Target empty cells; vary operators |
+| IDEATE | Diversity alarm | Detective | >40% of champions in 10% of cells | Target empty cells; vary operators |
 | ALL | Budget cap | Budget | Per-run, per-title, per-episode caps | Stop cleanly after current unit; report |
+| ALL (live) | Gold blind guard | Preventive | Live run on a gold title needs filled, committed `eval/gold/<title_id>/` annotations | Refuse to start |
+| ALL | Raw-log redaction | Preventive | Fetched web text never written to logs | Replace with URL + sha256 + length |
 
 ## Decision rights
 | Decision | Agent | Kingsley |

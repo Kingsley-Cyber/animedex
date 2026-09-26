@@ -20,7 +20,7 @@ For each gold title, Kingsley records, **before seeing model output**:
 
 Metrics:
 - P1 enum accuracy vs. gold.
-- Load-bearing recall and precision vs. gold. Semantic matching is done by an LLM matcher, then spot-checked by Kingsley.
+- Load-bearing recall and precision vs. gold. Semantic matching is done by an LLM matcher, then spot-checked by Kingsley; the spot-check is recorded in the M3 completion report.
 - Engine match: does the model's primary engine atom match Kingsley's one-sentence engine?
 
 ## Agreement (`eval/agreement/`)
@@ -42,14 +42,14 @@ Metrics:
 
 ## Ideation eval
 - **Gate stats:** pass/fail per gate per generation, including H1 consequence-test failures (how often the generator produces surface changes).
-- **Operator stats:** which operators produce elites, and which mostly fail gates.
+- **Operator stats:** which operators produce champions, and which mostly fail gates.
 - **Grid coverage:** occupied cells / total cells, and the distribution across cells.
 - **Blind review protocol:**
-  1. Generate 20 ANIMEDEX elites and 20 baseline premises (same model, same length limits, baseline prompt includes the taste standard).
+  1. Generate 20 ANIMEDEX champions and 20 baseline premises (same model, same length limits, baseline prompt includes the taste standard). Never loosen a gate to reach 20; if the budget cap hits first, review N champions vs. N baseline premises.
   2. Strip metadata; format identically (logline + premise only).
   3. Shuffle. Kingsley rates each 1–5, marks "would greenlight" y/n, and tags any taste criterion met (T1–T5).
   4. Unblind and compare. Record in `eval/blind/<date>.json`.
 - Formatting must not leak which side a card came from (no atom IDs, no system vocabulary, no engine fields).
 
 ## Cost eval
-- Tokens and cost per title per pass, per episode, and per ROLLUP re-run; ideation cost per elite. Reported in every completion report.
+- Tokens and cost per title per pass, per episode, and per ROLLUP re-run; ideation cost per champion. Reported in every completion report.
