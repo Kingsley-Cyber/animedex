@@ -168,3 +168,27 @@ def test_the_call_cap_pauses_the_run_cleanly(repo):
         c.provider.live, c.billing = True, "subscription"   # the call cap counts live subscription calls only
     res = quick(repo, clients, shows=["Ironvale Circuit"], n=1)
     assert res.stopped and "call cap reached" in res.stopped and res.path.endswith(".md")
+
+
+def test_every_schema_the_light_path_sends_is_a_valid_json_schema():
+    """The CLI validates `--json-schema` and refuses an empty enum; the mocks do not, so check it here."""
+    from jsonschema import Draft202012Validator
+
+    from animedex.light.notes import note_schema
+    from animedex.light.quick import card_schema, check_schema, prior_art_schema, research_schema
+
+    def enums(node):
+        if isinstance(node, dict):
+            if "enum" in node:
+                yield node["enum"]
+            for v in node.values():
+                yield from enums(v)
+        elif isinstance(node, list):
+            for v in node:
+                yield from enums(v)
+
+    for schema in (research_schema(), note_schema(["Ironvale Circuit"]), card_schema(["ironvale_circuit_2021"]),
+                   check_schema(["C1"], ["R1"], ["ironvale_circuit_2021"]), prior_art_schema(["C1"])):
+        Draft202012Validator.check_schema(schema)
+        assert all(len(e) >= 1 for e in enums(schema)), "an empty enum: the CLI refuses the schema"
+    assert [e for e in enums(note_schema([])) if not e]   # what the old research schema sent

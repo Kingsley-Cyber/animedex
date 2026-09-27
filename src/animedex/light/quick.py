@@ -139,8 +139,12 @@ def _web(settings: Settings, shows: int) -> dict[str, int]:
 
 # ---------------------------------------------------------------- research
 def research_schema() -> dict[str, Any]:
+    """The picks are decided in the same call, so a note's `show` is free text here (an empty enum is not a
+    valid JSON Schema: the CLI refuses it)."""
     pick = _obj({"show": TEXT, "year": {"type": ["integer", "null"]}, "in_index": BOOL, "index_slug": MAYBE, "why": TEXT})
-    return _obj({"picks": _arr(pick), "notes": note_schema([])["properties"]["notes"]})
+    item = json.loads(json.dumps(note_schema(["-"])["properties"]["notes"]["items"]))
+    item["properties"]["show"] = TEXT
+    return _obj({"picks": _arr(pick), "notes": _arr(item)})
 
 
 def research_problems(out: dict[str, Any], notes: dict[str, dict[str, Any]], vocab: Vocab, guards: GuardConfig,
