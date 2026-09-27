@@ -185,6 +185,20 @@ def make_idea(n: int = 1, *, transfer_ids: tuple[str, ...] = ("ironvale_circuit_
     return rec
 
 
+def make_census(n: int, *, powered: bool = True, **over: Any) -> list[dict[str, Any]]:
+    """`n` synthetic census rows (counts only), all in one cell that the test cards avoid."""
+    rows = []
+    for i in range(1, n + 1):
+        rec = {"census_id": f"anilist:{900000 + i}", "title": f"Census title {i}", "year": 2010, "medium": "anime",
+               "format": "serialized", "popularity": 1000, "has_power_system": powered, "gate": "artifact",
+               "cost_of_power": "resource", "progression": "hybrid", "visible_counter": "rank_tier",
+               "fight_medium": "weapon", "power_is": "paired", "borrowed_system": "none", "trust": "recall",
+               "batch_id": "census_test", "provenance": prov("CENSUS")}
+        rec.update(over)
+        rows.append(rec)
+    return rows
+
+
 def synthetic_state() -> dict[str, list[dict[str, Any]]]:
     """A small, fully linked canonical state across the V1 record types."""
     t1 = make_title()

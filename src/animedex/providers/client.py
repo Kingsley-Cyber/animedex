@@ -80,6 +80,7 @@ class CallContext:
     title_id: str | None = None
     episode_id: str | None = None
     transients: tuple[TransientText, ...] = field(default_factory=tuple)
+    meta: dict[str, Any] | None = None  # logged with every attempt (e.g. the M5 call brief's size); not in the key
 
 
 @dataclass(frozen=True)
@@ -219,7 +220,8 @@ class LLMClient:
     ) -> Completion:
         key = self.key_for(ctx, params)
         log_common = {"pass_": ctx.pass_, "record_id": ctx.record_id, "provider": self.identity,
-                      "cache_key": key, "system": system, "transients": ctx.transients, "billing": self.billing}
+                      "cache_key": key, "system": system, "transients": ctx.transients, "billing": self.billing,
+                      "extra": ctx.meta}
 
         hit = self.cache.get(ctx.pass_, key)
         if hit is not None:

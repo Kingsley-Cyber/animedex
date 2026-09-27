@@ -1,7 +1,10 @@
 """build/reports/ideas.md: the idea cards in plain language, champions first.
 
 While the gold blind is pending, gold titles appear only as "[gold title]" (owner ruling
-2026-09-27): no gold-title output is shown, only ideas.
+2026-09-27): no gold-title output is shown, only ideas. A card that leans on an atom now contested,
+rejected or (M6) contradicted carries a visible evidence flag (controls A8), computed from the
+current canonical state at every write. Only ANIMEDEX cards are listed; baseline cards exist only
+for the blind review.
 """
 
 from __future__ import annotations
@@ -11,6 +14,7 @@ from typing import Any
 
 from animedex.gold import masked_titles
 from animedex.guards import load_corpus
+from animedex.ideate.flags import EvidenceFlags
 from animedex.paths import Paths
 from animedex.store.atomic import atomic_write_text
 from animedex.store.canonical import CanonicalStore
@@ -61,9 +65,11 @@ def render(paths: Paths, limit: int = 60) -> str:
     corpus = load_corpus(paths)
     m = Masker(titles, masked_titles(paths, {t for t, e in corpus.items() if "gold" in e.role_tags}))
     archive = {a["cell_key"]: a for a in state.get("archive", [])}
-    ideas = [i for i in state.get("idea", []) if i["status"] != "rejected"]
+    flags = EvidenceFlags(state)
+    own = [i for i in state.get("idea", []) if i.get("arm", "animedex") == "animedex"]
+    ideas = [i for i in own if i["status"] != "rejected"]
     ideas.sort(key=lambda c: _fitness_key(c, archive))
-    rejected = sum(1 for i in state.get("idea", []) if i["status"] == "rejected")
+    rejected = sum(1 for i in own if i["status"] == "rejected")
     champions = sum(1 for i in ideas if i["status"] == "champion")
     lines = ["# ANIMEDEX idea cards", "",
              f"{champions} champions (the best card in each cell of the idea grid), {len(ideas) - champions} other "
@@ -75,8 +81,12 @@ def render(paths: Paths, limit: int = 60) -> str:
     for n, c in enumerate(ideas[:limit], start=1):
         e, q = c["engine"], c["consequences"]
         tag = "champion" if c["status"] == "champion" else "passed all gates"
-        lines += [f"## {n}. {m.text(c['logline'])}", "", f"*{tag}; {c['grid_cell'].replace('|', ', ')}*", "",
-                  f"**Premise.** {m.text(c['premise'])}", "",
+        lines += [f"## {n}. {m.text(c['logline'])}", "", f"*{tag}; {c['grid_cell'].replace('|', ', ')}*", ""]
+        flagged = flags.for_card(c)
+        if flagged:
+            lines += [f"**Evidence flag.** It leans on evidence that no longer stands: {m.text('; '.join(flagged))}. "
+                      "Re-check it before developing this idea.", ""]
+        lines += [f"**Premise.** {m.text(c['premise'])}", "",
                   f"**Engine.** Wants {m.text(e['goal'])}, but {m.text(e['constraint'])}. Chooses {m.text(e['strategy'])}; "
                   f"gains {m.text(e['benefit'])}, pays {m.text(e['cost'])}. Dilemma: {m.text(e['dilemma'])} "
                   f"*{m.text(e['dramatic_question'])}*", "",

@@ -29,6 +29,7 @@ from animedex.store.cache import ResponseCache
 from animedex.store.canonical import CanonicalStore
 from animedex.store.runlog import RunLog
 from tests.conftest import (
+    make_census,
     make_effect_atom,
     make_engine_atom,
     make_proof,
@@ -103,13 +104,14 @@ def responder(system, user, schema, params):
                         "failure_conditions_triggered": [], "coherence": "pass",
                         "coherence_reason": "The dilemma grows from the cost.", "runway_hurts_by_arc5": True,
                         "runway_reason": "The cost compounds with every win.",
+                        "why_different_verdict": "not_applicable", "why_different_reason": "",
                         "taste": [{"criterion": "T3", "evidence": "Patterns from two media combine coherently."},
                                   {"criterion": "T5", "evidence": "Claims a retelling without a revival source."}]})
         return {"cards": out}
-    # generate
+    # generate (the M5 brief: atoms arrive as aliases A1..; baseline 1 gets none and names its own closest title)
     _count["n"] += 1
     k = _count["n"]
-    ids = props["source_transfer_ids"]["items"]["enum"]
+    ids = (props.get("source_transfer_ids") or {}).get("items", {}).get("enum")
     vocab = get_vocab()
     gates = [g for g in vocab.enum("power_combat.gate") if g != "other"]
     costs = [c for c in vocab.enum("power_combat.cost_of_power") if c != "other"]
@@ -121,7 +123,6 @@ def responder(system, user, schema, params):
                       "cost": "the district inherits the debt", "dilemma": "each rescue mortgages the neighbors",
                       "dramatic_question": "Who pays when the debts come due?"},
            "what_changed": "The cost of power lands on the neighbors, not the hero.",
-           "source_transfer_ids": ids,
            "consequences": {"choices": "She refuses rescues she cannot afford.",
                             "relationships": "Neighbors become creditors of her kindness.",
                             "outcomes": "Victory bankrupts the people it protects."},
@@ -129,10 +130,12 @@ def responder(system, user, schema, params):
                        "progression": "linear", "visible_counter": "numeric_level", "fight_medium": "energy",
                        "power_is": "collective"},
            "broken_rule": "power is always paid for by its user", "appetite": "stories about shared debts",
-           "closest_existing": props["closest_existing"]["enum"][0],
+           "closest_existing": (props["closest_existing"].get("enum") or ["a harbor saga"])[0],
            "why_not_a_clone": "The debt falls on bystanders, which changes every choice the lead makes.",
            "why_different": None, "revival_improvement": "Pacing fixed by a single escalating debt clock."
-           if "FLOP TO REVIVE" in user else None}
+           if "\nrevive: " in user else None}
+    if ids is not None:
+        out["source_transfer_ids"] = ids
     if "premortem" in props:
         src = props["premortem"]["items"]["properties"]["source_title_id"]["enum"][0]
         out["premortem"] = [{"risk": "The debt rule could feel arbitrary.", "source_title_id": src,
@@ -226,17 +229,26 @@ def test_ideas_report_hides_gold_titles(pool):
 
 
 def test_blind_packet_has_three_equal_arms_and_hides_the_key(pool):
+    # Arms per the accepted controls decision 1 (M5 fair baselines): ANIMEDEX, baseline 1 (the same loop with an
+    # empty brief) and baseline 2 (one call). This replaced the v1.6 plain and web arms.
+    CanonicalStore(pool).write("census", make_census(200))  # baseline 1 has no atoms: census-backed novelty only
     settings = load_settings(pool)
     run_ideate(pool, settings, get_vocab(), clients=clients(pool), embedder=MockEmbedder(), run_id="run_p",
                generations=1)
+    run_ideate(pool, settings, get_vocab(), clients=clients(pool, "run_pb"), embedder=MockEmbedder(), run_id="run_pb",
+               generations=1, index=False)
     cs = clients(pool, "run_pk")
-    res = build_packet(pool, settings, get_vocab(), plain=cs["ideate_generate"], web=cs["ideate_generate"],
+    res = build_packet(pool, settings, get_vocab(), single=cs["ideate_generate"], prior_art=cs["prior_art"],
                        date="2026-09-27")
     n = res.per_arm
     text = (pool.root / res.packet).read_text()
-    assert text.count("## C") == 3 * n and "idea." not in text and "T1 never done" in text
+    assert n >= 1 and text.count("## C") == 3 * n and "idea." not in text and "T1 never done" in text
+    assert not any(arm in text.lower() for arm in ("baseline_loop", "baseline_single", "animedex"))  # no arm named
     key = json.loads((pool.root / res.key).read_text())
-    assert sorted({v["arm"] for v in key.values()}) == ["animedex", "plain", "web"]
+    arms = [v["arm"] for v in key.values()]
+    assert sorted(set(arms)) == ["animedex", "baseline_loop", "baseline_single"]
+    assert all(arms.count(a) == n for a in set(arms))  # three equal arms
+    assert all(v["prior_art"] in ("clear", "counterexample", "inconclusive") for v in key.values())  # same check, all arms
     assert res.key.startswith("data/blind/") and (pool.root / res.ratings).is_file()
 
 

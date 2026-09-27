@@ -5,7 +5,11 @@
   load-bearing transfers) and procedural set (gate, cost, progression, counter) for the clone gate;
 - the graveyard (premise-level flops warn; execution-level flops feed the revival operator);
 - imported/export lanes for T4 evidence; coverage adequacy for "zero is not novel";
-- optional census counts (v1.6): occupancy only, never ideation input.
+- optional census counts (v1.6): occupancy only, never ideation input. Census-backed zeros count
+  only with at least `ideate.census_novelty_min_rows` (200) powered census rows (owner ruling
+  2026-09-27, before M5 item 5); until then novelty rests on bridge-concept pairs;
+- per-cell counts (corpus titles, census rows) and the prior-art verdicts already recorded for
+  each cell, for the M5 call brief.
 """
 
 from __future__ import annotations
@@ -38,6 +42,21 @@ def jaccard(a: set[str], b: set[str]) -> float:
     return len(a & b) / len(a | b) if a | b else 0.0
 
 
+def cell_key(profile: dict[str, str], dims: list[str]) -> str:
+    return "|".join(f"{d.split('.')[-1]}={profile.get(d.split('.')[-1])}" for d in dims)
+
+
+def _title_cell(rec: dict[str, Any], dims: list[str]) -> str | None:
+    values = {}
+    for d in dims:
+        block, name = d.split(".")
+        value = ((rec.get(block) or {}).get(name) or {}).get("value")
+        if not value or str(value).startswith("other"):
+            return None
+        values[name] = value
+    return cell_key(values, dims)
+
+
 @dataclass
 class Context:
     titles: dict[str, dict[str, Any]]
@@ -54,6 +73,16 @@ class Context:
     names: tuple[set[str], set[str]]
     census_systems: Counter = field(default_factory=Counter)  # borrowed_system -> titles using it as a power
     census_size: int = 0
+    powered_census: int = 0                         # census rows with has_power_system true
+    census_novelty_min_rows: int = 200              # census-backed zeros count only from here (M5 ruling)
+    cell_titles: Counter = field(default_factory=Counter)   # grid cell key -> corpus titles in it
+    cell_census: Counter = field(default_factory=Counter)   # grid cell key -> census rows in it (counts only)
+    prior_art_by_cell: dict[str, list[dict[str, Any]]] = field(default_factory=dict)
+
+    @property
+    def census_zeros_trusted(self) -> bool:
+        """Enum zero pairs are census-backed: they count only with enough powered census rows."""
+        return self.powered_census >= self.census_novelty_min_rows
 
     def label(self, tid: str) -> str | None:
         o = self.outcomes.get(tid) or {}
@@ -92,14 +121,26 @@ def build_context(paths: Paths, settings: Settings, vocab: Vocab) -> Context:
     need, completion = int(cov.get("min_titles_with_module", 5)), float(cov.get("min_field_completion", 0.8))
     adequate_titles = [c for c in state.get("coverage", []) if "power_combat" in c.get("modules_active", [])
                        and c.get("field_completion", 0) >= completion]
+    dims = list(settings.ideate.get("grid_dims") or [])
+    min_rows = int(settings.ideate.get("census_novelty_min_rows", 200))
     census = state.get("census", [])
     census_systems: Counter = Counter()
+    cell_census: Counter = Counter()
     for c in census:  # v1.6: counts only
         values = {f"{PROFILE_PATHS[k]}={c[k]}" for k in PROFILE_PATHS if c.get(k)}
         pair_counts.update(_pairs(values))
         if c.get("has_power_system") and c.get("borrowed_system"):
             census_systems[c["borrowed_system"]] += 1
+        if dims and all(c.get(d.split(".")[-1]) for d in dims):
+            cell_census[cell_key({d.split(".")[-1]: c[d.split(".")[-1]] for d in dims}, dims)] += 1
     powered_census = sum(1 for c in census if c.get("has_power_system"))
+    cell_titles: Counter = Counter(k for k in (_title_cell(rec, dims) for rec in titles.values()) if dims and k)
+    cells_of_ideas = {i["idea_id"]: i.get("grid_cell") for i in state.get("idea", [])}
+    prior_art_by_cell: dict[str, list[dict[str, Any]]] = {}
+    for pa in sorted(state.get("prior_art", []), key=lambda r: r["check_id"]):
+        cell = cells_of_ideas.get(pa.get("subject_id"))
+        if cell:
+            prior_art_by_cell.setdefault(cell, []).append(pa)
     lanes: dict[str, set[str]] = {"imported": set(), "export": set()}
     by_concept: dict[str, set[str]] = {}
     for item in pool:
@@ -112,8 +153,10 @@ def build_context(paths: Paths, settings: Settings, vocab: Vocab) -> Context:
         if "anime" in media and not any(m in WESTERN for m in media):
             lanes["export"].add(concept)
     themes = sorted({((r.get("core") or {}).get("core_question") or {}).get("value") for r in titles.values()} - {None})
+    # census-backed adequacy needs the same 200 powered rows as census-backed zeros (M5 ruling)
     return Context(titles=titles, outcomes=outcomes, pool=pool, title_struct=title_struct, title_proc=title_proc,
                    graveyard=graveyard_index(state), lanes=lanes, pair_counts=pair_counts,
-                   concept_pairs=concept_pairs, adequate=len(adequate_titles) >= need or powered_census >= need,
+                   concept_pairs=concept_pairs, adequate=len(adequate_titles) >= need or powered_census >= min_rows,
                    themes=themes, names=name_list(state, vocab), census_systems=census_systems,
-                   census_size=len(census))
+                   census_size=len(census), powered_census=powered_census, census_novelty_min_rows=min_rows,
+                   cell_titles=cell_titles, cell_census=cell_census, prior_art_by_cell=prior_art_by_cell)

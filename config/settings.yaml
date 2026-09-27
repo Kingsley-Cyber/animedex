@@ -128,6 +128,15 @@ ideate:
   generations: 3
   candidates_per_generation: 12
   diversity_alarm: {champion_share: 0.40, cell_share: 0.10}
+  # M5 rulings (Kingsley, 2026-09-27, "before M5 live runs")
+  calls_per_run: 60             # item 8: one cap shared by generate, judge and prior art; other runs keep 40
+  brief_max_words: 600          # item 4: the call brief's cap; its words and estimated tokens are logged
+  brief_titles: 10              # item 4: the nearest titles to the target shown in the brief
+  brief_graveyard_max: 5        # item 4: mixed/flop rows in the target region shown in the brief
+  census_novelty_min_rows: 200  # item 5: census-backed zero pairs count only from this many powered rows
+diagnose:                       # `animedex diagnose` (owner ruling 2026-09-27): structure, judge, ablation
+  calls_per_run: 6              # 3 calls, each with its one repair
+  max_concept_words: 800        # longer concepts are refused before any call
 content_guards:           # AC-11 heuristics (quotes, dialogue, framing claims in sensory fields)
   min_quote_words: 3
   framing_terms: [close-up, close up, wide shot, long shot, medium shot, framing, framed, blocking, cut to,
@@ -147,5 +156,5 @@ eval:
 data_repo:   # owner ruling 2026-09-27: private backups of data that never goes to the public code repo
   remote: https://github.com/Kingsley-Cyber/animedex-data.git
   clone: ../animedex-data          # local clone, next to the code checkout
-  paths: [data/canonical, data/blind, data/diagnose, eval/blind, eval/gold, steering, seeds, studio]   # no cache, no raw run logs
+  paths: [data/canonical, data/blind, data/diagnose, eval/audit, eval/blind, eval/gold, steering, seeds, studio]   # no cache, no raw run logs
   push_after_batch: true           # once the clone exists (a first `make data-push` creates it)

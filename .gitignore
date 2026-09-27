@@ -38,6 +38,9 @@ eval/agreement/*
 !eval/agreement/.gitkeep
 eval/blind/*
 !eval/blind/.gitkeep
+# `make audit` sheets (atom text with evidence trails; Kingsley marks them): private, backed up with data-push
+eval/audit/*
+!eval/audit/.gitkeep
 
 # Kingsley's own inputs stay private (backed up to the private data repo with `make data-push`):
 # steering rules, fight-image seeds, diagnosed concepts

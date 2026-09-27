@@ -88,7 +88,10 @@ class RunLog:
         billing: str = "api",
         meta: dict[str, Any] | None = None,
         timing: dict[str, Any] | None = None,
+        extra: dict[str, Any] | None = None,
     ) -> None:
+        """`meta`: what the provider reported (CLI identity, init, web evidence); `extra`: what the
+        caller attaches to the call, e.g. the M5 call brief's size (words, estimated tokens)."""
         shadow = billing == "subscription"
         self.dir.mkdir(parents=True, exist_ok=True)
         system_sha = sha256_text(system)
@@ -115,6 +118,8 @@ class RunLog:
             "response": None if response is None else redact(response, transients),
             "error": error,
         }
+        if extra:
+            entry["meta"] = extra
         with (self.dir / "calls.jsonl").open("a", encoding="utf-8") as fh:
             fh.write(stable_json(entry) + "\n")
         bucket = f"{pass_}:{record_id}"
