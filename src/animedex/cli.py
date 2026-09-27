@@ -539,7 +539,9 @@ def recalibrate(pairs: str = typer.Option(None, "--pairs", help="Pairs file (def
     except (OSError, ValueError) as exc:
         typer.echo(f"pairs file: {exc}", err=True)
         raise typer.Exit(2) from exc
-    for line in result.summary():
+    summary = result.summary()
+    typer.echo(summary[0])
+    for line in [*result.pair_lines(), *summary[1:]]:
         typer.echo(line)
     typer.echo(f"report -> {result.report.relative_to(paths.root)}")
 

@@ -121,6 +121,16 @@ class RecalibrationResult:
     fallback_note: str
     report: Path
 
+    def pair_lines(self) -> list[str]:
+        """One line per pair: id, kind, cosine (and the fallback's), and what the recommended value does."""
+        p, c, out = self.proposal, self.comparison, []
+        for i, pair in enumerate(self.pairs):
+            s = self.scores[i]
+            verdict = ("caught" if s >= p.recommended else "passes") + (" (misjudged)" if pair.id in p.wrong else "")
+            fallback = f"  fallback {c.scores[i]:.4f}" if c is not None else ""
+            out.append(f"  {pair.id}  {pair.kind:<9}  {s:.4f}{fallback}  {verdict}")
+        return out
+
     def summary(self) -> list[str]:
         p = self.proposal
         sims = sum(x.kind == "similar" for x in self.pairs)

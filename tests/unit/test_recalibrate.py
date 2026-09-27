@@ -148,6 +148,7 @@ def test_make_recalibrate_prints_the_proposal(repo, tmp_path, monkeypatch):
     assert result.exit_code == 0, result.output
     assert "recommended premise_cosine_reject 0.74" in result.output and "No fallback is configured" in result.output
     assert "report -> build/reports/recalibration.md" in result.output
+    assert "  s3  similar    0.8100  caught" in result.output and "  d2  different  0.6700  passes" in result.output
     assert repo.config_file.read_bytes() == config_before
     monkeypatch.setattr(recalibrate, "embedding_backends", lambda settings, env, transport=None: [
         Exact(pairs_file, PAIRS, ready=False)])
