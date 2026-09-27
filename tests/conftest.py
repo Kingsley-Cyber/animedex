@@ -24,9 +24,9 @@ def repo(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Paths:
     """A throwaway ANIMEDEX repo (real ontology + config) with ANIMEDEX_ROOT pointing at it."""
     root = tmp_path / "repo"
     root.mkdir()
-    for name in ("ontology", "config", "corpus", "schemas"):
+    for name in ("ontology", "config", "corpus", "schemas", "prompts"):
         shutil.copytree(REPO / name, root / name)
-    for d in ("data/canonical", "eval/gold", "prompts"):
+    for d in ("data/canonical", "eval/gold"):
         (root / d).mkdir(parents=True)
     monkeypatch.setenv(ROOT_ENV, str(root))
     return Paths(root)

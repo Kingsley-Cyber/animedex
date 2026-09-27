@@ -8,6 +8,7 @@ from dataclasses import dataclass, field
 from pydantic import ValidationError
 
 from animedex.config import live_problems, load_settings
+from animedex.content_guards import GuardConfig, record_problems
 from animedex.guards import load_corpus
 from animedex.integrity import integrity_errors
 from animedex.models import RECORD_TYPES, record_paths
@@ -56,6 +57,10 @@ def validate_repo(paths: Paths) -> ValidationReport:
     except (ValidationError, ValueError) as exc:
         report.errors.append(f"corpus/titles.yaml: {exc}")
 
+    try:
+        guards = GuardConfig.from_settings(load_settings(paths))
+    except (ValidationError, OSError, ValueError):
+        guards = GuardConfig()
     state: dict[str, list[dict]] = {}
     for name, rt in RECORD_TYPES.items():
         path = paths.canonical / rt.file
@@ -74,6 +79,8 @@ def validate_repo(paths: Paths) -> ValidationReport:
         model = rt.model
         clean = []
         for record, key in zip(records, keys, strict=True):
+            for problem in record_problems(record, guards):
+                report.errors.append(f"{rt.file} {key}: {problem}")
             try:
                 clean.append(model.model_validate(record).to_record())
             except ValidationError as exc:

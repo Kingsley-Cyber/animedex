@@ -3,8 +3,6 @@
 from __future__ import annotations
 
 STAGE_MILESTONE = {
-    "p1": "M2",
-    "verify": "M2",
     "p2": "M3",
     "p3": "M3",
     "check": "M3",

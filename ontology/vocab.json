@@ -1,212 +1,625 @@
 {
-  "version": "1.2.0",
-  "notes": "Enums are the 04 v1.1.0 starter set. The lens section declares P1 fields and modules (spec v1.2: four orphan fields deleted at G0). Change only through ontology/proposals and owner approval.",
+  "version": "1.2.1",
+  "notes": "Enums are the 04 v1.1.0 starter set. The lens section declares P1 fields and modules (spec v1.2: four orphan fields deleted at G0). Change only through ontology/proposals and owner approval. 1.2.1: module activation rules (05 table) added to the lens.",
   "fields": {
     "medium": {
-      "enum": ["anime", "western_animation", "adult_animation", "live_action", "film"],
+      "enum": [
+        "anime",
+        "western_animation",
+        "adult_animation",
+        "live_action",
+        "film"
+      ],
       "alternate_labels": {},
-      "cq_refs": ["CQ-G05", "CQ-G06", "CQ-I01", "CQ-I08"]
+      "cq_refs": [
+        "CQ-G05",
+        "CQ-G06",
+        "CQ-I01",
+        "CQ-I08"
+      ]
     },
     "format": {
-      "enum": ["film", "episodic", "serialized", "hybrid"],
+      "enum": [
+        "film",
+        "episodic",
+        "serialized",
+        "hybrid"
+      ],
       "alternate_labels": {},
-      "cq_refs": ["CQ-E04", "CQ-I09"]
+      "cq_refs": [
+        "CQ-E04",
+        "CQ-I09"
+      ]
     },
     "scope.numbering": {
-      "enum": ["broadcast", "streaming", "home_video"],
+      "enum": [
+        "broadcast",
+        "streaming",
+        "home_video"
+      ],
       "alternate_labels": {},
-      "cq_refs": ["CQ-E06"]
+      "cq_refs": [
+        "CQ-E06"
+      ]
     },
     "power_combat.progression": {
-      "enum": ["lateral", "linear", "hybrid", "none"],
+      "enum": [
+        "lateral",
+        "linear",
+        "hybrid",
+        "none"
+      ],
       "alternate_labels": {},
-      "cq_refs": ["CQ-G04", "CQ-I04"]
+      "cq_refs": [
+        "CQ-G04",
+        "CQ-I04"
+      ]
     },
     "power_combat.gate": {
-      "enum": ["innate", "trained", "inherited", "contract", "system_granted", "artifact", "death_or_ritual", "mutation", "none", "other"],
-      "alternate_labels": {"system_granted": ["game system", "status window"]},
-      "cq_refs": ["CQ-G01", "CQ-I03"]
+      "enum": [
+        "innate",
+        "trained",
+        "inherited",
+        "contract",
+        "system_granted",
+        "artifact",
+        "death_or_ritual",
+        "mutation",
+        "none",
+        "other"
+      ],
+      "alternate_labels": {
+        "system_granted": [
+          "game system",
+          "status window"
+        ]
+      },
+      "cq_refs": [
+        "CQ-G01",
+        "CQ-I03"
+      ]
     },
     "power_combat.cost_of_power": {
-      "enum": ["physical_toll", "lifespan", "memory", "identity_or_humanity", "relationships", "resource", "moral", "none", "other"],
+      "enum": [
+        "physical_toll",
+        "lifespan",
+        "memory",
+        "identity_or_humanity",
+        "relationships",
+        "resource",
+        "moral",
+        "none",
+        "other"
+      ],
       "alternate_labels": {},
-      "cq_refs": ["CQ-G01", "CQ-I11"]
+      "cq_refs": [
+        "CQ-G01",
+        "CQ-I11"
+      ]
     },
     "power_combat.visible_counter": {
-      "enum": ["numeric_level", "rank_tier", "collectible_count", "transformation_stage", "none", "other"],
+      "enum": [
+        "numeric_level",
+        "rank_tier",
+        "collectible_count",
+        "transformation_stage",
+        "none",
+        "other"
+      ],
       "alternate_labels": {},
-      "cq_refs": ["CQ-I06", "CQ-I04"]
+      "cq_refs": [
+        "CQ-I06",
+        "CQ-I04"
+      ]
     },
     "power_combat.fight_medium": {
-      "enum": ["unarmed", "weapon", "energy", "summon", "vehicle_or_mech", "mixed"],
+      "enum": [
+        "unarmed",
+        "weapon",
+        "energy",
+        "summon",
+        "vehicle_or_mech",
+        "mixed"
+      ],
       "alternate_labels": {},
-      "cq_refs": ["CQ-G04", "CQ-I04"]
+      "cq_refs": [
+        "CQ-G04",
+        "CQ-I04"
+      ]
     },
     "relationships.power_is": {
-      "enum": ["individual", "paired", "collective"],
+      "enum": [
+        "individual",
+        "paired",
+        "collective"
+      ],
       "alternate_labels": {},
-      "cq_refs": ["CQ-I07", "CQ-I04"]
+      "cq_refs": [
+        "CQ-I07",
+        "CQ-I04"
+      ]
     },
     "core.outcome": {
-      "enum": ["hit", "mixed", "flop"],
+      "enum": [
+        "hit",
+        "mixed",
+        "flop"
+      ],
       "alternate_labels": {},
-      "cq_refs": ["CQ-G02", "CQ-G03", "CQ-G09", "CQ-E02", "CQ-E04"]
+      "cq_refs": [
+        "CQ-G02",
+        "CQ-G03",
+        "CQ-G09",
+        "CQ-E02",
+        "CQ-E04"
+      ]
     },
     "atom_kind": {
-      "enum": ["effect", "engine"],
+      "enum": [
+        "effect",
+        "engine"
+      ],
       "alternate_labels": {},
-      "cq_refs": ["CQ-I11", "CQ-E01"]
+      "cq_refs": [
+        "CQ-I11",
+        "CQ-E01"
+      ]
     },
     "feeling": {
-      "enum": ["awe", "triumph", "dread", "grief", "catharsis", "superiority", "curiosity", "tension", "humor", "warmth", "disgust", "other"],
+      "enum": [
+        "awe",
+        "triumph",
+        "dread",
+        "grief",
+        "catharsis",
+        "superiority",
+        "curiosity",
+        "tension",
+        "humor",
+        "warmth",
+        "disgust",
+        "other"
+      ],
       "alternate_labels": {},
-      "cq_refs": ["CQ-E01"]
+      "cq_refs": [
+        "CQ-E01"
+      ]
     },
     "explanation": {
-      "enum": ["settled", "contested"],
+      "enum": [
+        "settled",
+        "contested"
+      ],
       "alternate_labels": {},
-      "cq_refs": ["CQ-I02"]
+      "cq_refs": [
+        "CQ-I02"
+      ]
     },
     "support.status": {
-      "enum": ["profile_only", "episode_backed", "mixed", "contradicted"],
+      "enum": [
+        "profile_only",
+        "episode_backed",
+        "mixed",
+        "contradicted"
+      ],
       "alternate_labels": {},
-      "cq_refs": ["CQ-E07"]
+      "cq_refs": [
+        "CQ-E07"
+      ]
     },
     "moment_type": {
-      "enum": ["transformation", "reveal", "sacrifice", "first_victory", "power_up", "defeat", "reversal", "reunion", "other"],
+      "enum": [
+        "transformation",
+        "reveal",
+        "sacrifice",
+        "first_victory",
+        "power_up",
+        "defeat",
+        "reversal",
+        "reunion",
+        "other"
+      ],
       "alternate_labels": {},
-      "cq_refs": ["CQ-E01"]
+      "cq_refs": [
+        "CQ-E01"
+      ]
     },
     "episode.selection_reason": {
-      "enum": ["pilot", "moment", "finale", "control"],
+      "enum": [
+        "pilot",
+        "moment",
+        "finale",
+        "control"
+      ],
       "alternate_labels": {},
-      "cq_refs": ["CQ-E02", "CQ-E05"]
+      "cq_refs": [
+        "CQ-E02",
+        "CQ-E05"
+      ]
     },
     "episode.function": {
-      "enum": ["pilot_hook", "setup", "escalation", "reversal", "revelation", "payoff", "respite", "closure", "other"],
+      "enum": [
+        "pilot_hook",
+        "setup",
+        "escalation",
+        "reversal",
+        "revelation",
+        "payoff",
+        "respite",
+        "closure",
+        "other"
+      ],
       "alternate_labels": {},
-      "cq_refs": ["CQ-E02"]
+      "cq_refs": [
+        "CQ-E02"
+      ]
     },
     "episode.end_hook": {
-      "enum": ["threat_cliffhanger", "reveal_cliffhanger", "open_question", "power_tease", "emotional_resolution", "none", "other"],
+      "enum": [
+        "threat_cliffhanger",
+        "reveal_cliffhanger",
+        "open_question",
+        "power_tease",
+        "emotional_resolution",
+        "none",
+        "other"
+      ],
       "alternate_labels": {},
-      "cq_refs": ["CQ-E02"]
+      "cq_refs": [
+        "CQ-E02"
+      ]
     },
     "info_shift.gap_change": {
-      "enum": ["widens", "narrows", "flips", "none"],
+      "enum": [
+        "widens",
+        "narrows",
+        "flips",
+        "none"
+      ],
       "alternate_labels": {},
-      "cq_refs": ["CQ-E02"]
+      "cq_refs": [
+        "CQ-E02"
+      ]
     },
     "link.type": {
-      "enum": ["sets_up", "pays_off", "reveals", "reframes", "advances", "supports", "contradicts", "enables", "prevents"],
+      "enum": [
+        "sets_up",
+        "pays_off",
+        "reveals",
+        "reframes",
+        "advances",
+        "supports",
+        "contradicts",
+        "enables",
+        "prevents"
+      ],
       "alternate_labels": {},
-      "cq_refs": ["CQ-E06"]
+      "cq_refs": [
+        "CQ-E06"
+      ]
     },
     "transformation.operator": {
-      "enum": ["reverse_incentive", "redistribute_knowledge", "transfer_cost", "change_rule", "combine_mechanisms", "import_lane"],
+      "enum": [
+        "reverse_incentive",
+        "redistribute_knowledge",
+        "transfer_cost",
+        "change_rule",
+        "combine_mechanisms",
+        "import_lane"
+      ],
       "alternate_labels": {},
-      "cq_refs": ["CQ-I13"]
+      "cq_refs": [
+        "CQ-I13"
+      ]
     },
     "anime_production.demographic": {
-      "enum": ["shonen", "seinen", "shojo", "josei", "kodomo", "other"],
+      "enum": [
+        "shonen",
+        "seinen",
+        "shojo",
+        "josei",
+        "kodomo",
+        "other"
+      ],
       "alternate_labels": {},
-      "cq_refs": ["CQ-G09"]
+      "cq_refs": [
+        "CQ-G09"
+      ]
     },
     "anime_production.source_medium": {
-      "enum": ["manga", "light_novel", "web_novel", "webtoon", "original", "game", "other"],
+      "enum": [
+        "manga",
+        "light_novel",
+        "web_novel",
+        "webtoon",
+        "original",
+        "game",
+        "other"
+      ],
       "alternate_labels": {},
-      "cq_refs": ["CQ-G09"]
+      "cq_refs": [
+        "CQ-G09"
+      ]
     }
   },
   "lens": {
     "core": {
       "fields": {
-        "logline_hook": {"kind": "phrase"},
-        "core_question": {"kind": "phrase"},
-        "premise_engine": {"kind": "phrase"},
-        "primary_feeling": {"kind": "phrase"},
-        "tone": {"kind": "phrase"},
-        "want_vs_need": {"kind": "phrase"},
-        "flaw": {"kind": "phrase", "conditional": true},
-        "moral_line": {"kind": "phrase", "conditional": true},
-        "central_opposition": {"kind": "phrase"},
-        "opposition_logic": {"kind": "phrase"},
-        "stakes_clock": {"kind": "phrase"},
-        "world_rules": {"kind": "phrase"},
-        "borrowed_template": {"kind": "phrase"},
-        "broken_rule": {"kind": "phrase"},
-        "unserved_appetite": {"kind": "phrase"},
-        "central_mystery": {"kind": "phrase"},
-        "knowledge_gap": {"kind": "phrase"},
-        "reveal_cadence": {"kind": "phrase"},
-        "outcome": {"kind": "enum", "vocab": "core.outcome"}
+        "logline_hook": {
+          "kind": "phrase"
+        },
+        "core_question": {
+          "kind": "phrase"
+        },
+        "premise_engine": {
+          "kind": "phrase"
+        },
+        "primary_feeling": {
+          "kind": "phrase"
+        },
+        "tone": {
+          "kind": "phrase"
+        },
+        "want_vs_need": {
+          "kind": "phrase"
+        },
+        "flaw": {
+          "kind": "phrase",
+          "conditional": true
+        },
+        "moral_line": {
+          "kind": "phrase",
+          "conditional": true
+        },
+        "central_opposition": {
+          "kind": "phrase"
+        },
+        "opposition_logic": {
+          "kind": "phrase"
+        },
+        "stakes_clock": {
+          "kind": "phrase"
+        },
+        "world_rules": {
+          "kind": "phrase"
+        },
+        "borrowed_template": {
+          "kind": "phrase"
+        },
+        "broken_rule": {
+          "kind": "phrase"
+        },
+        "unserved_appetite": {
+          "kind": "phrase"
+        },
+        "central_mystery": {
+          "kind": "phrase"
+        },
+        "knowledge_gap": {
+          "kind": "phrase"
+        },
+        "reveal_cadence": {
+          "kind": "phrase"
+        },
+        "outcome": {
+          "kind": "enum",
+          "vocab": "core.outcome"
+        }
       }
     },
     "modules": {
       "power_combat": {
-        "cq_refs": ["CQ-G01", "CQ-G04", "CQ-I03", "CQ-I06", "CQ-I11", "CQ-E03"],
+        "cq_refs": [
+          "CQ-G01",
+          "CQ-G04",
+          "CQ-I03",
+          "CQ-I06",
+          "CQ-I11",
+          "CQ-E03"
+        ],
+        "activation": {
+          "kind": "judgment"
+        },
         "fields": {
-          "power_source": {"kind": "phrase"},
-          "gate": {"kind": "enum", "vocab": "power_combat.gate"},
-          "progression": {"kind": "enum", "vocab": "power_combat.progression"},
-          "cost_of_power": {"kind": "enum", "vocab": "power_combat.cost_of_power"},
-          "visible_counter": {"kind": "enum", "vocab": "power_combat.visible_counter"},
-          "ranking_ladder": {"kind": "phrase"},
-          "fight_medium": {"kind": "enum", "vocab": "power_combat.fight_medium"},
-          "signature_technique": {"kind": "phrase"}
+          "power_source": {
+            "kind": "phrase"
+          },
+          "gate": {
+            "kind": "enum",
+            "vocab": "power_combat.gate"
+          },
+          "progression": {
+            "kind": "enum",
+            "vocab": "power_combat.progression"
+          },
+          "cost_of_power": {
+            "kind": "enum",
+            "vocab": "power_combat.cost_of_power"
+          },
+          "visible_counter": {
+            "kind": "enum",
+            "vocab": "power_combat.visible_counter"
+          },
+          "ranking_ladder": {
+            "kind": "phrase"
+          },
+          "fight_medium": {
+            "kind": "enum",
+            "vocab": "power_combat.fight_medium"
+          },
+          "signature_technique": {
+            "kind": "phrase"
+          }
         }
       },
       "relationships": {
-        "cq_refs": ["CQ-I07"],
+        "cq_refs": [
+          "CQ-I07"
+        ],
+        "activation": {
+          "kind": "judgment"
+        },
         "fields": {
-          "core_bond": {"kind": "phrase"},
-          "rival": {"kind": "phrase"},
-          "mentor": {"kind": "phrase"},
-          "team_structure": {"kind": "phrase"},
-          "power_is": {"kind": "enum", "vocab": "relationships.power_is"}
+          "core_bond": {
+            "kind": "phrase"
+          },
+          "rival": {
+            "kind": "phrase"
+          },
+          "mentor": {
+            "kind": "phrase"
+          },
+          "team_structure": {
+            "kind": "phrase"
+          },
+          "power_is": {
+            "kind": "enum",
+            "vocab": "relationships.power_is"
+          }
         }
       },
       "sensory": {
-        "cq_refs": ["CQ-E03"],
+        "cq_refs": [
+          "CQ-E03"
+        ],
+        "activation": {
+          "kind": "rule",
+          "any": [
+            {
+              "field": "medium",
+              "in": [
+                "anime",
+                "western_animation",
+                "adult_animation"
+              ]
+            },
+            {
+              "module": "power_combat"
+            }
+          ]
+        },
         "fields": {
-          "power_visual_signature": {"kind": "phrase"},
-          "choreography_style": {"kind": "phrase"},
-          "color_motif": {"kind": "phrase"},
-          "animation_signature": {"kind": "phrase"}
+          "power_visual_signature": {
+            "kind": "phrase"
+          },
+          "choreography_style": {
+            "kind": "phrase"
+          },
+          "color_motif": {
+            "kind": "phrase"
+          },
+          "animation_signature": {
+            "kind": "phrase"
+          }
         }
       },
       "anime_production": {
-        "cq_refs": ["CQ-G09", "CQ-I09"],
+        "cq_refs": [
+          "CQ-G09",
+          "CQ-I09"
+        ],
+        "activation": {
+          "kind": "rule",
+          "any": [
+            {
+              "field": "medium",
+              "in": [
+                "anime"
+              ]
+            }
+          ]
+        },
         "fields": {
-          "source_medium": {"kind": "enum", "vocab": "anime_production.source_medium"},
-          "demographic": {"kind": "enum", "vocab": "anime_production.demographic"},
-          "arc_cour_structure": {"kind": "phrase"},
-          "adaptation_fidelity": {"kind": "phrase"}
+          "source_medium": {
+            "kind": "enum",
+            "vocab": "anime_production.source_medium"
+          },
+          "demographic": {
+            "kind": "enum",
+            "vocab": "anime_production.demographic"
+          },
+          "arc_cour_structure": {
+            "kind": "phrase"
+          },
+          "adaptation_fidelity": {
+            "kind": "phrase"
+          }
         }
       },
       "series_engine": {
-        "cq_refs": ["CQ-E04"],
+        "cq_refs": [
+          "CQ-E04"
+        ],
+        "activation": {
+          "kind": "rule",
+          "any": [
+            {
+              "field": "format",
+              "not_in": [
+                "film"
+              ]
+            }
+          ]
+        },
         "fields": {
-          "episodic_vs_serialized": {"kind": "phrase"},
-          "status_quo_reset": {"kind": "phrase"},
-          "episode_template": {"kind": "phrase"},
-          "season_arc_shape": {"kind": "phrase"},
-          "cliffhanger_cadence": {"kind": "phrase"}
+          "episodic_vs_serialized": {
+            "kind": "phrase"
+          },
+          "status_quo_reset": {
+            "kind": "phrase"
+          },
+          "episode_template": {
+            "kind": "phrase"
+          },
+          "season_arc_shape": {
+            "kind": "phrase"
+          },
+          "cliffhanger_cadence": {
+            "kind": "phrase"
+          }
         }
       },
       "comedy_satire": {
-        "cq_refs": ["CQ-I08"],
+        "cq_refs": [
+          "CQ-I08"
+        ],
+        "activation": {
+          "kind": "judgment"
+        },
         "fields": {
-          "comedic_engine": {"kind": "phrase"}
+          "comedic_engine": {
+            "kind": "phrase"
+          }
         }
       },
       "film": {
-        "cq_refs": ["CQ-I09"],
+        "cq_refs": [
+          "CQ-I09"
+        ],
+        "activation": {
+          "kind": "rule",
+          "any": [
+            {
+              "field": "format",
+              "in": [
+                "film"
+              ]
+            }
+          ]
+        },
         "fields": {
-          "act_structure": {"kind": "phrase"},
-          "runtime_compression": {"kind": "phrase"},
-          "set_pieces": {"kind": "phrase"},
-          "closure": {"kind": "phrase"}
+          "act_structure": {
+            "kind": "phrase"
+          },
+          "runtime_compression": {
+            "kind": "phrase"
+          },
+          "set_pieces": {
+            "kind": "phrase"
+          },
+          "closure": {
+            "kind": "phrase"
+          }
         }
       }
     }

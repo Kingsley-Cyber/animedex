@@ -53,6 +53,13 @@ verify:
   max_searches_per_title: 3
   outcome_extra_searches: 2
   always_verify: ["core.outcome", "sensory.*", "moments.*.locator"]
+  pages_per_search: 2
+  queries:                       # {title} {year} {medium_label}
+    facts: "{title} {year} {medium_label}"
+    episodes: "{title} {medium_label} episode list"
+    outcome: ["{title} {year} {medium_label} reception ratings", "{title} {medium_label} review"]
+  medium_labels: {anime: anime, western_animation: animated series, adult_animation: adult animated series,
+                  live_action: TV series, film: film}
 p2:
   max_atoms: 15
   max_effect_atoms: 12
@@ -85,6 +92,11 @@ ideate:
   generations: 3
   candidates_per_generation: 12
   diversity_alarm: {champion_share: 0.40, cell_share: 0.10}
+content_guards:           # AC-11 heuristics (quotes, dialogue, framing claims in sensory fields)
+  min_quote_words: 3
+  framing_terms: [close-up, close up, wide shot, long shot, medium shot, framing, framed, blocking, cut to,
+                  jump cut, editing, edit, camera, angle, tracking shot, dolly, zoom, montage, shot composition,
+                  storyboard, cinematography, pov shot]
 eval:
   gold_key_fields:
     - power_combat.gate

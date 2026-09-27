@@ -8,6 +8,7 @@ from __future__ import annotations
 import re
 from typing import Any
 
+from animedex.activation import violations as activation_violations
 from animedex.ontology import Vocab
 
 State = dict[str, list[dict[str, Any]]]
@@ -79,6 +80,9 @@ def integrity_errors(state: State, vocab: Vocab) -> list[str]:
         if not cond:
             errors.append(msg)
 
+    for tid, t in titles.items():
+        for problem in activation_violations(vocab, t["medium"], t["format"], t.get("modules_active", [])):
+            errors.append(f"title {tid}: {problem}")
     for r in state.get("moment", []):
         need(r["title_id"] in titles, f"moment {r['moment_id']}: unknown title {r['title_id']}")
     for r in state.get("outcome", []):

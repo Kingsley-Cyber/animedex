@@ -31,16 +31,110 @@ AllOpt = typer.Option(False, "--all", help="Every title in the corpus.")
 DryOpt = typer.Option(False, "--dry-run", help="Print prompts and cache status; no model calls.")
 
 
+def _entries(paths: Any, title: str | None, all_: bool) -> list:
+    from animedex.guards import load_corpus
+
+    corpus = load_corpus(paths)
+    if all_:
+        entries = [corpus[k] for k in sorted(corpus)]
+    elif title:
+        if title not in corpus:
+            typer.echo(f"{title} is not in corpus/titles.yaml", err=True)
+            raise typer.Exit(1)
+        entries = [corpus[title]]
+    else:
+        typer.echo("pass --title <id> or --all", err=True)
+        raise typer.Exit(1)
+    if not entries:
+        typer.echo("corpus/titles.yaml has no titles yet", err=True)
+        raise typer.Exit(1)
+    return entries
+
+
 @app.command()
-def p1(title: str = TitleOpt, all_: bool = AllOpt, dry_run: bool = DryOpt) -> None:
-    """P1 WHAT: title profile + moments (M2)."""
-    _stub("p1")
+def p1(title: str = TitleOpt, all_: bool = AllOpt, dry_run: bool = DryOpt,
+       agreement: bool = typer.Option(False, "--agreement", help="Second run for AC-12 -> eval/agreement/p1/<run>/")) -> None:
+    """P1 WHAT: title profile + moments -> candidates (then `animedex canonicalize`)."""
+    from animedex import SCHEMA_VERSION as schema_version
+    from animedex.ontology import get_vocab
+    from animedex.pipeline.p1 import render_prompt, render_user, run_p1
+    from animedex.providers.factory import build_client
+    from animedex.store.cache import ResponseCache, cache_key, upstream_hash
+    from animedex.store.runlog import RunLog, new_run_id
+
+    paths = _paths()
+    settings, vocab = load_settings(paths), get_vocab(paths)
+    entries = _entries(paths, title, all_)
+    prompt = render_prompt(paths, vocab, settings)
+    if dry_run:
+        spec = settings.models["p1"]
+        cache = ResponseCache(paths.cache)
+        typer.echo(f"P1 prompt {prompt.version} ({len(prompt.system)} chars); model {spec.provider}/{spec.model}")
+        for e in entries:
+            key = cache_key(record_id=e.title_id, pass_="P1", prompt_version=prompt.version,
+                            schema_version=schema_version, vocab_version=vocab.version,
+                            model=f"{spec.provider}/{spec.model}", params=spec.params,
+                            upstream=upstream_hash([e.model_dump(mode="json")]))
+            status = "cached" if cache.get("P1", key) else "would call"
+            typer.echo(f"--- {e.title_id} [{status}]\n{render_user(e)}")
+        return
+    run_id = new_run_id()
+    runlog = RunLog(paths.raw_runs, run_id)
+    client = build_client("p1", paths=paths, settings=settings, env=environment(paths), runlog=runlog,
+                          prompt_version=prompt.version)
+    agreement_dir = paths.root / "eval" / "agreement" / "p1" / run_id if agreement else None
+    result = run_p1(paths, entries, client, vocab, settings, run_id=run_id, agreement_dir=agreement_dir,
+                    params={"rerun": 2} if agreement else None)
+    runlog.write_ledger()
+    if agreement_dir is not None:
+        typer.echo(f"agreement run written to {agreement_dir.relative_to(paths.root)}; next: make eval")
+    typer.echo(f"P1 {run_id}: {len(result.titles)} profile(s), {len(result.moments)} moment(s) -> data/candidates/")
+    for tid, why in result.quarantined + result.failed:
+        typer.echo(f"  not written {tid}: {why[:200]}", err=True)
+    for tid, why in result.refused:
+        typer.echo(f"  refused {tid}: {why[:200]}", err=True)
+    if result.stopped:
+        typer.echo(f"  stopped: {result.stopped}", err=True)
+    if result.titles:
+        typer.echo("next: animedex canonicalize")
 
 
 @app.command()
 def verify(title: str = TitleOpt, all_: bool = AllOpt, dry_run: bool = DryOpt) -> None:
-    """VERIFY: web-check flagged fields + outcomes (M2)."""
-    _stub("verify")
+    """VERIFY: web-check flagged fields, moment locators, and the outcome (capped searches)."""
+    from animedex.ontology import get_vocab
+    from animedex.pipeline.verify import load_pending, run_verify
+    from animedex.providers.factory import build_client
+    from animedex.search.web import build_search
+    from animedex.store.runlog import RunLog, new_run_id
+
+    paths = _paths()
+    settings, vocab = load_settings(paths), get_vocab(paths)
+    entries = _entries(paths, title, all_)
+    if dry_run:
+        for e in entries:
+            pending = load_pending(paths, e.title_id)
+            if pending is None:
+                typer.echo(f"{e.title_id}: no P1 candidate yet")
+                continue
+            typer.echo(f"{e.title_id}: {len(pending.verify)} item(s) to verify: {', '.join(pending.verify)}")
+        return
+    env = environment(paths)
+    run_id = new_run_id()
+    runlog = RunLog(paths.raw_runs, run_id)
+    client = build_client("verify", paths=paths, settings=settings, env=env, runlog=runlog, prompt_version="unset")
+    result = run_verify(paths, entries, client, build_search(settings, env), vocab, settings, run_id=run_id)
+    runlog.write_ledger()
+    for r in result.titles:
+        counts: dict[str, int] = {}
+        for status in r.statuses.values():
+            counts[status] = counts.get(status, 0) + 1
+        typer.echo(f"{r.title_id}: {counts}; outcome {'recorded' if r.outcome else 'unresolved'}; "
+                   f"{len(r.conflicts)} correction(s); dropped moments {r.dropped_moments or 'none'}")
+    for tid, why in result.skipped + result.quarantined:
+        typer.echo(f"  not verified {tid}: {why[:200]}", err=True)
+    if result.stopped:
+        typer.echo(f"  stopped: {result.stopped}", err=True)
 
 
 @app.command()
@@ -181,7 +275,46 @@ def eval_() -> None:
         st = gold_status(paths, title_id, key_fields, vocab)
         state = "READY" if st.ready else "blocked"
         typer.echo(f"{title_id}: {state}" + ("" if st.ready else " - " + "; ".join(st.problems)))
-    typer.echo("agreement (AC-12) and load-bearing recall (AC-17) run once P1/P3 exist (M2/M3)")
+    _eval_agreement(paths, settings, vocab, {e.title_id for e in gold})
+    _eval_verify_rates(paths, vocab)
+
+
+def _eval_agreement(paths: Any, settings: Any, vocab: Any, gold_ids: set[str]) -> None:
+    import json
+
+    from animedex.evaluation import p1_agreement
+    from animedex.store.atomic import atomic_write_text
+    from animedex.store.jsonl import read_jsonl
+
+    runs = sorted((paths.root / "eval" / "agreement" / "p1").glob("*/titles.jsonl"))
+    canonical = [t for t in read_jsonl(paths.canonical / "titles.jsonl") if t["title_id"] in gold_ids]
+    if not runs or not canonical:
+        typer.echo("P1 agreement (AC-12): needs canonical gold profiles and one `animedex p1 --agreement` run")
+        return
+    second = [t for t in read_jsonl(runs[-1]) if t["title_id"] in gold_ids]
+    report = p1_agreement(canonical, second, vocab)
+    bar = float(settings.eval.get("bars", {}).get("p1_enum_agreement", 0.80))
+    report.update({"bar": bar, "second_run": runs[-1].parent.name,
+                   "pass": report["overall"] is not None and report["overall"] >= bar})
+    atomic_write_text(paths.root / "eval" / "agreement" / "p1_agreement.json", json.dumps(report, indent=2, sort_keys=True) + "\n")
+    typer.echo(f"P1 enum agreement (AC-12): {report['overall']} over {report['comparisons']} comparisons "
+               f"({'PASS' if report['pass'] else 'BELOW BAR'} vs {bar})")
+
+
+def _eval_verify_rates(paths: Any, vocab: Any) -> None:
+    from animedex.evaluation import verify_rates, verify_rates_markdown
+    from animedex.store.atomic import atomic_write_text
+    from animedex.store.jsonl import read_jsonl
+
+    titles = read_jsonl(paths.canonical / "titles.jsonl")
+    if not titles:
+        typer.echo("web correction rate (AC-13): no canonical titles yet")
+        return
+    rows = verify_rates(titles, vocab)
+    atomic_write_text(paths.reports / "verify_rates.md", verify_rates_markdown(rows))
+    top = sorted((r for r in rows if r.correction_rate is not None), key=lambda r: -(r.correction_rate or 0))[:5]
+    typer.echo("web correction rate (AC-13) -> build/reports/verify_rates.md; top: "
+               + (", ".join(f"{r.path} {r.correction_rate:.2f}" for r in top) or "no verified fields yet"))
 
 
 @app.command()

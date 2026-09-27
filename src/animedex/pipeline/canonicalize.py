@@ -11,8 +11,11 @@ from __future__ import annotations
 
 import shutil
 from dataclasses import dataclass, field
+from datetime import UTC, datetime
 from pathlib import Path
 
+from animedex import SCHEMA_VERSION
+from animedex.evaluation import coverage_row
 from animedex.models import RECORD_TYPES
 from animedex.paths import Paths
 from animedex.store.canonical import CanonicalError, CanonicalStore
@@ -47,17 +50,21 @@ def canonicalize(paths: Paths, run_id: str) -> CanonicalizeResult:
             except JsonlError as exc:
                 quarantine(paths.quarantine, "CANONICALIZE", record_type, f.name, f.read_text(encoding="utf-8"), [str(exc)])
                 result.quarantined.append((record_type, f.name, str(exc)))
-        good, bad = store.validate_each(record_type, records, run_id)
-        for rid, msg, raw in bad:
-            quarantine(paths.quarantine, "CANONICALIZE", record_type, rid, raw, [msg])
-            result.quarantined.append((record_type, rid, msg))
-        if good:
+        good_raw = []
+        for raw in records:  # pass raw (not normalized) records on, so the store writes their proposals
+            _, bad = store.validate_each(record_type, [raw], run_id)
+            for rid, msg, _raw in bad:
+                quarantine(paths.quarantine, "CANONICALIZE", record_type, rid, raw, [msg])
+                result.quarantined.append((record_type, rid, msg))
+            if not bad:
+                good_raw.append(raw)
+        if good_raw:
             try:
-                wr = store.write(record_type, [clean for clean, _ in good], run_id)
+                wr = store.write(record_type, good_raw, run_id)
             except CanonicalError as exc:
-                for clean, _ in good:
-                    rid = RECORD_TYPES[record_type].key(clean)
-                    quarantine(paths.quarantine, "CANONICALIZE", record_type, rid, clean, [str(exc)])
+                for raw in good_raw:
+                    rid = RECORD_TYPES[record_type].key(raw)
+                    quarantine(paths.quarantine, "CANONICALIZE", record_type, rid, raw, [str(exc)])
                     result.quarantined.append((record_type, rid, "integrity"))
                 continue
             result.written[record_type] = wr.written
@@ -68,4 +75,25 @@ def canonicalize(paths: Paths, run_id: str) -> CanonicalizeResult:
             target = applied / f.name
             shutil.move(str(f), target)
             result.applied_files.append(target)
+    if result.written.get("title"):
+        update_coverage(store, result.written["title"], run_id, result)
     return result
+
+
+def update_coverage(store: CanonicalStore, title_ids: list[str], run_id: str, result: CanonicalizeResult) -> None:
+    """05 CANONICALIZE: refresh the coverage ledger for titles written in this run."""
+    titles = {t["title_id"]: t for t in store.read("title")}
+    existing = {c["title_id"]: c for c in store.read("coverage")}
+    prov = {"run_id": run_id, "pass": "CANONICALIZE", "model": None, "prompt_version": None,
+            "schema_version": SCHEMA_VERSION, "vocab_version": store.vocab.version, "cache_key": None,
+            "created_at": datetime.now(UTC).isoformat()}
+    rows = []
+    for tid in sorted(set(title_ids)):
+        row = coverage_row(titles[tid], store.vocab)
+        old = existing.get(tid, {})
+        row["episodes"] = old.get("episodes", {"in_scope": 0, "indexed": 0, "unsourced": 0, "selection": {}})
+        row["episode_backed_share"] = old.get("episode_backed_share", 0.0)
+        row["provenance"] = prov
+        rows.append(row)
+    wr = store.write("coverage", rows, run_id)
+    result.written["coverage"] = wr.written

@@ -14,6 +14,8 @@ from typing import Any
 
 from pydantic import ValidationError
 
+from animedex.config import load_settings
+from animedex.content_guards import GuardConfig, record_problems
 from animedex.integrity import integrity_errors
 from animedex.models import RECORD_TYPES, StrictModel
 from animedex.ontology import Vocab, get_vocab, normalize_enum
@@ -142,10 +144,20 @@ class CanonicalStore:
     def __init__(self, paths: Paths | None = None, vocab: Vocab | None = None):
         self.paths = paths or Paths.discover()
         self._vocab = vocab
+        self._guards: GuardConfig | None = None
 
     @property
     def vocab(self) -> Vocab:
         return self._vocab or get_vocab(self.paths)
+
+    @property
+    def guards(self) -> GuardConfig:
+        if self._guards is None:
+            try:
+                self._guards = GuardConfig.from_settings(load_settings(self.paths))
+            except (OSError, ValueError):
+                self._guards = GuardConfig()
+        return self._guards
 
     def file(self, record_type: str) -> Path:
         return self.paths.canonical / RECORD_TYPES[record_type].file
@@ -167,6 +179,9 @@ class CanonicalStore:
             try:
                 norm, props = normalize_record(record_type, raw, self.vocab, run_id)
                 clean = model.model_validate(norm).to_record()
+                problems = record_problems(clean, self.guards)
+                if problems:
+                    raise ValueError("content guard: " + "; ".join(problems[:5]))
                 good.append((clean, props))
             except (ValidationError, KeyError, TypeError, ValueError) as exc:
                 try:

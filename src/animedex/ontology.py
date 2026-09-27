@@ -59,7 +59,25 @@ class Vocab:
         self.module_cq_refs: dict[str, list[str]] = {
             m: list(body.get("cq_refs", [])) for m, body in modules.items()
         }
+        self.module_activation: dict[str, dict[str, Any]] = {
+            m: self._activation(m, body.get("activation") or {"kind": "judgment"}) for m, body in modules.items()
+        }
         self._by_path = {f.path: f for f in self.lens_fields()}
+
+    @staticmethod
+    def _activation(module: str, spec: dict[str, Any]) -> dict[str, Any]:
+        kind = spec.get("kind")
+        if kind == "judgment":
+            return spec
+        if kind != "rule" or not spec.get("any"):
+            raise OntologyError(f"module {module}: activation must be judgment or a rule with `any` clauses")
+        for clause in spec["any"]:
+            ok = ("module" in clause and len(clause) == 1) or (
+                clause.get("field") in ("medium", "format") and (("in" in clause) ^ ("not_in" in clause))
+            )
+            if not ok:
+                raise OntologyError(f"module {module}: bad activation clause {clause}")
+        return spec
 
     def _lens_field(self, block: str, name: str, spec: dict[str, Any]) -> LensField:
         kind = spec.get("kind")
