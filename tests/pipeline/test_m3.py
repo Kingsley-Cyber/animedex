@@ -18,7 +18,7 @@ from animedex.eligibility import eligible_atom_ids
 from animedex.ontology import get_vocab
 from animedex.pipeline.canonicalize import canonicalize
 from animedex.pipeline.check import run_check
-from animedex.pipeline.common import canonical_titles, outcomes
+from animedex.pipeline.common import canonical_titles, outcomes, read_candidates
 from animedex.pipeline.p2 import run_p2
 from animedex.pipeline.p3 import run_p3
 from animedex.pipeline.p4 import run_p4
@@ -185,6 +185,18 @@ def test_full_m3_flow_reject_revise_recheck_and_transfer(m3):
     assert sorted(t["source_atom_id"] for t in state["transfer"]) == [f"{T1}.m.001", f"{T1}.m.002"]
     cov = next(c for c in state["coverage"] if c["title_id"] == T1)
     assert "P4" in cov["passes_done"]
+
+
+def test_a_recheck_can_revise_a_proof_whose_atom_was_not_revised(m3):
+    """Live M3 (2026-09-27): the re-check round holds only revised targets; a proof revised again there
+    must not need its (unrevised) atom in that round."""
+    first = {"verdicts": [verdict(f"{T1}.m.{i:03d}", t) for i in (1, 2, 3) for t in ("mechanism", "proof")]}
+    first["verdicts"][3] = verdict(f"{T1}.m.002", "proof", "REVISE", ["overreach"], ablation_verdict="supporting")
+    recheck = {"verdicts": [verdict(f"{T1}.m.002", "proof", "REVISE", ["overreach"], ablation_verdict="decoration")]}
+    rc, mock = run_through_check(m3, {("CHECK", T1): [first], ("CHECK", f"{T1}.recheck"): [recheck]})
+    assert rc.done == [T1] and [c["record_id"] for c in mock.calls] == [T1, f"{T1}.recheck"]
+    [proof] = [p for p in read_candidates(m3, "proof", T1) if p["atom_id"] == f"{T1}.m.002"]
+    assert proof["ablation"]["verdict"] == "decoration"
 
 
 def test_rival_favoring_explanation_forces_revise_or_contested(m3):

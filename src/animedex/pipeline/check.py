@@ -145,7 +145,8 @@ def output_problems(out: dict[str, Any], atoms: dict[str, dict[str, Any]], proof
         if verdict != "ACCEPT" and not reasons:
             problems.append(f"{aid} {ttype}: {verdict} needs at least one reason")
         if verdict == "REVISE":
-            rev = _relevant(v.get("revision"), ttype, atoms[aid]["atom_kind"])
+            # a proof's revision keys don't depend on its atom, which a re-check round may not include
+            rev = _relevant(v.get("revision"), ttype, atoms[aid]["atom_kind"] if ttype == "mechanism" else "")
             if not rev:
                 problems.append(f"{aid} {ttype}: REVISE must fill the corrected {ttype} fields in revision")
             elif ttype == "mechanism":

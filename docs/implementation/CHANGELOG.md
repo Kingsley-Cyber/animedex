@@ -1,6 +1,7 @@
 # Changelog — docs/implementation
 
 ## Length repair for every stage — 2026-09-27
+- **CHECK re-check fix.** A proof revised again in the re-check round no longer looks up its atom there (the round holds only revised targets); Btooom!'s CHECK crashed on it in the live M3 run.
 - **D-030.** `providers/length_repair.py`: the client's last resort before quarantine. When the repaired output still fails only on word caps, one `<record>.shorten` call rewrites just the named texts; the result is validated again (guards included) and cached under the original key. P1 and INTERPRET keep their own earlier shorten step.
 
 ## v1.7 comparison — 2026-09-27
