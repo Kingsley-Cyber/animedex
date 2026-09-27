@@ -191,6 +191,6 @@ speed:   # owner's speed pass (2026-09-27, D-048): non-gold titles only; gold ke
   merged_profile: true      # 1. one PROFILE call (gather + interpret) instead of GATHER + INTERPRET (+ cast)
   effort: medium            # 2. every non-gold call to PROFILE, P2, P3, CHECK and P4
   verify_only: [core.outcome, moments]   # 3. VERIFY checks only these for non-gold titles
-  check_batch_titles: 3     # 4. the critic sees three titles per call
+  check_batch_titles: 1   # D-049: 3 failed 2 of 3 live batches (verdicts without reasons); set 3 to try again
   parallel_titles: 4        # 5. titles run at once in each stage of `make backfill` / `animedex run`
 

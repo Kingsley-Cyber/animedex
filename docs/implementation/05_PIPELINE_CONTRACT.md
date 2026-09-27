@@ -425,7 +425,7 @@ speed:                     # non-gold titles only; gold keeps the full path
   merged_profile: true     # PROFILE instead of GATHER + INTERPRET
   effort: medium           # every non-gold call (PROFILE, VERIFY's slot as is, P2, P3, CHECK, P4)
   verify_only: [core.outcome, moments]
-  check_batch_titles: 3    # CHECK carries three titles' atoms, proofs and profiles per call; verdicts split per title
+  check_batch_titles: 1    # D-049: one title per call by default; at 3 the critic (gpt-5.6-terra) returned REVISE verdicts without reasons in 2 of 3 live batches and a failed batch costs more than three single calls; any N still works (verdicts split per title, a quarantined batch falls back to singles)
   parallel_titles: 4       # threads; one client and run log per worker; one Budget per run (locked counters): the run cap is per run, the per-title cap per stage (`Budget.stage_view()`); a batched CHECK guards and charges every title of its group; a batch quarantined after its repair falls back to one title per call (`batch_fallback` count + flag)
 ```
 
