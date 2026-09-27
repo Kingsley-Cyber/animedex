@@ -97,7 +97,9 @@ class AnalyzeResult:
 
 
 GAP_TITLES = {"CQ-G01": "power gate × cost of power", "CQ-G04": "progression × fight medium",
-              "CQ-G10": "power gate × cost of power, census", "CQ-G17": "set structure × subset mechanic"}
+              "CQ-G10": "power gate × cost of power, census", "CQ-G17": "set structure × subset mechanic",
+              "CQ-N02": "power gate × cost of power, notes index", "CQ-N03": "progression × visible counter, notes index"}
+SOURCE_ROWS = {"census": "census rows", "notes": "notes"}
 UNSURPRISING_SHOWN = 12
 
 
@@ -130,7 +132,7 @@ def _gap_md(cq_id: str, answer: dict[str, Any]) -> list[str]:
     g = answer.get("gap_ranking") or {}
     x, y = g.get("x", "x").split(".")[-1], g.get("y", "y").split(".")[-1]
     lines += [f"Ranked by the count expected under independence, n × p(x) × p(y), over the {g.get('n', 0)} "
-              f"{'census rows' if g.get('source') == 'census' else 'titles'} with both fields. A real gap is expected "
+              f"{SOURCE_ROWS.get(g.get('source'), 'titles')} with both fields. A real gap is expected "
               "3 or more times and never seen; the rest are unsurprising.", "",
               "### Real gaps", ""]
     if g.get("real_gaps"):
