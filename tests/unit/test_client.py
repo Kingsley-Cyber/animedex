@@ -117,3 +117,50 @@ def test_fetched_text_redacted_in_logs_but_sent_to_provider(tmp_path):
     assert page in mock.calls[0]["user"]
     logged = (tmp_path / "runs" / "run_t" / "calls.jsonl").read_text()
     assert page not in logged and "https://e.org/p" in logged
+
+
+# ---------------------------------------------------------------- length repair, last resort (D-030)
+def check_notes(data):
+    from animedex.pipeline.common import raise_problems
+    from animedex.textutil import word_count
+
+    problems = []
+    for i, p in enumerate(data.get("proofs") or []):
+        n = word_count(p["test"]["note"])
+        if n > 5:
+            problems.append(f"t.m.{i:03d}: test.note: Value error, {n} words exceeds the 5-word limit")
+        if p.get("quote"):
+            problems.append(f"t.m.{i:03d}: no quotes")
+    raise_problems(problems)
+
+
+LONG = {"proofs": [{"test": {"note": "one two three four five six"}}, {"test": {"note": "short enough"}}]}
+
+
+def test_a_text_still_over_its_cap_after_the_repair_is_shortened_not_quarantined(tmp_path):
+    mock = MockProvider(responses={("P1", "x_2020"): [LONG, LONG],
+                                   ("P1", "x_2020.shorten"): {"items": [{"path": "proofs.0.test.note",
+                                                                         "text": "one two three"}]}})
+    client = make_client(tmp_path, mock)
+    done = client.complete_ex("s", "u", SCHEMA, ctx=ctx(), validate=check_notes)
+    assert done.data["proofs"][0]["test"]["note"] == "one two three"
+    assert done.data["proofs"][1] == LONG["proofs"][1]  # everything else as the model wrote it
+    shorten = mock.calls[2]
+    assert shorten["user"] == "proofs.0.test.note: one two three four five six [max 5 words]"
+    again = client.complete_ex("s", "u", SCHEMA, ctx=ctx(), validate=check_notes)
+    assert again.cache_hit and again.data == done.data and len(mock.calls) == 3  # the repaired output is cached
+
+
+def test_other_problems_or_a_failed_shortening_still_quarantine(tmp_path):
+    mixed = {"proofs": [{"test": {"note": "one two three four five six"}, "quote": True}]}
+    mock = MockProvider(responses={("P1", "x_2020"): [mixed, mixed]})
+    with pytest.raises(InvalidOutput):
+        make_client(tmp_path, mock).complete_ex("s", "u", SCHEMA, ctx=ctx(), validate=check_notes)
+    assert len(mock.calls) == 2  # not a length-only problem: no shorten call
+    mock = MockProvider(responses={("P1", "x_2020"): [LONG, LONG],
+                                   ("P1", "x_2020.shorten"): [{"items": [{"path": "proofs.0.test.note",
+                                                                          "text": "still one two three four five six"}]},
+                                                              {"items": []}]})
+    with pytest.raises(InvalidOutput) as err:
+        make_client(tmp_path / "b", mock).complete_ex("s", "u", SCHEMA, ctx=ctx(), validate=check_notes)
+    assert "6 words exceeds the 5-word limit" in err.value.errors[-1]
