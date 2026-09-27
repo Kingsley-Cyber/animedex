@@ -292,7 +292,7 @@ _CENSUS_V18 = ("set_structure", "story_engine", "mc_archetype")
 def _census(s: State, v: Vocab) -> list[Row]:
     return [(c["census_id"], c["title"], c.get("year"), c["medium"], c["format"], c.get("popularity"),
              c.get("has_power_system"), *(c.get(k) for k in _CENSUS), c.get("borrowed_system"),
-             *(c.get(k) for k in _CENSUS_V18))
+             *(c.get(k) for k in _CENSUS_V18), c.get("adaptation"))
             for c in s.get("census", [])]
 
 
@@ -365,7 +365,7 @@ TABLES: tuple[Table, ...] = (
     Table("prior_art", _cols("check_id claim_kind subject_id verdict n_counterexamples:i"), _prior_art),
     Table("census", _cols("census_id title year:i medium format popularity:i has_power_system:b gate cost_of_power "
                           "progression visible_counter fight_medium power_is borrowed_system set_structure "
-                          "story_engine mc_archetype"), _census),
+                          "story_engine mc_archetype adaptation"), _census),
 )
 
 VIEWS: tuple[tuple[str, str], ...] = (

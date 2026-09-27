@@ -1,6 +1,6 @@
 {
-  "version": "1.5.1",
-  "notes": "Enums are the 04 v1.1.0 starter set. The lens section declares P1 fields and modules (spec v1.2: four orphan fields deleted at G0). Change only through ontology/proposals and owner approval. 1.2.1: module activation rules (05 table) added to the lens. 1.4.0: per-field word caps (owner-approved 2026-09-27, ontology/proposals/2026-09-27_word_caps.md): phrase fields 15 words (lens.phrase_max_words), 20 for the eleven two-part fields (max_words). 1.5.0: v1.8 concept, character and abstract layers (owner request 2026-09-27): 37 lens fields (power_combat 12, core 25) with the new kinds enum_multi, list and group (`since` 1.5.0: older records may omit them); character and outcome failure-pattern vocabularies; discrimination tests for gate, cost_of_power, progression and visible_counter (grid reliability ruling); cost_of_power_secondary; enum proposals applied as the lead decided: demographic no_magazine_demographic, cost_of_power self_imposed_restriction and imposed_penalty, visible_counter gauge. 1.5.1: the gather-first run's enum proposals, decided by the lead under the owner's standing rule (D-031): set_scaffold adds game_system (a game's classes, skills or item types organize the powers) and personal_desire (each power takes the shape of its holder's wish or obsession); power_up_mode adds absorption (power grows by taking it from others, such as the defeated). Proposals that fit a listed value were merged into it; a value only one title needs stays other.",
+  "version": "1.6.0",
+  "notes": "Enums are the 04 v1.1.0 starter set. The lens section declares P1 fields and modules (spec v1.2: four orphan fields deleted at G0). Change only through ontology/proposals and owner approval. 1.2.1: module activation rules (05 table) added to the lens. 1.4.0: per-field word caps (owner-approved 2026-09-27, ontology/proposals/2026-09-27_word_caps.md): phrase fields 15 words (lens.phrase_max_words), 20 for the eleven two-part fields (max_words). 1.5.0: v1.8 concept, character and abstract layers (owner request 2026-09-27): 37 lens fields (power_combat 12, core 25) with the new kinds enum_multi, list and group (`since` 1.5.0: older records may omit them); character and outcome failure-pattern vocabularies; discrimination tests for gate, cost_of_power, progression and visible_counter (grid reliability ruling); cost_of_power_secondary; enum proposals applied as the lead decided: demographic no_magazine_demographic, cost_of_power self_imposed_restriction and imposed_penalty, visible_counter gauge. 1.5.1: the gather-first run's enum proposals, decided by the lead under the owner's standing rule (D-031): set_scaffold adds game_system (a game's classes, skills or item types organize the powers) and personal_desire (each power takes the shape of its holder's wish or obsession); power_up_mode adds absorption (power grows by taking it from others, such as the defeated). Proposals that fit a listed value were merged into it; a value only one title needs stays other. 1.6.0: print media (owner instruction 2026-09-27, D-046): medium adds manga, manhwa, webtoon and light_novel; scope.numbering adds chapters and volumes (print scopes); sensory stays off for print titles (its power_combat clause now requires a screen medium). No lens field changed.",
   "fields": {
     "medium": {
       "enum": [
@@ -9,7 +9,11 @@
         "western_animation",
         "adult_animation",
         "live_action",
-        "film"
+        "film",
+        "manga",
+        "manhwa",
+        "webtoon",
+        "light_novel"
       ],
       "alternate_labels": {
         "donghua": [
@@ -41,7 +45,9 @@
       "enum": [
         "broadcast",
         "streaming",
-        "home_video"
+        "home_video",
+        "chapters",
+        "volumes"
       ],
       "alternate_labels": {},
       "cq_refs": [
@@ -1379,7 +1385,14 @@
               ]
             },
             {
-              "module": "power_combat"
+              "module": "power_combat",
+              "field": "medium",
+              "not_in": [
+                "manga",
+                "manhwa",
+                "webtoon",
+                "light_novel"
+              ]
             }
           ]
         },

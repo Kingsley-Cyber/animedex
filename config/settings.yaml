@@ -126,6 +126,7 @@ gates:
 census:   # v1.6: counts only; the title list comes from AniList
   batch_size: 10
   donghua: 50
+  korean: 40      # v1.9: of `--print-top N`, how many come from Korea (manhwa, webtoons)
   since: 1995
 ideate:
   target_domain: anime

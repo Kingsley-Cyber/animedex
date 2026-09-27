@@ -7,10 +7,15 @@ from animedex.ontology import Vocab
 
 
 def _clause(clause: dict, medium: str, fmt: str, active: set[str]) -> bool:
+    """One clause; the module test and the field test are ANDed when a clause carries both (v1.9: sensory
+    switches on with power_combat only for screen media)."""
+    ok = True
     if "module" in clause:
-        return clause["module"] in active
-    value = medium if clause["field"] == "medium" else fmt
-    return value in clause["in"] if "in" in clause else value not in clause["not_in"]
+        ok = clause["module"] in active
+    if "field" in clause:
+        value = medium if clause["field"] == "medium" else fmt
+        ok = ok and (value in clause["in"] if "in" in clause else value not in clause["not_in"])
+    return ok
 
 
 def expected_by_rule(vocab: Vocab, medium: str, fmt: str, active: set[str]) -> dict[str, bool]:

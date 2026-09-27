@@ -154,7 +154,10 @@ def gather(title: str = TitleOpt, all_: bool = AllOpt) -> None:
         rec_client.notes.clear()
         return reception_for(entry, anilist=anilist, client=rec_client), list(rec_client.notes)
 
-    result = run_gather(paths, entries, client, vocab, settings, run_id=run_id, reception=reception)
+    from animedex.catalog.resolve import adaptation_for
+
+    result = run_gather(paths, entries, client, vocab, settings, run_id=run_id, reception=reception,
+                        adaptation=lambda e: adaptation_for(e, anilist))
     runlog.write_ledger()
     for r in result.titles:
         typer.echo(f"{r.title_id}: {r.kept} fact(s) kept ({r.unplaced} unplaced), {len(r.dropped)} dropped; "
@@ -702,7 +705,9 @@ def backfill(list_file: str = typer.Option(..., "--list", help="One title per li
 
 @app.command()
 def census(top: int = typer.Option(0, "--top", help="Count the N most popular franchise roots (anime + donghua)."),
-           list_file: str = typer.Option(None, "--list", help="Count the titles in this list.")) -> None:
+           list_file: str = typer.Option(None, "--list", help="Count the titles in this list."),
+           print_top: int = typer.Option(0, "--print-top", help="v1.9: count the N most popular print roots (manga, "
+                                         "light novels; manhwa, webtoons) with their screen-adaptation status.")) -> None:
     """v1.6 census: which power-system combinations already exist (counts only, never ideation input)."""
     from pathlib import Path as _P
 
@@ -710,7 +715,7 @@ def census(top: int = typer.Option(0, "--top", help="Count the N most popular fr
     from animedex.catalog.backfill import census_items, plan_backfill, read_list
     from animedex.ontology import get_vocab
     from animedex.pipeline.canonicalize import canonicalize as _canon
-    from animedex.pipeline.census import run_census, top_roots
+    from animedex.pipeline.census import run_census, top_print, top_roots
     from animedex.providers.factory import build_client
     from animedex.store.runlog import RunLog, new_run_id
 
@@ -721,6 +726,9 @@ def census(top: int = typer.Option(0, "--top", help="Count the N most popular fr
     items = []
     if top:
         items += top_roots(cat, size=top, donghua=int(cfg.get("donghua", max(1, top // 10))),
+                           since=int(cfg.get("since", 1995)))
+    if print_top:
+        items += top_print(cat, size=print_top, korean=int(cfg.get("korean", max(1, print_top // 5))),
                            since=int(cfg.get("since", 1995)))
     if list_file:
         plan = plan_backfill(cat, read_list(_P(list_file)), {}, suggest=False)  # census counts every listed title

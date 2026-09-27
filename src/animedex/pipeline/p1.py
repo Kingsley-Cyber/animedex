@@ -24,6 +24,7 @@ from animedex.content_guards import GuardConfig, dialogue_problems, framing_prob
 from animedex.guards import LiveRunRefused
 from animedex.integrity import proper_nouns
 from animedex.models import CorpusEntry, Moment, title_profile_model
+from animedex.models.common import PRINT_MEDIA
 from animedex.ontology import LensField, Vocab
 from animedex.paths import Paths
 from animedex.pipeline.common import supersede
@@ -88,10 +89,15 @@ def render_user(entry: CorpusEntry) -> str:
     scope = entry.scope
     seasons = ", ".join(str(s) for s in scope.seasons) or "none (film)"
     exclude = "; ".join(scope.exclude) or "nothing listed"
+    if scope.numbering in ("chapters", "volumes"):  # v1.9 print
+        span = f"{scope.range[0]}-{scope.range[1]}" if scope.range else "everything published so far"
+        placed = f"{scope.numbering} = {span}"
+    else:
+        placed = f"seasons = {seasons}; numbering = {scope.numbering or 'n/a'}"
     return (
         f"Title: {entry.title} ({entry.year})\n"
         f"Medium: {entry.medium}\nFormat: {entry.format}\n"
-        f"Scope: version = {scope.version}; seasons = {seasons}; numbering = {scope.numbering or 'n/a'}\n"
+        f"Scope: version = {scope.version}; {placed}\n"
         f"Out of scope: {exclude}\n"
         "Profile this title inside the scope."
     )
@@ -250,7 +256,8 @@ def output_schema(vocab: Vocab, entry: CorpusEntry | None = None) -> dict[str, A
 
     moment = {"type": "object", "additionalProperties": False, "properties": {
         "description": {"type": "string"}, "season": {"type": ["integer", "null"]},
-        "episode": {"type": ["integer", "null"]}, "timestamp": {"type": ["string", "null"]},
+        "episode": {"type": ["integer", "null"]}, "chapter": {"type": ["integer", "null"]},
+        "volume": {"type": ["integer", "null"]}, "timestamp": {"type": ["string", "null"]},
         "moment_type": {"type": "string"}, "why_it_hit": {"type": "string"}, "conf": {"type": "number"}}}
     moment["required"] = list(moment["properties"])
     allowed, required = (module_rules(vocab, entry.medium, entry.format) if entry is not None
@@ -393,7 +400,8 @@ def assemble(draft: dict[str, Any], entry: CorpusEntry, vocab: Vocab, settings: 
             "moment_id": f"{entry.title_id}.mo.{i:02d}", "title_id": entry.title_id,
             "description": mo["description"], "why_it_hit": mo["why_it_hit"], "moment_type": mo["moment_type"],
             "locator": {"season": mo.get("season"), "episode": mo.get("episode"), "timestamp": mo.get("timestamp"),
-                        "episode_id": None},
+                        "episode_id": None, **({"chapter": mo.get("chapter"), "volume": mo.get("volume")}
+                                               if entry.medium in PRINT_MEDIA else {})},
             "conf": float(mo.get("conf", 0)), "verification": "unverified", "source_ref": None, "provenance": prov,
         })
     to_verify = verify_list(record, [m["moment_id"] for m in moments], vocab, settings, list(draft.get("verify") or []))

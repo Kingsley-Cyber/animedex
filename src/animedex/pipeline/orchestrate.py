@@ -100,6 +100,15 @@ def cli_reception(paths: Paths, env: dict[str, str]) -> Callable[[Any], tuple[An
     return reception
 
 
+def cli_adaptation(paths: Paths) -> Callable[[Any], dict[str, Any] | None]:
+    """The screen-adaptation source for print titles (v1.9): the catalog's relations."""
+    from animedex.catalog.anilist import AniList
+    from animedex.catalog.resolve import adaptation_for
+
+    anilist = AniList(cache_dir=paths.cache / "anilist")
+    return lambda entry: adaptation_for(entry, anilist)
+
+
 def run_batch(paths: Paths, title_ids: list[str], settings: Settings, env: dict[str, str], vocab: Vocab, *,
               stages: tuple[str, ...] = STAGES, clients: Callable[[str, RunLog], Any] | None = None,
               search: Any = "auto", reception: Any = "auto", echo: Callable[[str], None] = lambda s: None
@@ -148,9 +157,12 @@ def run_batch(paths: Paths, title_ids: list[str], settings: Settings, env: dict[
     ids = [t for t in title_ids if t in corpus]
     done = _state_done(paths)
     todo_gather = [t for t in ids if t not in done["GATHER"] and t not in done["INTERPRET"]]
-    rec = cli_reception(paths, env) if reception == "auto" and todo_gather and "GATHER" in stages else reception
+    live_sources = reception == "auto" and todo_gather and "GATHER" in stages
+    rec = cli_reception(paths, env) if live_sources else reception
+    adapt = cli_adaptation(paths) if live_sources else None
     ok = stage("GATHER", lambda client, run_id: run_gather(paths, [corpus[t] for t in todo_gather], client, vocab,
-                                                           settings, run_id=run_id, reception=None if rec == "auto" else rec),
+                                                           settings, run_id=run_id, reception=None if rec == "auto" else rec,
+                                                           adaptation=adapt),
                todo_gather, "gather")
     if ok:
         gathered = {f.stem for f in (paths.candidates / "gathered").glob("*.json")}

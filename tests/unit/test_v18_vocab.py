@@ -98,7 +98,7 @@ def test_every_grid_value_has_a_one_sentence_discrimination_test():
 
 def test_the_leads_enum_decisions_are_applied_exactly():
     vocab = get_vocab()
-    assert vocab.version == "1.5.1"  # 1.5.1 (D-031) only added enum values
+    assert vocab.version == "1.6.0"  # 1.5.1 (D-031) and 1.6.0 (D-046, print media) only added enum values
     assert vocab.enum("power_combat.cost_of_power") == (
         "physical_toll", "lifespan", "memory", "identity_or_humanity", "relationships", "resource", "moral",
         "self_imposed_restriction", "imposed_penalty", "none", "other")

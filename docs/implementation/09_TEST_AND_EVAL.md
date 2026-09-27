@@ -75,3 +75,6 @@ Tests check each function against hand-computed values (`tests/unit/test_stats.p
 
 ## Cost eval
 - Tokens and cost per title per pass, per episode, and per ROLLUP re-run; ideation cost per champion. Reported in every completion report.
+
+## Print media (v1.9)
+`tests/unit/test_print_media.py`: vocab and scope rules, chapter/volume locators, the adaptation signal on the outcome, animation-only modules off for print, print resolution with a fake catalog (hint, fallback, medium by country/format/links), partner selection, `top_print` items, CQ-P01 on a synthetic census. Live proof: Jagaaan and Choujin X through the full pipeline.

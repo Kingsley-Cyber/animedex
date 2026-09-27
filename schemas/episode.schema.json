@@ -132,7 +132,9 @@
           "enum": [
             "broadcast",
             "streaming",
-            "home_video"
+            "home_video",
+            "chapters",
+            "volumes"
           ],
           "title": "Numbering",
           "type": "string",

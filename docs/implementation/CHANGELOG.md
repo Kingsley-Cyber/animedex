@@ -1,5 +1,8 @@
 # Changelog — docs/implementation
 
+## v1.9: print media — 2026-09-27
+- **D-046.** Vocab 1.6.0 (mediums manga, manhwa, webtoon, light_novel; numbering chapters, volumes; sensory off for print), schema 1.5.0 (scope `range`, chapter/volume locators, `outcome.adaptation`, `census.adaptation`). AniList client serves both media types (chapters, volumes, links, relation status); the resolver takes a print hint and falls back to print when no screen version exists; reception on the manga side of MAL/Jikan/AniList (separate cache keys). GATHER/INTERPRET/VERIFY/P1 place print facts by chapter and volume (prompts 1.1.0, verify +0.1, census 1.2.0); GATHER records the adaptation signal, INTERPRET puts it on the outcome; integrity checks print turning points by chapter/volume; P3 keeps print out of an anime title's cross-medium slot. `animedex census --print-top N`, CQ-P01 (unadapted print titles by story-engine lane). Plan: `proposals/CHANGE_PLAN_v1.9_print.md`. Docs 00, 04, 05, 08 (AC-58–61), 09, USAGE.
+
 ## Shorter tests — 2026-09-27
 - **D-047.** Blind packet at 10 cards per arm (30 cards, `eval.blind.per_arm`), rebuilt. `ChainEmbedder`: Polymath's embedder hands over to Ollama mid-run when it stops answering; `make ideas` and `make diagnose` print every hand-over. `make diagnose` timed at 31 s for one concept (3 calls).
 

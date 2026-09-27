@@ -192,6 +192,11 @@ QUERIES: dict[str, Query] = {
         ("enum:power_combat.gate", "enum:power_combat.cost_of_power"),
         note="census counts only (v1.6): recall-based occupancy across the catalog", census=True),
     "CQ-I15": Query("SELECT claim_kind, verdict, COUNT(*) AS n FROM prior_art GROUP BY 1, 2"),
+    "CQ-P01": Query(  # v1.9 print: the lanes are the census's story engines; popularity is AniList's count
+        "SELECT COALESCE(story_engine, 'unknown') AS lane, medium, title, year, popularity FROM census "
+        "WHERE medium IN ('manga', 'manhwa', 'webtoon', 'light_novel') AND adaptation = 'none' "
+        "ORDER BY lane, popularity DESC NULLS LAST, title",
+        note="print census rows with no screen adaptation (catalog relations), grouped by story engine; counts only"),
     "CQ-E01": Query(
         "SELECT mo.moment_type, COUNT(DISTINCT mo.moment_id) AS n_moments, COUNT(DISTINCT mo.title_id) AS n_titles, "
         "array_to_string(list_sort(list_distinct(list(pf.value))), '; ') AS primary_feelings, "

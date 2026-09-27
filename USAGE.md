@@ -18,6 +18,8 @@ ANIMEDEX turns a list of shows into cards for new anime ideas. You add titles, t
    make backfill LIST=my_list.txt
    ```
 
+   Print titles (manga, manhwa, webtoons, light novels) work too: write `Jagaaan (manga)` to force the print version; without the hint, the show is picked when one exists and the print original only when none does.
+
 3. Open `build/reports/backfill.md`. It shows which version it picked for each line. If a pick is wrong, add the year to that line and run again, or fix the title in `corpus/titles.yaml`.
 
 - **Batches:** each run fully studies up to 4 titles. That takes about 50 minutes and stays inside the 40-call cap. Run the same command again for the next batch; it continues where it stopped.

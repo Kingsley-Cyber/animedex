@@ -8,6 +8,5 @@
 - **Berserk:** Berserk (1997) and Berserk (2016) are run as a pair (same story, different execution). Each is the other's nearest-neighbor contrast partner.
 - **Balance:** the queue is mostly hits. The backfill report proposes flops and mixed titles to balance it.
 
-## Held (Kingsley's additions of 2026-09-27 that can't be indexed yet)
-- **The Bugle Call: Song of War (2027):** the anime is announced with no episodes aired. The corpus is screen titles inside a declared scope, so it waits until it airs; then add it to `priority_1.txt`.
-- **Jagaaan, Choujin X:** manga only, no screen version found in the catalog. Indexing manga is a scope change (a new `medium` value and source rules), parked until Kingsley asks for it.
+## Print titles (v1.9, 2026-09-27)
+Print titles (manga, manhwa, webtoons, light novels) are indexed like shows. `corpus/queue/print_first.txt` holds Kingsley's first two (Jagaaan, Choujin X); The Bugle Call joins `priority_1.txt` as its manga (the anime is announced for 2027, unaired). Write `(manga)` after a name to force the print version; without it, a show is picked when one exists.

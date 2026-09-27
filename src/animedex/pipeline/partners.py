@@ -11,6 +11,7 @@ from __future__ import annotations
 from typing import Any
 
 from animedex.models import CorpusEntry
+from animedex.models.common import PRINT_MEDIA
 from animedex.ontology import Vocab
 
 
@@ -65,7 +66,10 @@ def select_partners(record: dict[str, Any], titles: dict[str, dict[str, Any]], o
     pick("flop", [t for t in order if outcome_label(pool[t], outcomes.get(t)) in ("mixed", "flop")
                   and mods & set(pool[t].get("modules_active") or [])],
          overrides.flop if overrides else None)
-    if record["medium"] == "anime":
-        pick("cross_medium", [t for t in order if pool[t]["medium"] != "anime"],
+    if record["medium"] == "anime":  # the screen contrast: Western or live action, never print (v1.9)
+        pick("cross_medium", [t for t in order if pool[t]["medium"] not in ("anime", *PRINT_MEDIA)],
+             overrides.cross_medium if overrides else None)
+    elif record["medium"] in PRINT_MEDIA:  # a print title's contrast is any screen title
+        pick("cross_medium", [t for t in order if pool[t]["medium"] not in PRINT_MEDIA],
              overrides.cross_medium if overrides else None)
     return chosen

@@ -83,6 +83,7 @@ def output_schema(vocab: Vocab) -> dict[str, Any]:
     moment_item = {"type": "object", "additionalProperties": False, "properties": {
         "moment_id": {"type": "string"}, "status": {"type": "string", "enum": MOMENT_STATUS},
         "season": {"type": ["integer", "null"]}, "episode": {"type": ["integer", "null"]},
+        "chapter": {"type": ["integer", "null"]}, "volume": {"type": ["integer", "null"]},   # v1.9 print
         "source_url": nullable}}
     moment_item["required"] = list(moment_item["properties"])
     signal = {"type": "object", "additionalProperties": False, "required": ["metric", "value", "source_url"],
@@ -266,10 +267,15 @@ def _brief(entry: CorpusEntry, pending: Pending, vocab: Vocab) -> list[str]:
         value = fv.get("value")
         shown = repr(value) if value is None or isinstance(value, str) else json.dumps(value, ensure_ascii=False)
         lines.append(f"{path}: {shown} {hint}")
-    lines.append(f"moments_to_locate: {len(pending.moments)} (moment_id: description; recalled season/episode)")
+    lines.append(f"moments_to_locate: {len(pending.moments)} (moment_id: description; recalled season/episode, "
+                 "or chapter/volume for a print title)")
     for m in pending.moments:
         loc = m.get("locator") or {}
-        lines.append(f"{m['moment_id']}: {m['description']}; recalled: S{loc.get('season')} E{loc.get('episode')}")
+        if loc.get("chapter") is not None or loc.get("volume") is not None:  # v1.9 print
+            recalled = f"chapter {loc.get('chapter')} volume {loc.get('volume')}"
+        else:
+            recalled = f"S{loc.get('season')} E{loc.get('episode')}"
+        lines.append(f"{m['moment_id']}: {m['description']}; recalled: {recalled}")
     return lines
 
 
@@ -415,8 +421,9 @@ def apply(pending: Pending, out: dict[str, Any], pages: dict[str, TransientText]
         m = json.loads(json.dumps(m))
         item = by_moment.get(m["moment_id"]) or {}
         status = item.get("status") if item.get("source_url") in pages else "unresolved"
-        if status == "corrected" and item.get("episode") is None:
-            status = "unresolved"
+        if status == "corrected" and item.get("episode") is None and item.get("chapter") is None \
+                and item.get("volume") is None:
+            status = "unresolved"  # a correction must place the moment (episode, or chapter/volume for print)
         status = status if status in ("confirmed", "corrected", "not_found") else "unresolved"
         if status == "not_found":
             res.dropped_moments.append(m["moment_id"])
@@ -424,7 +431,10 @@ def apply(pending: Pending, out: dict[str, Any], pages: dict[str, TransientText]
         if status == "confirmed":
             m.update(verification="web_confirmed", source_ref=item["source_url"])
         elif status == "corrected":
-            m["locator"].update(season=item.get("season"), episode=item.get("episode"))
+            placed = {"season": item.get("season"), "episode": item.get("episode")}
+            if item.get("chapter") is not None or item.get("volume") is not None:  # v1.9 print
+                placed.update(chapter=item.get("chapter"), volume=item.get("volume"))
+            m["locator"].update(placed)
             m.update(verification="web_corrected", source_ref=item["source_url"])
         else:
             m["verification"] = "unresolved"

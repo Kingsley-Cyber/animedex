@@ -356,6 +356,8 @@ class CensusEntry(StrictModel):
     set_structure: Annotated[str, VocabEnum("power_combat.set_structure")] | None = None
     story_engine: Annotated[str, VocabEnum("core.story_engine")] | None = None
     mc_archetype: Annotated[str, VocabEnum("core.mc_archetype")] | None = None
+    # v1.9: print rows carry their screen-adaptation status from the catalog (never recall)
+    adaptation: Literal["adapted", "announced", "none"] | None = None
     trust: Literal["recall"] = "recall"
     batch_id: str = Field(min_length=1)
     provenance: Provenance

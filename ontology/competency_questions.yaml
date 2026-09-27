@@ -1,7 +1,7 @@
 # Competency questions (01, spec v1.2). `requires:` lists the fields each question
 # reads: P1 lens paths (core.*, <module>.*) or record paths (<record>.<field>).
 # Every lens field, module, vocab field, and bridge concept must trace to >= 1 CQ.
-version: 1.8.0
+version: 1.9.0
 questions:
   # Gap analysis
   - id: CQ-G01
@@ -213,3 +213,8 @@ questions:
   - id: CQ-C04
     text: Which villain reveals and relations to the MC pair with which villain types, in hits vs. flops?
     requires: [character.villain.villain_type, character.villain.villain_reveal, character.villain.relation_to_mc, core.outcome]
+  # Print media (v1.9, owner instruction 2026-09-27)
+  - id: CQ-P01
+    text: Which popular print titles (manga, manhwa, webtoon, light novel) in each story-engine lane have no screen adaptation?
+    requires: [census.medium, census.adaptation, census.story_engine, census.popularity]
+

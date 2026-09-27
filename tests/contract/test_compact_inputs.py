@@ -140,7 +140,7 @@ def test_verify_brief_lists_fields_moments_and_limits():
     for expected in ["title: Ironvale Circuit", "seasons: 1, 2", "fields_to_check: 2 (path: recalled value)",
                      f"core.outcome: {outcome!r} [allowed: {' | '.join(vocab.enum('core.outcome'))}]",
                      f"core.logline_hook: {hook!r} [max 20 words]",
-                     "moments_to_locate: 1 (moment_id: description; recalled season/episode)",
+                     "moments_to_locate: 1 (moment_id: description; recalled season/episode, or chapter/volume for a print title)",
                      f"{T1}.mo.01: The courier reroutes the city grid to save a rival crew.; recalled: S1 E4",
                      "limits: at most 5 web searches (2 of them only for the outcome) and 10 page fetches"]:
         assert expected in lines, expected

@@ -25,6 +25,8 @@ class MomentLocator(StrictModel):
     episode: int | None = None
     timestamp: str | None = None
     episode_id: str | None = None
+    chapter: int | None = None   # v1.9: print titles locate by chapter and/or volume
+    volume: int | None = None
 
 
 class Moment(StrictModel):
@@ -79,6 +81,15 @@ class FailurePattern(StrictModel):
         return value
 
 
+class Adaptation(StrictModel):
+    """v1.9: a print title's screen adaptation, read from the catalog's relations (never from recall)."""
+
+    status: Literal["adapted", "announced", "none"]
+    screen_title: str | None = None
+    catalog_ref: str | None = None
+    source_ref: str | None = None
+
+
 class Outcome(StrictModel):
     """External-metric outcome record (VERIFY)."""
 
@@ -94,6 +105,7 @@ class Outcome(StrictModel):
     failure_level_source: Literal["verify", "owner", "migration"] | None = None
     # v1.8: mixed/flop only, each with a source; omitted when empty, so earlier outcomes keep their form
     failure_patterns: list[FailurePattern] = Field(default_factory=list)
+    adaptation: Adaptation | None = None   # v1.9: print titles only; omitted when null
     provenance: Provenance
 
     @field_validator("title_id")
@@ -104,6 +116,8 @@ class Outcome(StrictModel):
     @model_serializer(mode="wrap")
     def _omit_empty_patterns(self, handler: Any) -> dict[str, Any]:
         data = handler(self)
+        if data.get("adaptation") is None:
+            data.pop("adaptation", None)
         if not data.get("failure_patterns"):
             data.pop("failure_patterns", None)
         return data

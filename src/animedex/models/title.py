@@ -60,7 +60,7 @@ class CorpusEntry(StrictModel):
     def _scope_rules(self) -> CorpusEntry:
         if not self.title_id.endswith(f"_{self.year}"):
             raise ValueError("title_id must end with the first-airing year (slug + year)")
-        self.scope.check_for_format(self.format)
+        self.scope.check_for_format(self.format, self.medium)
         return self
 
 
@@ -99,7 +99,7 @@ class TitleProfileBase(StrictModel):
                 raise ValueError(f"module {m} is present but not in modules_active (omit inactive modules)")
             if m in active and not present:
                 raise ValueError(f"module {m} is active but missing")
-        self.scope.check_for_format(self.format)
+        self.scope.check_for_format(self.format, self.medium)
         return self
 
     @model_serializer(mode="wrap")

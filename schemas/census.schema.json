@@ -91,6 +91,23 @@
   "additionalProperties": false,
   "description": "v1.6 census: counts only (trust: recall). Never an atom, evidence, or ideation input.",
   "properties": {
+    "adaptation": {
+      "anyOf": [
+        {
+          "enum": [
+            "adapted",
+            "announced",
+            "none"
+          ],
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Adaptation"
+    },
     "batch_id": {
       "minLength": 1,
       "title": "Batch Id",
@@ -247,7 +264,11 @@
         "western_animation",
         "adult_animation",
         "live_action",
-        "film"
+        "film",
+        "manga",
+        "manhwa",
+        "webtoon",
+        "light_novel"
       ],
       "title": "Medium",
       "type": "string",

@@ -135,7 +135,7 @@ def test_responses_are_cached_for_thirty_days(tmp_path):
 
 def test_only_the_listed_fields_are_stored(tmp_path):
     rec = client(Api(), tmp_path, key=None).mal(101)  # Jikan's answer also carries a title, synopsis, members...
-    assert FIELDS == ("source", "mal_id", "anilist_id", "score", "scorers", "rank", "popularity", "url", "fetched_at")
+    assert FIELDS == ("source", "mal_id", "anilist_id", "score", "scorers", "rank", "popularity", "url", "fetched_at", "kind")
     assert set(rec.to_dict()) == set(FIELDS)
     [cached] = list((tmp_path / "reception").rglob("*.json"))
     assert cached.relative_to(tmp_path / "reception").as_posix() == "jikan/101.json"

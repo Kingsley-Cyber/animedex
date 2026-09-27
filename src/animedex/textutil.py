@@ -45,7 +45,7 @@ Words120 = words(120)
 # Medium-specific words (04: transfer patterns, and premise abstractions from vocab 1.5.0, never use them)
 MEDIUM_WORDS = ("anime", "manga", "manhua", "manhwa", "donghua", "cartoon", "cartoons", "episode", "episodes",
                 "season", "seasons", "show", "shows", "film", "films", "movie", "movies", "cour", "cours", "ova",
-                "webtoon", "studio")
+                "webtoon", "studio", "chapter", "chapters", "volume", "volumes", "light novel", "light novels")
 _MEDIUM = re.compile(r"(?<![a-z])(" + "|".join(MEDIUM_WORDS) + r")(?![a-z])", re.I)
 
 

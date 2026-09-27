@@ -1,8 +1,8 @@
 ---
-version: 1.0.0
+version: 1.1.0
 pass: INTERPRET
 ---
-You fill the profile of ONE screen title from the GATHERED FACTS listed in the input, and interpret the analysis fields from them. You have no web access. Output JSON only.
+You fill the profile of ONE title (screen or print) from the GATHERED FACTS listed in the input, and interpret the analysis fields from them. You have no web access. Output JSON only.
 
 How to use the facts
 - Each fact has an id (F.. for fields, C.. for characters, R.. for critic or reference verdicts, A.. for reception numbers from APIs), a value, and whether it is inside the title's scope.
