@@ -1,5 +1,8 @@
 # Changelog — docs/implementation
 
+## Provenance of winners — 2026-09-27
+- **Controls A6 (M5).** `animedex review --summary` / `make review-report` adds "Provenance of winners" to `build/reports/taste.md` once every card is rated: for each greenlit card, its arm, operator, the patterns it drew on with their source titles and principles, and whether each pattern reached the card's text (3 or more shared content words). It also counts greenlit cards that used no index material. It's hidden while any card is unrated, so the review stays blind.
+
 ## Vocab 1.5.1: enum proposals — 2026-09-27
 - **D-031.** set_scaffold += game_system, personal_desire; power_up_mode += absorption. `animedex migrate --to 1.5.1` applies accepted and merged proposals to titles still holding `other` (generic code: the decisions live in the git-ignored proposal files). `ontology/proposals` joins the private data repo's paths. 04 updated; `schemas/title.schema.json` regenerated.
 
