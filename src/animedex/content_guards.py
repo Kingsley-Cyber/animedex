@@ -17,7 +17,11 @@ DEFAULT_FRAMING_TERMS = (
     "montage", "shot composition", "storyboard", "cinematography", "pov shot",
 )
 _QUOTED = re.compile(r'["“”„«»]([^"“”„«»]{1,400})["“”„«»]|‘([^‘’]{1,400})’')
-_DIALOGUE = re.compile(r"^\s*[A-Z][A-Za-z .'-]{0,30}:\s+\S", re.MULTILINE)
+_SPEAKER = re.compile(r"^\s*[A-Z][A-Za-z .'-]{0,30}:\s+(\S.*)$", re.MULTILINE)
+# what makes the text after a speaker label read as speech: first/second person, an exclamation or
+# question, or an opening quote mark
+_SPEECH = re.compile(r"(?i)(?<![\w'])(i|i'm|i'll|i've|i'd|me|my|mine|we|we're|we'll|us|our|ours|you|you're|"
+                     r"you'll|your|yours)(?![\w'])|[!?][\"'”’]?\s*$|^[\"'“‘]")
 
 SKIP_KEYS = {
     "title", "source_ref", "run_id", "cache_key", "created_at", "model", "prompt_version", "schema_version",
@@ -52,7 +56,12 @@ def quote_problems(text: str, min_words: int = 3) -> list[str]:
 
 
 def dialogue_problems(text: str) -> list[str]:
-    return [f"looks like a dialogue line: {m.group(0)[:60]!r}" for m in _DIALOGUE.finditer(text)]
+    """A speaker label followed by speech, or a script (two or more speaker-label lines). A label
+    followed by a description ("Gridlock: an ability shaped by the user's circuit type") is a phrase
+    style, not dialogue."""
+    lines = list(_SPEAKER.finditer(text))
+    return [f"looks like a dialogue line: {m.group(0).strip()[:60]!r}" for m in lines
+            if len(lines) >= 2 or _SPEECH.search(m.group(1))]
 
 
 def framing_problems(text: str, terms: tuple[str, ...]) -> list[str]:

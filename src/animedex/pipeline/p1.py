@@ -211,7 +211,8 @@ def draft_problems(draft: dict[str, Any], entry: CorpusEntry, vocab: Vocab, thre
                     problems.append(f"{f.path}={value!r}: use a listed value or other:<phrase>")
                 if f.kind == "phrase" and word_count(value) > (f.max_words or NOTE_MAX_WORDS):
                     problems.append(f"{f.path}: has {word_count(value)} words; {LENGTH_TAG} {f.max_words} or fewer")
-                problems += [f"{f.path}: {p}" for p in quote_problems(value, guards.min_quote_words)]
+                problems += [f"{f.path}: {p}" for p in quote_problems(value, guards.min_quote_words)
+                             + dialogue_problems(value)]
                 if f.block == "sensory":
                     problems += [f"{f.path}: {p}" for p in framing_problems(value, guards.framing_terms)]
             if f.conditional and value is not None and not (fv.get("condition") or "").strip():

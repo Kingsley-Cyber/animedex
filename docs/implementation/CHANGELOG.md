@@ -1,5 +1,9 @@
 # Changelog — docs/implementation
 
+## v1.6.4 — 2026-09-27 (AC-11 dialogue heuristic precision)
+- A "Label: description" phrase (e.g. a technique name, then what it does) no longer counts as dialogue. A speaker label counts as dialogue when the text after it reads as speech (first or second person, an exclamation or question, an opening quote mark), or when a text has two or more speaker lines. Found at M2 canonicalize: 3 titles were quarantined for descriptive phrases, and the cascade held back every moment and outcome.
+- P1 phrase fields and VERIFY corrections now run the same dialogue check as the canonical boundary, so a real dialogue line is caught where it can be repaired or left unresolved.
+
 ## v1.6.3 — 2026-09-27 (owner rules: stop chasing confirmations)
 - VERIFY makes one call per title. Evidence problems never trigger a retry: they are stored as `unresolved` and counted in the verify notes (05).
 - Visual-detail fields and moment episode numbers are verified for gold titles only; other titles skip them (unresolved, no search).

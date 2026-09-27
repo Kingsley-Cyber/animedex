@@ -24,7 +24,7 @@ import httpx
 from animedex import SCHEMA_VERSION
 from animedex.budget import BudgetExceeded
 from animedex.config import Settings
-from animedex.content_guards import GuardConfig, framing_problems, quote_problems
+from animedex.content_guards import GuardConfig, dialogue_problems, framing_problems, quote_problems
 from animedex.guards import LiveRunRefused
 from animedex.models import CorpusEntry
 from animedex.ontology import LensField, Vocab
@@ -199,7 +199,7 @@ def _value_problems(path: str, value: Any, vocab: Vocab, guards: GuardConfig | N
         return [] if ok else [f"{value!r} is not an allowed value"]
     problems = [f"{cap} words max"] if word_count(str(value)) > (cap := _cap(vocab, path)) else []
     if guards is not None:
-        problems += quote_problems(str(value), guards.min_quote_words)
+        problems += quote_problems(str(value), guards.min_quote_words) + dialogue_problems(str(value))
         if path.startswith("sensory."):
             problems += framing_problems(str(value), guards.framing_terms)
     return problems
