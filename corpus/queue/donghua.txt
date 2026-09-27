@@ -1,0 +1,12 @@
+# DONGHUA (Kingsley, 2026-09-27). Runs only after the donghua ontology change lands (medium
+# `donghua`, source_medium `manhua`). Census right away once it lands; deep-index after priority 1.
+Link Click
+Lord of Mysteries
+To Be Hero X
+Scissor Seven
+Fog Hill of Five Elements
+Heaven Official's Blessing
+Mo Dao Zu Shi
+Soul Land
+Battle Through the Heavens
+A Record of a Mortal's Journey to Immortality
