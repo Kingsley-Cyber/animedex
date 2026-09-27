@@ -61,18 +61,20 @@ def output_schema(atom_ids: list[str], partners: list[dict[str, str]]) -> dict[s
 def _atom_lines(atom: dict[str, Any]) -> str:
     if atom["atom_kind"] == "effect":
         e = atom["effect"]
-        return (f"- {atom['atom_id']} (effect): {e['element']} -> {e['feeling']}; because: {e['because']}; "
-                f"rival: {e['rival_because']}")
+        return (f"{atom['atom_id']}: effect; element: {e['element']}; feeling: {e['feeling']}; "
+                f"because: {e['because']}; rival: {e['rival_because']}")
     g = atom["engine"]
-    return (f"- {atom['atom_id']} (engine): {g['agent']} wants {g['goal']} but {g['constraint']}; strategy "
-            f"{g['strategy']}; benefit {g['benefit']}; cost {g['cost']}; dilemma {g['dilemma']}")
+    return (f"{atom['atom_id']}: engine; agent: {g['agent']}; goal: {g['goal']}; constraint: {g['constraint']}; "
+            f"strategy: {g['strategy']}; benefit: {g['benefit']}; cost: {g['cost']}; dilemma: {g['dilemma']}")
 
 
 def render_user(record: dict[str, Any], atoms: list[dict[str, Any]], partners: list[dict[str, str]],
                 titles: dict[str, dict[str, Any]], vocab: Vocab) -> str:
-    lines = ["TITLE", *render_profile(record, vocab, verification=False), "", "ATOMS", *map(_atom_lines, atoms)]
+    """The title's profile and atoms, then each partner (`partner: id; role: r`) and its profile:
+    `key: value` lines (compact context, v1.7 §3)."""
+    lines = [*render_profile(record, vocab, verification=False), f"atoms: {len(atoms)}", *map(_atom_lines, atoms)]
     for p in partners:
-        lines += ["", f"PARTNER {p['title_id']} (role: {p['role']})",
+        lines += [f"partner: {p['title_id']}; role: {p['role']}",
                   *render_profile(titles[p["title_id"]], vocab, verification=False)]
     return "\n".join(lines)
 

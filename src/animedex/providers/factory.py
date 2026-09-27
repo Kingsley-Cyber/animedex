@@ -37,6 +37,8 @@ def build_provider(
         raise ProviderConfigError(f"unknown provider profile {name!r}")
     if profile.type == "mock":
         return MockProvider(name)
+    if profile.type == "polymath_embedder":
+        raise ProviderConfigError(f"providers.{name} serves embeddings only (animedex.embeddings.base.build_embedder)")
     if profile.type == "claude_cli":  # subscription login; no key is read or passed (G1a)
         return ClaudeCliProvider(name, binary=profile.binary or "claude", send_params=profile.send_params,
                                  timeout_s=profile.timeout_s, runner=runner)

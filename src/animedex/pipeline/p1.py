@@ -349,7 +349,7 @@ def shorten_phrases(client: LLMClient, entry: CorpusEntry, draft: dict[str, Any]
 
     ctx = CallContext(pass_="P1", record_id=f"{entry.title_id}.shorten", title_id=entry.title_id,
                       upstream=upstream_hash([{"shorten": targets}]))
-    done = client.complete_ex(SHORTEN_SYSTEM, "\n".join(f"- {p}: {t} [max {caps[p]} words]" for p, t in targets),
+    done = client.complete_ex(SHORTEN_SYSTEM, "\n".join(f"{p}: {t} [max {caps[p]} words]" for p, t in targets),
                               schema, params, ctx=ctx,
                               validate=check)
     out = json.loads(json.dumps(draft))

@@ -1,4 +1,4 @@
-.PHONY: validate build clean-build test eval smoke schemas lint ideas packet analyze backfill census review batch status timing data-push data-pull
+.PHONY: validate build clean-build test eval smoke schemas lint ideas packet analyze backfill census review batch status timing recalibrate data-push data-pull
 
 UV ?= uv
 RUN = $(UV) run
@@ -48,6 +48,9 @@ review:
 
 timing:
 	$(RUN) animedex timing
+
+recalibrate:
+	$(RUN) animedex recalibrate $(if $(PAIRS),--pairs $(PAIRS),)
 
 batch:
 	$(RUN) animedex batch start $(FILE)

@@ -75,7 +75,8 @@ def output_schema(vocab: Vocab, modules: list[str]) -> dict[str, Any]:
 
 
 def render_user(record: dict[str, Any], moments: list[dict[str, Any]], vocab: Vocab) -> str:
-    return "\n".join(render_profile(record, vocab) + ["", "Moments:", *render_moments(moments)])
+    """The verified profile, then its moments: `key: value` lines (compact context, v1.7 §3)."""
+    return "\n".join(render_profile(record, vocab) + render_moments(moments))
 
 
 def _support() -> dict[str, Any]:

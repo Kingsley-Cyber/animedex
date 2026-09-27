@@ -1,0 +1,93 @@
+# Premise pairs for `make recalibrate` (v1.7 §2): the clone gate's premise-cosine threshold is proposed from
+# how the configured embedder scores these pairs. Every premise is abstract, original and name-free: written
+# for this file, with no titles, no character or place names, and no text copied from anywhere.
+#
+# similar:   two phrasings of ONE premise. The clone gate must catch these.
+# different: two genuinely different premises. The gate must let these through. Half of them share a
+#            setting or role with the other premise (hard cases); the rest are unrelated.
+# The recommendation sits between the lowest similar score and the highest different score.
+version: 1
+
+similar:
+  - id: s01
+    note: memory-for-power courier, reworded
+    a: A courier can trade her memories for bursts of power, and each delivery that keeps the city running costs her another piece of her past.
+    b: Every time the messenger spends one of her memories she gains strength, so keeping the city supplied slowly erases who she was.
+  - id: s02
+    note: the loser who absorbs the winner, reworded
+    a: At an academy where students gain magic by winning ranked duels, the lowest-ranked student learns she absorbs the power of anyone who beats her.
+    b: In a school that hands out power by duel ranking, the student at the very bottom discovers that every defeat lets her take her opponent's strength.
+  - id: s03
+    note: the keeper who sees debts to the sea, reworded
+    a: A lighthouse keeper can see the debt every sailor owes the sea, and when storms come she must choose whose debt is collected.
+    b: The keeper of a coastal light perceives what each fisher owes the ocean, and every storm forces her to decide who pays.
+  - id: s04
+    note: borrowed-skill meals, reworded with a changed detail
+    a: A disgraced cook makes dishes that lend the diner a stranger's skill for one day, and a crime syndicate wants him as its only supplier.
+    b: A fallen chef's meals let whoever eats them borrow someone else's talent until sunrise, drawing a gang that wants exclusive access to his kitchen.
+  - id: s05
+    note: negotiating with voice thieves, reworded
+    a: When creatures steal the voices of an entire nation, a sign-language interpreter becomes the only person able to negotiate with them.
+    b: After monsters take away everyone's ability to speak, a translator who works in sign is the one human the creatures will bargain with.
+  - id: s06
+    note: the dying veteran who mends rookies' gear, reworded
+    a: A retired champion repairs weapons for young fighters in a back-alley workshop while hiding that using his own power is slowly killing him.
+    b: A former hero quietly mends rookies' gear from his small shop, concealing that each time he fights, his ability eats away at his life.
+  - id: s07
+    note: children of feuding shift-farmers, reworded
+    a: Two feuding families share one farm in day and night shifts, and their children build a secret friendship through objects left in the barn.
+    b: Rival households split a single farm into daytime and nighttime turns; their kids never meet but trade messages by leaving things in the barn.
+  - id: s08
+    note: the rigged card election, reworded
+    a: A town chooses its leader through a card tournament, and a small-time hustler enters to prove the deck has been rigged for decades.
+    b: In a city where the mayor is whoever wins the card championship, a street con artist joins the contest to expose that the game is fixed.
+  - id: s09
+    note: the lie-powered ghost and the credulous detective, reworded
+    a: A ghost can touch the living world only while someone nearby is lying, so she partners with a detective who cannot tell when he is being deceived.
+    b: A spirit able to move objects only when a lie is spoken teams up with an investigator who has no instinct for spotting lies.
+  - id: s10
+    note: plants that overhear a mutiny, reordered and reworded
+    a: On an orbital station, the gardener's plants remember every word spoken near them, and she uncovers a planned mutiny by listening to her ferns.
+    b: A space-station botanist finds that her greenhouse records conversations, and the crew talk it overheard reveals an uprising in the making.
+
+different:
+  - id: d01
+    note: same role and city, different engine (hard)
+    a: A courier can trade her memories for bursts of power, and each delivery that keeps the city running costs her another piece of her past.
+    b: Rival courier crews race across a flooded city for a contract that decides which guild controls the canals.
+  - id: d02
+    note: same school of magic, different premise (hard)
+    a: At an academy where students gain magic by winning ranked duels, the lowest-ranked student learns she absorbs the power of anyone who beats her.
+    b: A teacher at a school of magic hides that she has no power of her own while she grades her students' abilities.
+  - id: d03
+    note: same sea and storms, different premise (hard)
+    a: A lighthouse keeper can see the debt every sailor owes the sea, and when storms come she must choose whose debt is collected.
+    b: A family of salvage divers searches sunken ships for a lost chart before storm season closes the harbor for good.
+  - id: d04
+    note: same world of cooks, different premise (hard)
+    a: A disgraced cook makes dishes that lend the diner a stranger's skill for one day, and a crime syndicate wants him as its only supplier.
+    b: A food critic who has lost her sense of taste must judge a national cooking contest without anyone finding out.
+  - id: d05
+    note: same world of heroes, different premise (hard)
+    a: A retired champion repairs weapons for young fighters in a back-alley workshop while hiding that using his own power is slowly killing him.
+    b: A trainee hero discovers that the agency ranking heroes quietly stages the disasters they are sent to stop.
+  - id: d06
+    note: unrelated
+    a: A ghost can touch the living world only while someone nearby is lying, so she partners with a detective who cannot tell when he is being deceived.
+    b: A mountain village holds a yearly race whose winner's wish comes true, and a girl with a broken leg enters anyway.
+  - id: d07
+    note: unrelated
+    a: Two feuding families share one farm in day and night shifts, and their children build a secret friendship through objects left in the barn.
+    b: An android caretaker must choose between her programmed loyalty to a family and the child who begs her to run away with him.
+  - id: d08
+    note: unrelated
+    a: A town chooses its leader through a card tournament, and a small-time hustler enters to prove the deck has been rigged for decades.
+    b: Two soldiers from opposing armies are trapped in a collapsed tunnel and must dig their way out together before either side finds them.
+  - id: d09
+    note: same outer-space setting, different premise (hard)
+    a: On an orbital station, the gardener's plants remember every word spoken near them, and she uncovers a planned mutiny by listening to her ferns.
+    b: A miner stranded on an asteroid trains a colony of insects to build a radio beacon before her air runs out.
+  - id: d10
+    note: voices and a cost paid in years; different premise
+    a: When creatures steal the voices of an entire nation, a sign-language interpreter becomes the only person able to negotiate with them.
+    b: A choir of orphans discovers that their singing holds back a creeping fog, but every song ages them by a year.

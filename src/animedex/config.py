@@ -24,7 +24,7 @@ class ProviderProfile(BaseModel):
     """An adapter plus its endpoint. `models.<pass>.provider` names one of these."""
 
     model_config = ConfigDict(extra="forbid")
-    type: Literal["openai_compatible", "anthropic", "mock", "claude_cli", "codex_cli"]
+    type: Literal["openai_compatible", "anthropic", "mock", "claude_cli", "codex_cli", "polymath_embedder"]
     binary: str | None = None  # CLI providers: executable name or path
     base_url: str | None = None
     base_url_env: str | None = None
@@ -42,6 +42,8 @@ class ModelSpec(BaseModel):
     model: str
     params: dict[str, Any] = Field(default_factory=dict)
     strict_model: bool = False  # refuse any response served by a different model (CHECK, judge)
+    # embeddings only (v1.7): the backend used when the primary isn't ready; one backend per run
+    fallback: ModelSpec | None = None
 
 
 # Model slots each milestone needs live (smoke readiness checks only these).
@@ -132,6 +134,16 @@ def live_problems(settings: Settings, env: dict[str, str], model_keys: list[str]
         if profile.type in CLI_TYPES:
             uses_cli = True
             continue  # subscription login, no key or pricing; checked by `animedex smoke`
+        if spec.fallback is not None:
+            fallback = settings.providers.get(spec.fallback.provider)
+            if fallback is None:
+                problems.append(f"models.{key}.fallback.provider: unknown provider profile {spec.fallback.provider!r}")
+            elif fallback.type != "mock" and not resolve_base_url(fallback, env):
+                problems.append(f"providers.{spec.fallback.provider}: set base_url for the {key} fallback")
+        if profile.type == "polymath_embedder":  # a local sidecar: no key, no pricing, no dollar caps
+            if not resolve_base_url(profile, env):
+                problems.append(f"providers.{spec.provider}: set base_url")
+            continue
         uses_api = True
         if profile.api_key_env and not env.get(profile.api_key_env):
             problems.append(f"providers.{spec.provider}: set {profile.api_key_env} in .env")

@@ -210,7 +210,7 @@ def test_native_mode_cites_only_urls_the_call_retrieved(repo):
     result, mock, _ = verify_native(repo, {("VERIFY", TID): [bad]}, {FACTS, EPISODES, RATINGS})
     assert len(mock.calls) == 1  # no retry: the uncited answer is stored as unresolved
     assert any("cite a URL your searches returned or you opened in this session" in n for n in result.titles[0].notes)
-    assert "Limits: at most" in mock.calls[0]["user"] and "Pages:" not in mock.calls[0]["user"]
+    assert "\nlimits: at most" in mock.calls[0]["user"] and "\npages:" not in mock.calls[0]["user"]  # key: value input
     web = mock.params[0]["web"]
     assert web["max_turns"] == web["max_searches"] + web["max_fetches"] + 2 and web["outcome_extra"] == 2
     [r] = result.titles
@@ -367,4 +367,4 @@ def test_outcome_only_rechecks_canonical_outcomes_and_writes_only_outcomes(repo)
     assert (repo.candidates / "verify" / f"{TID}.outcome.result.json").is_file()
     [outcome] = read_jsonl(repo.candidates / "outcome" / f"{TID}.jsonl")
     assert outcome["failure_level"] == "execution"
-    assert "Fields to check" in mock.calls[0]["user"] and "core.outcome" in mock.calls[0]["user"]
+    assert "\nfields_to_check: 1 " in mock.calls[0]["user"] and "\ncore.outcome: " in mock.calls[0]["user"]

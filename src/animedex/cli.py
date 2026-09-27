@@ -311,7 +311,7 @@ def _ideate_clients(paths: Any, settings: Any, keys: tuple[str, ...]) -> tuple[d
 @app.command()
 def ideate(generations: int = typer.Option(None, "--generations", help="Default: ideate.generations")) -> None:
     """IDEATE: MAP-Elites idea cards -> data/canonical/ideas.jsonl and build/reports/ideas.md."""
-    from animedex.embeddings.base import build_embedder
+    from animedex.embeddings.base import EmbedderUnavailable, build_embedder
     from animedex.ideate.report import write_report
     from animedex.ideate.run import run_ideate
     from animedex.ontology import get_vocab
@@ -319,8 +319,14 @@ def ideate(generations: int = typer.Option(None, "--generations", help="Default:
 
     paths = _paths()
     settings, vocab = load_settings(paths), get_vocab(paths)
+    try:  # one embeddings backend for the whole run (v1.7): Polymath's embedder, else the Ollama copy
+        embedder = build_embedder(settings, environment(paths))
+    except EmbedderUnavailable as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(1) from exc
+    typer.echo(f"embeddings: {embedder.name}")
     clients, runlog = _ideate_clients(paths, settings, ("ideate_generate", "ideate_judge", "prior_art"))
-    result = run_ideate(paths, settings, vocab, clients=clients, embedder=build_embedder(settings, environment(paths)),
+    result = run_ideate(paths, settings, vocab, clients=clients, embedder=embedder,
                         run_id=new_run_id(), generations=generations)
     runlog.write_ledger()
     write_report(paths)
@@ -511,6 +517,33 @@ def timing() -> None:
     out, calls = write_report(paths.raw_runs, paths.root / "build" / "reports" / "timing.md")
     typer.echo(out.read_text(encoding="utf-8"))
     typer.echo(f"written to {out.relative_to(paths.root)} ({len(calls)} live calls)")
+
+
+@app.command()
+def recalibrate(pairs: str = typer.Option(None, "--pairs", help="Pairs file (default: eval/recalibration/pairs.yaml).")
+                ) -> None:
+    """Score known premise pairs with the embedder and propose clone thresholds -> build/reports/recalibration.md.
+    Proposes only: config/settings.yaml is never changed."""
+    from pathlib import Path
+
+    from animedex.embeddings.base import EmbedderUnavailable
+    from animedex.embeddings.recalibrate import run_recalibration
+
+    paths = _paths()
+    settings = load_settings(paths)
+    try:
+        result = run_recalibration(paths, settings, environment(paths), pairs_file=Path(pairs) if pairs else None)
+    except EmbedderUnavailable as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(1) from exc
+    except (OSError, ValueError) as exc:
+        typer.echo(f"pairs file: {exc}", err=True)
+        raise typer.Exit(2) from exc
+    summary = result.summary()
+    typer.echo(summary[0])
+    for line in [*result.pair_lines(), *summary[1:]]:
+        typer.echo(line)
+    typer.echo(f"report -> {result.report.relative_to(paths.root)}")
 
 
 @app.command()

@@ -57,10 +57,16 @@ def output_schema(atom_ids: list[str], bridge_names: list[str]) -> dict[str, Any
 def _atom_text(a: dict[str, Any]) -> str:
     if a["atom_kind"] == "effect":
         e = a["effect"]
-        return f"- {a['atom_id']} (effect): {e['element']} -> {e['feeling']}, because {e['because']}"
+        return f"{a['atom_id']}: effect; element: {e['element']}; feeling: {e['feeling']}; because: {e['because']}"
     g = a["engine"]
-    return (f"- {a['atom_id']} (engine): {g['agent']} wants {g['goal']} but {g['constraint']}; chooses {g['strategy']}; "
-            f"gets {g['benefit']}, pays {g['cost']}; dilemma: {g['dilemma']}; question: {g['dramatic_question']}")
+    return (f"{a['atom_id']}: engine; agent: {g['agent']}; goal: {g['goal']}; constraint: {g['constraint']}; "
+            f"strategy: {g['strategy']}; benefit: {g['benefit']}; cost: {g['cost']}; dilemma: {g['dilemma']}; "
+            f"dramatic_question: {g['dramatic_question']}")
+
+
+def render_user(atoms: dict[str, dict[str, Any]]) -> str:
+    """`atoms: N`, then one `atom_id: kind; part: value; ...` line per atom (compact context, v1.7 §3)."""
+    return "\n".join([f"atoms: {len(atoms)}", *(_atom_text(atoms[a]) for a in sorted(atoms))])
 
 
 def assemble(out: dict[str, Any], atoms: dict[str, dict[str, Any]], prov: dict[str, Any]) -> list[dict[str, Any]]:
@@ -127,8 +133,7 @@ def run_p4(paths: Paths, title_ids: list[str], client: LLMClient, vocab: Vocab, 
         def check(out: dict[str, Any], _a: dict = atoms) -> None:
             raise_problems(output_problems(out, _a, names, guards, vocab))
 
-        call = guarded_call(result, paths, "P4", "transfer", tid, client, prompt.system,
-                            "ATOMS\n" + "\n".join(_atom_text(atoms[a]) for a in sorted(atoms)),
+        call = guarded_call(result, paths, "P4", "transfer", tid, client, prompt.system, render_user(atoms),
                             output_schema(sorted(atoms), bridge_names), upstream=upstream_hash(list(atoms.values())),
                             validate=check)
         if call.stop:
