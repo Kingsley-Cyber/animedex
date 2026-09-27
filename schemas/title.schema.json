@@ -6819,6 +6819,7 @@
                   "awakening",
                   "partnership_mode",
                   "domain",
+                  "absorption",
                   "other"
                 ],
                 "type": "string",
@@ -7224,6 +7225,8 @@
             "cultural_reference",
             "semantic_domain",
             "elemental",
+            "game_system",
+            "personal_desire",
             "none",
             "other",
             null

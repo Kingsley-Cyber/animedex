@@ -1,5 +1,7 @@
 # Changelog — docs/implementation
 
+## Vocab 1.5.1: enum proposals — 2026-09-27
+- **D-031.** set_scaffold += game_system, personal_desire; power_up_mode += absorption. `animedex migrate --to 1.5.1` applies accepted and merged proposals to titles still holding `other` (generic code: the decisions live in the git-ignored proposal files). `ontology/proposals` joins the private data repo's paths. 04 updated; `schemas/title.schema.json` regenerated.
 ## Census uses the corpus's value tests — 2026-09-27
 - **D-038.** The census system prompt now carries the one-sentence value tests from `vocab.json` for its fields that have them (gate, cost_of_power, progression, visible_counter), so census counts and corpus profiles share one definition of each value. The prompt version records the vocab version (`1.1.0+tests-<vocab>`). The mock provider records the system prompt it was sent.
 

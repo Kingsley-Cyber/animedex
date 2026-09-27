@@ -25,13 +25,14 @@ V18_ENUMS = {
                                    "unique_to_few", "none", "other"],
     "power_combat.subset_mechanics": ["specialization", "combination", "forbidden_art", "bloodline", "legendary_unlock",
                                       "none"],
-    "power_combat.set_scaffold": ["arbitrary", "cultural_reference", "semantic_domain", "elemental", "none", "other"],
+    "power_combat.set_scaffold": ["arbitrary", "cultural_reference", "semantic_domain", "elemental",
+                                  "game_system", "personal_desire", "none", "other"],   # + D-031 (1.5.1)
     "power_combat.member_depth": ["label_only", "ability_only", "identity_with_history"],
     "power_combat.world_integration": ["decorative", "social_structure", "economic", "political_geography",
                                        "cosmological", "other"],
     "power_combat.rarity": ["universal", "common", "rare", "unique_to_mc"],
     "power_combat.power_up_mode": ["none", "staged_forms", "temporary_boost", "awakening", "partnership_mode", "domain",
-                                   "other"],
+                                   "absorption", "other"],   # + D-031 (1.5.1)
     "power_combat.fight_logic": ["power_level", "type_counters", "rules_exploitation", "strategy_information",
                                  "emotional_surge", "sacrifice", "other"],
     "core.story_engine": ["tournament", "journey_quest", "ladder_climb", "investigation", "war_campaign",
@@ -97,7 +98,7 @@ def test_every_grid_value_has_a_one_sentence_discrimination_test():
 
 def test_the_leads_enum_decisions_are_applied_exactly():
     vocab = get_vocab()
-    assert vocab.version == "1.5.0"
+    assert vocab.version == "1.5.1"  # 1.5.1 (D-031) only added enum values
     assert vocab.enum("power_combat.cost_of_power") == (
         "physical_toll", "lifespan", "memory", "identity_or_humanity", "relationships", "resource", "moral",
         "self_imposed_restriction", "imposed_penalty", "none", "other")

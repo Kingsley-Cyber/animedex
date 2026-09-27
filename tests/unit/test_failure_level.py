@@ -64,3 +64,35 @@ def test_migration_also_fixes_waiting_candidates(repo):
     [row] = [json.loads(x) for x in (repo.candidates / "outcome" / "glass_meridian_2016.jsonl").read_text().splitlines()]
     assert row["failure_level"] == "unknown" and row["failure_level_source"] == "migration"
 
+
+
+def test_resolved_proposals_replace_only_a_still_open_other(repo):
+    """1.5.1 (D-031): accepted or merged proposals land where the title still holds `other`."""
+    import json
+
+    from animedex.migrations import migrate_1_5_1
+
+    title = synthetic_state()["title"][0]
+    tid = title["title_id"]
+    title["power_combat"]["set_scaffold"]["value"] = "other"
+    title["power_combat"]["power_up_mode"]["value"] = ["temporary_boost", "other"]
+    title["core"]["mc_archetype"]["value"] = "prodigy"  # a later run already answered: left alone
+    (repo.canonical / "titles.jsonl").write_text(json.dumps(title, sort_keys=True) + "\n")
+
+    def proposal(field, proposed, status, resolution, path):
+        folder = repo.proposals / field
+        folder.mkdir(parents=True, exist_ok=True)
+        (folder / f"{proposed}.json").write_text(json.dumps({
+            "field": field, "proposed": proposed, "status": status, "resolution": resolution,
+            "examples": [{"record_type": "title", "record_id": tid, "path": path, "run_id": "run_x"}]}))
+
+    proposal("power_combat.set_scaffold", "game classes", "accepted", "game_system", "power_combat.set_scaffold.value")
+    proposal("power_combat.power_up_mode", "a vow", "merged", "temporary_boost", "power_combat.power_up_mode.value.1")
+    proposal("core.mc_archetype", "wild child", "merged", "underdog", "core.mc_archetype.value")
+    proposal("core.setting_type", "an island", "kept_other", None, "core.setting_type.value")
+    assert migrate_1_5_1(repo, "run_m") == [tid]
+    [row] = [json.loads(line) for line in (repo.canonical / "titles.jsonl").read_text().splitlines()]
+    assert row["power_combat"]["set_scaffold"]["value"] == "game_system"
+    assert row["power_combat"]["power_up_mode"]["value"] == ["temporary_boost"]  # already listed: other dropped
+    assert row["core"]["mc_archetype"]["value"] == "prodigy"
+    assert migrate_1_5_1(repo, "run_m2") == []  # idempotent

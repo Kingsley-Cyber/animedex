@@ -120,7 +120,7 @@ def test_off_vocab_members_reach_proposals_through_canonicalize(repo):
     assert out.written["title"] == ["ironvale_circuit_2021"]
     stored = read_jsonl(repo.canonical / "titles.jsonl")[0]
     assert stored["core"]["core_fantasy"]["value"] == ["other", "mastery"]
-    assert stored["provenance"]["vocab_version"] == "1.5.0" and "story_engine" in stored["core"]
+    assert stored["provenance"]["vocab_version"] == get_vocab().version and "story_engine" in stored["core"]
     assert any("quiet_competence" in p.name for p in out.proposals)
 
 
