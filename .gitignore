@@ -53,3 +53,5 @@ data/commentary/
 # operate tools (request A): private job records and title queues
 data/jobs/
 data/queue/
+# light path (2026-09-27): the notes index is private (mirrored to the data repo)
+notes/

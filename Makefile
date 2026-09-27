@@ -43,6 +43,12 @@ audit:
 audit-report:
 	$(RUN) animedex audit-report
 
+ingest:
+	$(RUN) animedex ingest --list $(LIST)
+
+quick:
+	$(RUN) animedex quick --seed "$(SEED)" $(if $(SHOWS),--shows "$(SHOWS)",) $(if $(N),--n $(N),)
+
 diagnose:
 	$(RUN) animedex diagnose $(if $(FILE),--file "$(FILE)",) $(if $(TEXT),--text "$(TEXT)",)
 

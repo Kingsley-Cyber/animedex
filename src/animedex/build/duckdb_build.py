@@ -296,6 +296,20 @@ def _census(s: State, v: Vocab) -> list[Row]:
             for c in s.get("census", [])]
 
 
+def _notes(s: State, v: Vocab) -> list[Row]:
+    """The light path's index (notes/<slug>.json): one row per note; fields the notes lack are absent by design."""
+    rows = []
+    for n in s.get("notes", []):
+        oc, kit = n.get("outcome") or {}, n.get("power_kit") or {}
+        rows.append((n["slug"], n.get("title"), n.get("year"), n.get("medium"), n.get("format"), oc.get("label"),
+                     oc.get("anilist_score"), oc.get("popularity"), (oc.get("adaptation") or {}).get("status"),
+                     *(n.get(k) for k in ("gate", "cost_of_power", "progression", "visible_counter", "fight_medium",
+                                          "story_engine")),
+                     n.get("premise"), n.get("mc_edge"), kit.get("medium"), n.get("villain_type"), n.get("setting"),
+                     _j([sr.get("url") for sr in n.get("sources") or []]), (n.get("provenance") or {}).get("note_version")))
+    return rows
+
+
 def _archive(s: State, v: Vocab) -> list[Row]:
     return [(a["cell_key"], a["idea_id"], _j(a["fitness"]), a.get("replaced_idea_id"), a["generation"])
             for a in s.get("archive", [])]
@@ -366,6 +380,9 @@ TABLES: tuple[Table, ...] = (
     Table("census", _cols("census_id title year:i medium format popularity:i has_power_system:b gate cost_of_power "
                           "progression visible_counter fight_medium power_is borrowed_system set_structure "
                           "story_engine mc_archetype adaptation"), _census),
+    Table("notes", _cols("slug title year:i medium format outcome anilist_score:i popularity:i adaptation gate "
+                         "cost_of_power progression visible_counter fight_medium story_engine premise mc_edge "
+                         "power_medium villain_type setting sources note_version"), _notes),
 )
 
 VIEWS: tuple[tuple[str, str], ...] = (
@@ -395,8 +412,11 @@ VIEWS: tuple[tuple[str, str], ...] = (
 )
 
 
-def load_state(canonical: Path) -> State:
-    return {name: read_jsonl(canonical / rt.file) for name, rt in RECORD_TYPES.items()}
+def load_state(canonical: Path, notes_dir: Path | None = None) -> State:
+    state: State = {name: read_jsonl(canonical / rt.file) for name, rt in RECORD_TYPES.items()}
+    state["notes"] = ([json.loads(f.read_text(encoding="utf-8")) for f in sorted(notes_dir.glob("*.json"))
+                       if not f.name.startswith("_")] if notes_dir and notes_dir.is_dir() else [])
+    return state
 
 
 def _hash_relation(con: duckdb.DuckDBPyConnection, name: str) -> str:
@@ -415,13 +435,13 @@ def _csv(con: duckdb.DuckDBPyConnection, name: str) -> str:
     return buf.getvalue()
 
 
-def build_into(out_dir: Path, canonical: Path, vocab: Vocab) -> dict[str, str]:
+def build_into(out_dir: Path, canonical: Path, vocab: Vocab, notes_dir: Path | None = None) -> dict[str, str]:
     """Build the database, exports, and hashes into `out_dir`; return the hashes."""
     out_dir.mkdir(parents=True, exist_ok=True)
     db_path = out_dir / "animedex.duckdb"
     for stale in (db_path, out_dir / "animedex.duckdb.wal"):
         stale.unlink(missing_ok=True)
-    state = load_state(canonical)
+    state = load_state(canonical, notes_dir)
     con = duckdb.connect(str(db_path))
     try:
         con.execute("SET threads = 1")
@@ -447,7 +467,7 @@ def build_into(out_dir: Path, canonical: Path, vocab: Vocab) -> dict[str, str]:
 
 
 def build(paths: Paths) -> dict[str, str]:
-    return build_into(paths.build, paths.canonical, get_vocab(paths))
+    return build_into(paths.build, paths.canonical, get_vocab(paths), paths.notes)
 
 
 def verify_determinism(paths: Paths) -> tuple[bool, dict[str, tuple[str, str]]]:

@@ -99,9 +99,16 @@ CQ_RECORD_FIELDS: tuple[str, ...] = (
 )
 
 
+# Light path (2026-09-27): the notes index is not a canonical record type; the CQs that read it name these paths.
+NOTE_PATHS = tuple(f"notes.{k}" for k in (
+    "slug", "title", "year", "medium", "format", "outcome", "anilist_score", "popularity", "adaptation", "gate",
+    "cost_of_power", "progression", "visible_counter", "fight_medium", "story_engine", "premise", "mc_edge",
+    "power_medium", "villain_type", "setting", "sources"))
+
+
 def record_paths() -> set[str]:
     """Every addressable field path, as `<record>.<dotted.path>` (used to check CQ `requires:`)."""
-    out: set[str] = set()
+    out: set[str] = set(NOTE_PATHS)
     for rt in RECORD_TYPES.values():
         schema = rt.model.model_json_schema(by_alias=True)
         _walk(schema, schema.get("$defs", {}), rt.name, out)

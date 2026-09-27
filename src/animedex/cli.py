@@ -563,6 +563,70 @@ def audit_report() -> None:
 
 
 @app.command()
+def ingest(list_file: str = typer.Option(..., "--list", help="A text file, one show per line; (year) or (manga) hints as in backfill.")
+           ) -> None:
+    """Light path: one Sonnet call with web per three shows writes notes/<slug>.json (shows with a note are skipped)."""
+    from pathlib import Path as _P
+
+    from animedex.catalog.anilist import AniList
+    from animedex.catalog.backfill import read_list
+    from animedex.catalog.resolve import TvMaze, resolve
+    from animedex.light.catalog import catalog_numbers
+    from animedex.light.ingest import run_ingest
+    from animedex.ontology import get_vocab
+    from animedex.providers.factory import build_client
+    from animedex.store.runlog import RunLog, new_run_id
+
+    paths = _paths()
+    settings, vocab = load_settings(paths), get_vocab(paths)
+    lines = read_list(_P(list_file))
+    anilist, tv = AniList(cache_dir=paths.cache / "anilist"), TvMaze()
+    runlog = RunLog(paths.raw_runs, new_run_id())
+    client = build_client("notes", paths=paths, settings=settings, env=environment(paths), runlog=runlog,
+                          prompt_version="unset")
+    result = run_ingest(paths, settings, vocab, lines, client=client, resolve=lambda line: resolve(anilist, line, tvmaze=tv),
+                        numbers=lambda res: catalog_numbers(anilist, res), run_id=runlog.run_id, echo=typer.echo)
+    runlog.write_ledger()
+    for line in result.lines():
+        typer.echo(line)
+    if result.stopped:
+        raise typer.Exit(3)
+
+
+@app.command()
+def quick(seed: str = typer.Option(..., "--seed", help="A concept, a fight image, or a lane."),
+          shows: str = typer.Option(None, "--shows", help="Shows to measure against, comma-separated (else research picks 3-5)."),
+          n: int = typer.Option(None, "--n", help="Cards to write (default quick.cards)")) -> None:
+    """Light path: research (if needed), generate, check, prior art = at most 4 calls -> build/quick/<timestamp>.md (private)."""
+    from animedex.budget import Budget
+    from animedex.catalog.anilist import AniList
+    from animedex.catalog.resolve import TvMaze, resolve
+    from animedex.light.catalog import catalog_numbers
+    from animedex.light.quick import QuickError, parse_shows, quick_config, run_quick
+    from animedex.ontology import get_vocab
+
+    paths = _paths()
+    settings, vocab = load_settings(paths), get_vocab(paths)
+    cfg = quick_config(settings)
+    budget = Budget.from_settings(settings)
+    budget.calls_per_run = int(cfg.get("calls_per_run", 8))
+    clients, runlog = _ideate_clients(paths, settings, ("notes", "ideate_generate", "ideate_judge"), budget=budget)
+    anilist, tv = AniList(cache_dir=paths.cache / "anilist"), TvMaze()
+    try:
+        result = run_quick(paths, settings, vocab, seed=seed, shows=parse_shows(shows), n=int(n or cfg.get("cards", 6)),
+                           clients=clients, resolve=lambda line: resolve(anilist, line, tvmaze=tv),
+                           numbers=lambda res: catalog_numbers(anilist, res), run_id=runlog.run_id, echo=typer.echo)
+    except QuickError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(1) from exc
+    runlog.write_ledger()
+    for line in result.lines():
+        typer.echo(line)
+    if result.stopped:
+        raise typer.Exit(3)
+
+
+@app.command()
 def diagnose(file: str = typer.Option(None, "--file", help="A text file holding your concept."),
              text: str = typer.Option(None, "--text", help="Your concept, pasted in quotes.")) -> None:
     """Check your own concept: structure it into a card, run every gate, the judge and an ablation pass;
@@ -572,6 +636,8 @@ def diagnose(file: str = typer.Option(None, "--file", help="A text file holding 
     from animedex.budget import Budget
     from animedex.embeddings.base import build_embedder
     from animedex.ideate.diagnose import DiagnoseError, run_diagnose
+    from animedex.light.diagnose import run_diagnose_light
+    from animedex.light.notes import read_notes
     from animedex.ontology import get_vocab
 
     if bool(file) == bool(text):
@@ -585,8 +651,12 @@ def diagnose(file: str = typer.Option(None, "--file", help="A text file holding 
     clients, runlog = _ideate_clients(paths, settings, ("ideate_generate", "ideate_judge"), budget=budget)
     embedder = build_embedder(settings, environment(paths))
     try:
-        result = run_diagnose(paths, settings, vocab, text=concept, clients=clients, run_id=runlog.run_id,
-                              embedder=embedder, source="file" if file else "text")
+        if read_notes(paths):   # light path (owner instruction 2026-09-27): the notes index and steering/rules.yaml
+            result = run_diagnose_light(paths, settings, vocab, text=concept, clients=clients, run_id=runlog.run_id,
+                                        embedder=embedder, source="file" if file else "text")
+        else:
+            result = run_diagnose(paths, settings, vocab, text=concept, clients=clients, run_id=runlog.run_id,
+                                  embedder=embedder, source="file" if file else "text")
     except DiagnoseError as exc:
         typer.echo(str(exc), err=True)
         raise typer.Exit(1) from exc

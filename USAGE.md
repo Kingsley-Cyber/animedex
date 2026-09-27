@@ -2,6 +2,34 @@
 
 ANIMEDEX turns a list of shows into cards for new anime ideas. You add titles, then ask for ideas.
 
+## 0. The light path (what to run since 2026-09-27)
+
+Three commands. Everything they write is private (it goes to the data repo, never the public one).
+
+1. Study shows (about 30 seconds per show, three per call; shows that already have a note are skipped):
+
+   ```bash
+   make ingest LIST=corpus/queue/priority_1.txt
+   ```
+
+   Each show gets a note in `notes/<show>.json`: premise, engine, power kit, MC edge, the three things it can't survive without (with the reusable pattern), two sources, and the outcome from AniList's numbers.
+
+2. Cards from a seed (a concept, a fight image, or a lane; at most 4 calls, under 10 minutes):
+
+   ```bash
+   make quick SEED="a cold-open feral scaled transformation mid-fight"
+   ```
+
+   Add `SHOWS="a, b, c"` to choose the shows it measures against, `N=6` for the number of cards. The cards land in `build/quick/<timestamp>.md`, ranked by the check, each with its weakness line and sources. The same seed a second time skips the research call.
+
+3. Check your own concept against the notes and your steering rules (`steering/rules.yaml`):
+
+   ```bash
+   make diagnose TEXT="your concept in a sentence or two"
+   ```
+
+The heavy pipeline below (`make backfill`, `make ideas`) now runs on the five gold titles only.
+
 ## 1. Add titles
 
 1. Make a text file with one show per line. When a show has more than one version, put the year in parentheses:

@@ -218,3 +218,20 @@ questions:
     text: Which popular print titles (manga, manhwa, webtoon, light novel) in each story-engine lane have no screen adaptation?
     requires: [census.medium, census.adaptation, census.story_engine, census.popularity]
 
+  # Light path (owner instruction 2026-09-27, D-055): counts from the notes index
+  - id: CQ-N01
+    text: Which story-engine lanes does the notes index cover, and with what outcomes?
+    requires: [notes.story_engine, notes.outcome]
+  - id: CQ-N02
+    text: Which gate x cost-of-power pairs does no note hold (gaps in the index), ranked by expected count?
+    requires: [notes.gate, notes.cost_of_power]
+  - id: CQ-N03
+    text: Which progression x visible-counter pairs does no note hold, ranked by expected count?
+    requires: [notes.progression, notes.visible_counter]
+  - id: CQ-N04
+    text: Which set-structure x power-is pairs does no note hold?
+    requires: [notes.slug]
+  - id: CQ-N05
+    text: What does the notes index cover, by medium and outcome?
+    requires: [notes.medium, notes.outcome]
+

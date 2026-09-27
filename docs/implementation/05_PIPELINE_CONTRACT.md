@@ -429,6 +429,41 @@ speed:                     # non-gold titles only; gold keeps the full path
   parallel_titles: 4       # threads; one client and run log per worker; one Budget per run (locked counters): the run cap is per run, the per-title cap per stage (`Budget.stage_view()`); a batched CHECK guards and charges every title of its group; a batch quarantined after its repair falls back to one title per call (`batch_fallback` count + flag)
 ```
 
+## Light path (owner instruction 2026-09-27; D-050 to D-055)
+The heavy stages above run on the 5 gold titles only. Everything new goes through the notes index.
+
+### STEERING (`steering/rules.yaml`, private)
+- A list of `{id, rule, strength}`; `hard` rules are constraints (quick drops a card that fails one; diagnose fails the concept), `soft` rules guide (a failure warns). Rendered by `ideate/steering.rule_lines` into every brief and check.
+
+### INGEST (`make ingest LIST=<file>`)
+- **In:** a list file (one show per line; `(year)` and `(manga)` hints as in backfill). **Out:** `notes/<slug>.json` per show, skipping shows that have one.
+- The catalog resolver picks the version and the scope (read-only); the outcome is the AniList score under `likely_label` (hit >= 78, mixed 65-76, flop <= 62) with popularity; print titles add the adaptation status. No model call decides it.
+- One call per `notes.shows_per_call` (3) shows on slot `notes` (Sonnet, web: `searches_per_show` 2, `fetches_per_show` 2): premise (25 words), engine (goal, constraint, strategy, cost, dilemma), gate, cost_of_power, progression, visible_counter, fight_medium, story_engine (the vocab's values or `other: ...`), MC edge, power kit (medium, 3 functions, 3 tools, limits), villain type, setting, 3 elements each with a name-stripped pattern, 2 sources (Wikipedia plus one wiki; never myanimelist.net; each marked `retrieved` when the call opened or found it). Paraphrase only.
+- A failed answer (after the one repair) is quarantined and every show of that call is reported with the reason; a plan limit pauses the run; the rerun continues from the cache.
+
+### QUICK (`make quick SEED="<text>" [SHOWS="a, b, c"] [N=6]`)
+1. RESEARCH (slot `notes`, one call): SHOWS given -> notes only for the ones that lack them, skipped when all exist; SHOWS absent -> pick 3-5 relevant shows from the index and the web, write the missing notes, keep the picks in `notes/_research/<seed key>.json` so the same seed never researches twice.
+2. GENERATE (slot `ideate_generate`, Opus): brief = seed + steering rules + the picks' notes. The model says whether the seed is a fight image (medium -> functions -> kit -> cost -> engine -> premise), a lane (fill it) or a concept (keep its strongest part). N cards: logline, premise, engine, MC edge, power kit, consequences, closest note, why not a clone, an optional "never done" claim.
+3. CHECK (slot `ideate_judge`, Codex, one call): consequence test against the closest note, every steering rule, the closest note and how close, the biggest weakness, a 0-100 score. Dropped: fewer than `ideate.h1_min_changed_dimensions` of 3 dimensions, or a hard rule failed.
+4. PRIOR ART (slot `notes`, web): only for surviving "never done" claims; a counterexample counts only with a page the call retrieved and downgrades the claim.
+- Output: `build/quick/<timestamp>.md` (survivors ranked by score, each with its weakness line and sources) and `.json`; the path and the total time are printed. Cap `quick.calls_per_run` 8 (four calls with one repair each).
+
+### DIAGNOSE (light path: notes + steering)
+- Runs whenever notes exist (the heavy diagnose stays for a checkout without notes). Structure call as before with note lines; checks: clone (five tracked enums; premise cosine), novelty (enum pairs, needs 10 notes), graveyard (flop/mixed notes sharing 3 of 5 tracked enums), name leak, and from `diagnose_judge.md`: H1, coherence, runway, why different, one line per steering rule; then ablation. set_structure and power_is report "not tracked".
+
+### NOTES COUNTS (DuckDB)
+- `make build` adds a `notes` table from notes/; `make analyze` answers CQ-N01 (lanes x outcome), CQ-N02/N03 (gaps ranked by expected count over the notes), CQ-N05 (coverage) and CQ-N04 ("not tracked").
+
+### Storage
+- `notes/`, `notes/_research/` and `build/quick/` are git-ignored and mirrored to the private data repo (`data_repo.paths`). Cards and the owner's concepts never enter the public repo.
+
+```yaml
+models:
+  notes: {provider: claude_cli, model: claude-sonnet-5, params: {effort: medium}}
+notes: {shows_per_call: 3, searches_per_show: 2, fetches_per_show: 2, premise_max_words: 25}
+quick: {calls_per_run: 8, cards: 6, picks_min: 3, picks_max: 5}
+```
+
 ## Prompt contracts (excerpts; full text lives in `prompts/`, versioned)
 
 **P1 WHAT**

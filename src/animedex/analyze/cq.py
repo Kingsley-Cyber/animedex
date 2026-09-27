@@ -192,6 +192,30 @@ QUERIES: dict[str, Query] = {
         ("enum:power_combat.gate", "enum:power_combat.cost_of_power"),
         note="census counts only (v1.6): recall-based occupancy across the catalog", census=True),
     "CQ-I15": Query("SELECT claim_kind, verdict, COUNT(*) AS n FROM prior_art GROUP BY 1, 2"),
+    # Light path (owner instruction 2026-09-27, D-055): the notes index answers the lane and gap questions
+    "CQ-N01": Query(
+        "SELECT COALESCE(story_engine, 'unknown') AS lane, COALESCE(outcome, 'unknown') AS outcome, COUNT(*) AS n, "
+        "string_agg(slug, ', ' ORDER BY slug) AS notes FROM notes GROUP BY 1, 2 ORDER BY 1, 2",
+        note="light path: lanes are the notes' story engines; outcome is the catalog label"),
+    "CQ-N02": Query(
+        "WITH g AS (SELECT unnest(?::VARCHAR[]) AS gate), c AS (SELECT unnest(?::VARCHAR[]) AS cost_of_power), "
+        "p AS (SELECT gate, cost_of_power, COUNT(*) AS n FROM notes GROUP BY 1, 2) "
+        "SELECT g.gate, c.cost_of_power FROM g CROSS JOIN c LEFT JOIN p ON p.gate = g.gate "
+        "AND p.cost_of_power = c.cost_of_power WHERE p.n IS NULL",
+        ("enum:power_combat.gate", "enum:power_combat.cost_of_power"),
+        note="light path: gate x cost_of_power pairs no note holds; ranked by expected count over the notes"),
+    "CQ-N03": Query(
+        "WITH g AS (SELECT unnest(?::VARCHAR[]) AS progression), c AS (SELECT unnest(?::VARCHAR[]) AS visible_counter), "
+        "p AS (SELECT progression, visible_counter, COUNT(*) AS n FROM notes GROUP BY 1, 2) "
+        "SELECT g.progression, c.visible_counter FROM g CROSS JOIN c LEFT JOIN p ON p.progression = g.progression "
+        "AND p.visible_counter = c.visible_counter WHERE p.n IS NULL",
+        ("enum:power_combat.progression", "enum:power_combat.visible_counter"),
+        note="light path: progression x visible_counter pairs no note holds; ranked by expected count over the notes"),
+    "CQ-N04": Query("", note="not tracked: set_structure and power_is are not in the notes index (heavy path, gold "
+                             "titles only)"),
+    "CQ-N05": Query(
+        "SELECT medium, COALESCE(outcome, 'unknown') AS outcome, COUNT(*) AS n FROM notes GROUP BY 1, 2 ORDER BY 1, 2",
+        note="light path: what the index covers, by medium and outcome"),
     "CQ-P01": Query(  # v1.9 print: the lanes are the census's story engines; popularity is AniList's count
         "SELECT COALESCE(story_engine, 'unknown') AS lane, medium, title, year, popularity FROM census "
         "WHERE medium IN ('manga', 'manhwa', 'webtoon', 'light_novel') AND adaptation = 'none' "
@@ -482,10 +506,13 @@ ZERO_DIMS: dict[str, tuple[str, ...]] = {
     "CQ-G16": ("power_combat.set_structure", "core.story_engine", "core.mc_archetype"),
     "CQ-G17": ("power_combat.set_structure", "power_combat.subset_mechanics"),
     "CQ-I07": ("relationships.power_is",),
+    "CQ-N02": ("power_combat.gate", "power_combat.cost_of_power"),
+    "CQ-N03": ("power_combat.progression", "power_combat.visible_counter"),
 }
 # Two-dimensional gap questions whose empty cells are ranked by expected count (item 3), and where their
 # counts come from: corpus titles (v_incidence) or census rows with a power system.
-GAP_RANK: dict[str, str] = {"CQ-G01": "corpus", "CQ-G04": "corpus", "CQ-G10": "census", "CQ-G17": "corpus"}
+GAP_RANK: dict[str, str] = {"CQ-G01": "corpus", "CQ-G04": "corpus", "CQ-G10": "census", "CQ-G17": "corpus",
+                            "CQ-N02": "notes", "CQ-N03": "notes"}
 
 
 def _gap_rows(con: duckdb.DuckDBPyConnection, px: str, py: str, source: str) -> list[tuple[str, str, str]]:
@@ -494,6 +521,10 @@ def _gap_rows(con: duckdb.DuckDBPyConnection, px: str, py: str, source: str) -> 
         cx, cy = px.split(".")[-1], py.split(".")[-1]
         return con.execute(f'SELECT census_id, "{cx}", "{cy}" FROM census WHERE has_power_system '
                            f'AND "{cx}" IS NOT NULL AND "{cy}" IS NOT NULL').fetchall()
+    if source == "notes":
+        cx, cy = px.split(".")[-1], py.split(".")[-1]
+        return con.execute(f'SELECT slug, "{cx}", "{cy}" FROM notes WHERE "{cx}" IS NOT NULL AND "{cy}" IS NOT NULL '
+                           f'AND "{cx}" NOT LIKE \'other%\' AND "{cy}" NOT LIKE \'other%\'').fetchall()
     return con.execute("SELECT DISTINCT a.title_id, a.value, b.value FROM v_incidence a JOIN v_incidence b "
                        "ON a.title_id = b.title_id AND a.path = ? AND b.path = ?", [px, py]).fetchall()
 
@@ -558,6 +589,9 @@ def answer_all(con: duckdb.DuckDBPyConnection, vocab: Vocab, cqs: CQSet, setting
     answers = {}
     for cq in cqs.questions:
         q = QUERIES[cq.id]
+        if not q.sql:  # light path: the notes do not record what this question needs
+            answers[cq.id] = {"id": cq.id, "text": cq.text, "columns": [], "rows": [], "note": q.note, "tracked": False}
+            continue
         cur = con.execute(q.sql, _params(q.params, vocab, settings))
         columns = [d[0] for d in cur.description]
         rows = sorted((_clean(list(r)) for r in cur.fetchall()), key=stable_json)

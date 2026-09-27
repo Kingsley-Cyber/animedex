@@ -57,6 +57,7 @@ models:   # G1a, approved 2026-09-26; routed to subscription CLIs 2026-09-26. Co
   rollup_match:    {provider: claude_cli, model: claude-haiku-4-5-20251001}
   ideate_generate: {provider: claude_cli, model: claude-opus-5-5, params: {effort: high}}
   ideate_judge:    {provider: codex_cli, model: gpt-5.6-terra, strict_model: true}   # owner: an older model is enough
+  notes:           {provider: claude_cli, model: claude-sonnet-5, params: {effort: medium}}   # light path (2026-09-27): study notes, quick research and prior art (Sonnet with web)
   # v1.7 (owner ruling 2026-09-27): Qwen3-Embedding-0.6B, the one allowed local model. Polymath's GPU copy
   # first; the Ollama copy (`ollama pull qwen3-embedding:0.6b`) only when Polymath's isn't ready. One backend
   # per run. `make recalibrate` proposes clone thresholds for it and never changes this file.
@@ -173,7 +174,7 @@ data_repo:   # owner ruling 2026-09-27: private backups of data that never goes 
   remote: https://github.com/Kingsley-Cyber/animedex-data.git
   clone: ../animedex-data          # local clone, next to the code checkout
   paths: [data/canonical, data/blind, data/diagnose, data/backtest, data/commentary, eval/audit, eval/blind, eval/gold,
-          steering, seeds, studio, ontology/proposals]   # no cache, no raw run logs; proposals hold model output and
+          steering, seeds, studio, ontology/proposals, notes, build/quick]   # light path: the notes index and quick cards are private   # no cache, no raw run logs; proposals hold model output and
           # their resolutions (D-031); commentary is the owner's own notes (request A)
   push_after_batch: true           # once the clone exists (a first `make data-push` creates it)
 gather:   # v1.7 GATHER: documented fields it may fill (only those the vocab has count), and its web limits
@@ -194,3 +195,15 @@ speed:   # owner's speed pass (2026-09-27, D-048): non-gold titles only; gold ke
   check_batch_titles: 1   # D-049: 3 failed 2 of 3 live batches (verdicts without reasons); set 3 to try again
   parallel_titles: 4        # 5. titles run at once in each stage of `make backfill` / `animedex run`
 
+notes:   # light path (owner instruction 2026-09-27, D-052): `make ingest` and quick's research write notes/<slug>.json
+  shows_per_call: 3         # one Sonnet call studies three shows
+  searches_per_show: 2      # web limits per call = these x shows in the call
+  fetches_per_show: 2
+  premise_max_words: 25
+  seconds_per_show_target: 120   # reported, not enforced
+
+quick:   # light path (D-053): `make quick SEED=...`: research, generate, check, prior art = 4 calls, each with one repair
+  calls_per_run: 8
+  cards: 6
+  picks_min: 3
+  picks_max: 5

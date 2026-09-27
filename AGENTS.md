@@ -13,7 +13,9 @@ ask nothing else:
 
 | Owner says | Do |
 |---|---|
-| "add <show>", "index <show>" | `make backfill LIST=<file, one title per line>` or MCP `add_titles`; a year in parentheses picks the version; the picks are in `build/reports/backfill.md`; rerun the same command until it reports 0 waiting (4 titles per run, in parallel since v1.10: about 12–18 minutes per run; times in `docs/implementation/reports/SPEED_PASS.md`) |
+| "study <show>", "add <show> to the notes", "ingest <list>" | `make ingest LIST=<file, one show per line>` (light path: one Sonnet call per 3 shows, ~30 s per show; skips shows that have a note; notes in `notes/`, private) |
+| "quick idea", "cards from <seed>", "what could a <fight image> become" | `make quick SEED="<text>" [SHOWS="a, b, c"] [N=6]`: at most 4 calls, under 10 minutes; cards in `build/quick/<timestamp>.md` (private); the same seed twice skips research |
+| "add <show>", "index <show>" (heavy path: gold titles only since 2026-09-27) | `make backfill LIST=<file, one title per line>` or MCP `add_titles`; a year in parentheses picks the version; the picks are in `build/reports/backfill.md`; rerun the same command until it reports 0 waiting (4 titles per run, in parallel since v1.10: about 12–18 minutes per run; times in `docs/implementation/reports/SPEED_PASS.md`) |
 | "ideas", "more cards", "ideate" | `make ideas` or MCP `run_ideas`: 60 calls, about 40 minutes, one more generation; cards in `build/reports/ideas.md` |
 | "check this concept: …" | `make diagnose TEXT="…"` or MCP `check_concept`; the verdicts are in the output (MCP: `job_status`) |
 | "status", "is it done" | `make status NAME=<batch>` or MCP `job_status` |

@@ -91,6 +91,19 @@ class Paths:
     def cache(self) -> Path:
         return self.root / "data" / "cache"
 
+    # light path (owner instruction 2026-09-27): the notes index and quick cards, private (mirrored to the data repo)
+    @property
+    def notes(self) -> Path:
+        return self.root / "notes"
+
+    @property
+    def research(self) -> Path:
+        return self.notes / "_research"
+
+    @property
+    def quick(self) -> Path:
+        return self.root / "build" / "quick"
+
     # derived (gitignored, rebuildable)
     @property
     def build(self) -> Path:
