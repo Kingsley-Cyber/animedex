@@ -96,15 +96,31 @@ def _proof_text(p: dict[str, Any]) -> str:
             f"(conf {ab['conf']}), {ab['if_removed']}")
 
 
+def proof_partners(proofs: list[dict[str, Any]]) -> list[tuple[str, str]]:
+    """(partner title id, role) for every partner the proofs compare against, in order of first use."""
+    seen: dict[str, str] = {}
+    for p in proofs:
+        for c in p.get("contrast") or []:
+            seen.setdefault(c["partner_title_id"], c["partner_role"])
+    return list(seen.items())
+
+
 def render_user(record: dict[str, Any], atoms: list[dict[str, Any]], proofs: list[dict[str, Any]], vocab: Vocab,
-                moments: list[dict[str, Any]] | None = None, context: list[dict[str, Any]] | None = None) -> str:
+                moments: list[dict[str, Any]] | None = None, context: list[dict[str, Any]] | None = None,
+                partners: dict[str, dict[str, Any]] | None = None) -> str:
     """The verified profile and the title's moments (the evidence atoms may cite), then `atoms: N` and
     `proofs: N` groups: `key: value` lines (compact context, v1.7 §3). A proof has its atom's id. In the
-    re-check round, `context` holds the already-checked atom or proof a target belongs with (no verdict)."""
+    re-check round, `context` holds the already-checked atom or proof a target belongs with (no verdict).
+    Each partner a proof compares against follows as `partner: id; role: r` and its profile, the same
+    evidence P3 had, so claims about partners can be checked."""
     ctx = [f"context: {len(context)} (already checked: read them, give them no verdict)",
            *(("context " + (_atom_text(c) if "atom_kind" in c else _proof_text(c))) for c in context)] if context else []
-    return "\n".join([*render_profile(record, vocab), *render_moments(moments or []), *ctx,
-                      f"atoms: {len(atoms)}", *map(_atom_text, atoms), f"proofs: {len(proofs)}", *map(_proof_text, proofs)])
+    lines = [*render_profile(record, vocab), *render_moments(moments or []), *ctx,
+             f"atoms: {len(atoms)}", *map(_atom_text, atoms), f"proofs: {len(proofs)}", *map(_proof_text, proofs)]
+    for pid, role in proof_partners([*proofs, *(c for c in context or [] if "contrast" in c)]):
+        if partners and pid in partners:
+            lines += [f"partner: {pid}; role: {role}", *render_profile(partners[pid], vocab, verification=False)]
+    return "\n".join(lines)
 
 
 def _revised_atom(atom: dict[str, Any], rev: dict[str, Any]) -> dict[str, Any]:
@@ -213,12 +229,16 @@ def run_check(paths: Paths, title_ids: list[str], client: LLMClient, vocab: Voca
             # re-check round: a revised proof is read with its atom, a revised atom with its proof
             context = ([atoms[a] for a in sorted(targets_proofs) if a in atoms and a not in targets_atoms]
                        + [proofs[a] for a in sorted(targets_atoms) if a in proofs and a not in targets_proofs])
+            shown = [proofs[a] for a in sorted(targets_proofs)] + [c for c in context if "contrast" in c]
+            partner_recs = {pid: titles[pid] for pid, _ in proof_partners(shown) if pid in titles}
             call = guarded_call(result, paths, "CHECK", "check", tid, client, prompt.system,
                                 render_user(record, [atoms[a] for a in sorted(targets_atoms)],
-                                            [proofs[a] for a in sorted(targets_proofs)], vocab, moments, context),
+                                            [proofs[a] for a in sorted(targets_proofs)], vocab, moments, context,
+                                            partner_recs),
                                 output_schema(vocab, ids),
                                 upstream=upstream_hash([record, *moments, *targets_atoms.values(),
-                                                        *targets_proofs.values(), {"context": context}]),
+                                                        *targets_proofs.values(), {"context": context},
+                                                        *(partner_recs[k] for k in sorted(partner_recs))]),
                                 validate=validate, record_id=tid if round_no == 0 else f"{tid}.recheck")
             if call.stop:
                 stop = True

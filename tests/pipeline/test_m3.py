@@ -220,6 +220,17 @@ def test_check_sees_moments_and_context_and_ignores_off_target_verdicts(m3):
     assert f"{T1}.m.003" not in [p["atom_id"] for p in read_candidates(m3, "proof", T1)]
 
 
+def test_check_lists_the_partners_its_proofs_compare_against(m3):
+    """Live M3 (2026-09-27): without the partners' profiles the critic called every proof unsupported."""
+    rounds = {"verdicts": [verdict(f"{T1}.m.{i:03d}", t) for i in (1, 2, 3) for t in ("mechanism", "proof")]}
+    _, mock = run_through_check(m3, {("CHECK", T1): [rounds]})
+    partners = {c["partner_title_id"]: c["partner_role"] for p in read_candidates(m3, "proof", T1) for c in p["contrast"]}
+    lines = mock.calls[0]["user"].splitlines()
+    assert partners and all(f"partner: {pid}; role: {role}" in lines for pid, role in partners.items())
+    titles = canonical_titles(m3)
+    assert all(f"title: {titles[pid]['title']}" in mock.calls[0]["user"] for pid in partners)
+
+
 def test_a_recheck_shows_a_revised_proofs_atom_as_context(m3):
     first = {"verdicts": [verdict(f"{T1}.m.{i:03d}", t) for i in (1, 2, 3) for t in ("mechanism", "proof")]}
     first["verdicts"][3] = verdict(f"{T1}.m.002", "proof", "REVISE", ["overreach"], ablation_verdict="supporting")
