@@ -16,6 +16,8 @@ gold_app = typer.Typer(no_args_is_help=True, help="Gold-set annotation files (G1
 app.add_typer(gold_app, name="gold")
 batch_app = typer.Typer(no_args_is_help=True, help="Long runs in the background: per-title steps from a batch file.")
 app.add_typer(batch_app, name="batch")
+data_app = typer.Typer(no_args_is_help=True, help="Private data backups (Kingsley-Cyber/animedex-data): push, pull.")
+app.add_typer(data_app, name="data")
 
 
 def _paths():
@@ -900,6 +902,46 @@ def batch_status(name: str = typer.Argument(None, help="Batch name (default: the
         return
     typer.echo(text)
 
+
+
+def _data_config() -> tuple[Any, Any]:
+    from animedex.datarepo import load_config
+
+    paths = _paths()
+    cfg = load_config(paths, load_settings(paths))
+    if cfg is None:
+        typer.echo("no data_repo in config/settings.yaml", err=True)
+        raise typer.Exit(1)
+    return paths, cfg
+
+
+@data_app.command("push")
+def data_push(tag: str = typer.Option(None, "--tag", help="Milestone tag to pair with the code, e.g. m3-complete.")) -> None:
+    """Back up canonical data, blind-review files and gold annotations to the private data repo."""
+    from animedex.datarepo import DataRepoError, push
+
+    paths, cfg = _data_config()
+    try:
+        res = push(paths, cfg, tag=tag)
+    except DataRepoError as exc:
+        typer.echo(f"data push failed: {exc}", err=True)
+        raise typer.Exit(1) from exc
+    typer.echo(f"data repo {res.head}: {res.changed} file(s) changed" + (", committed" if res.committed else ", nothing new")
+               + (f"; tagged {res.tag}" if res.tag else ""))
+
+
+@data_app.command("pull")
+def data_pull() -> None:
+    """Restore the backed-up data from the private data repo (never deletes local files)."""
+    from animedex.datarepo import DataRepoError, pull
+
+    paths, cfg = _data_config()
+    try:
+        n = pull(paths, cfg)
+    except DataRepoError as exc:
+        typer.echo(f"data pull failed: {exc}", err=True)
+        raise typer.Exit(1) from exc
+    typer.echo(f"restored {n} file(s) from the data repo")
 
 def main() -> None:
     app()

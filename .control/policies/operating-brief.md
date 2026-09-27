@@ -212,3 +212,8 @@ Supersedes the provider, key and dollar-cap lines of the G1 rulings. The model c
   - AC-12 stays gated on v1.7 plus item 1.
   - The 7 enum proposals: apply the agent's recommendations and list them in the M3 report.
   - URCP branch: push OK (pushed 2026-09-27; no PR opened).
+
+## Owner ruling: backups, open questions, diagnose (Kingsley, 2026-09-27)
+- **Backups:** the private repo `Kingsley-Cyber/animedex-data`, with `make data-push` and `make data-pull`. Contents: data/canonical, data/blind, eval/blind, eval/gold, and later ideas, archive and studio/; plus steering/, seeds/ and data/diagnose/ (Kingsley's own inputs). Cache and raw run logs are skipped. Push after every batch run and every milestone tag, and tag the data repo with the same milestone tags as the code. Doc 03 records this as the replacement for "canonical data lives in git".
+- **Open questions:** go with the agent's recommendations. One guard: the audit samples from non-gold titles only until the annotations are done.
+- **`animedex diagnose` (M5, small; reuses the M5 gates and judge):** a concept as text, from a file or pasted, goes through one structuring call that turns it into an idea card (logline, premise, engine, profile, closest existing title). The card is stored in the private data repo, never the public repo. Every gate and the judge run on it exactly as on generated cards, plus an ablation pass over its own parts (which atom is load-bearing?). Output: one line per check (pass or fail, and why), and a prescription for each failure, mapped to an operator or a concept-ladder rung. The full rebuild (`amplify`) stays in the post-review plan.

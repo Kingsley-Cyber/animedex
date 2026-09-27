@@ -144,3 +144,8 @@ eval:
     - core.outcome
   gold_elements: {min: 3, max: 5}
   bars: {p1_enum_agreement: 0.80, p3_load_bearing_agreement: 0.70, load_bearing_recall: 0.60}
+data_repo:   # owner ruling 2026-09-27: private backups of data that never goes to the public code repo
+  remote: https://github.com/Kingsley-Cyber/animedex-data.git
+  clone: ../animedex-data          # local clone, next to the code checkout
+  paths: [data/canonical, data/blind, data/diagnose, eval/blind, eval/gold, steering, seeds, studio]   # no cache, no raw run logs
+  push_after_batch: true           # once the clone exists (a first `make data-push` creates it)

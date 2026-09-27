@@ -116,7 +116,7 @@ The popularity of anime-style Roblox games as a sign of demand for power fantasi
    - Baseline 2 is a single "write N premises" call with the same model, taste standard and steering rules. It's the naive-use comparison.
    - No arm uses web search while generating; all arms get the same prior-art web check.
    - Alternative: keep the v1.6 web arm (web research while generating), and give ANIMEDEX's generate call the same web access.
-2. **Audit and the blind rules (A7).** Every current title is gold or a partner, and their outputs stay hidden until the annotations are done or waived.
+2. **Audit and the blind rules (A7).** *Kingsley (2026-09-27): the audit samples from non-gold titles only until his annotations are done; partner titles are allowed.* Every current title is gold or a partner, and their outputs stay hidden until the annotations are done or waived.
    - Recommended: `make audit` samples only titles outside gold and partners (backfill titles) until then, and covers everything after.
    - Alternative: allow audits of partner atoms now.
 3. **Backtest size (B1).** Recommended: 10 titles in one run (about 34 calls). Alternative: 20 titles over 2 runs, for a steadier accuracy number.

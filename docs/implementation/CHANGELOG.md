@@ -1,5 +1,8 @@
 # Changelog — docs/implementation
 
+## v1.6.6 — 2026-09-27 (private data repo)
+- Canonical data, blind-review files, gold annotations, steering rules, seeds, diagnosed concepts and (later) the Studio are backed up to the private repo `Kingsley-Cyber/animedex-data` with `make data-push [TAG=…]` and restored with `make data-pull`. This replaces "canonical data lives in git" (03). Pushes happen after every batch run (once the local clone exists) and every milestone tag, and the data repo carries the same milestone tags as the code. Cache and raw run logs are skipped.
+
 ## v1.6.5 — 2026-09-27 (fixes before M3 live runs; owner snapshot review)
 - CANONICALIZE is one transaction per title (05). A held title keeps its candidate files pending, so a fix plus a rerun applies them. One bad title no longer holds back every moment and outcome.
 - IDEATE cache keys cover the whole input, including the corpus and flop lists (generate) and the closest-title facts (judge). A changed corpus never serves a stale cached card.

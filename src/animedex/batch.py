@@ -476,6 +476,9 @@ class _Run:
             self._write()
         md = status_path(self.paths, self.batch.name, ".md").relative_to(self.paths.root)
         self.echo(f"batch {self.batch.name}: {state}; {_progress(steps)}; status: {md}")
+        backup = _backup(self.paths)
+        if backup:
+            self.echo(backup)
         if code:
             self.echo(f"to continue: {self.data['resume_command']}")
         return code
@@ -488,6 +491,17 @@ class _Run:
         path.parent.mkdir(parents=True, exist_ok=True)
         with path.open("a", encoding="utf-8") as fh:
             fh.write(text)
+
+
+def _backup(paths: Paths) -> str | None:
+    """Owner rule: push the private data backup after every batch run (once its clone exists)."""
+    try:
+        from animedex.config import load_settings
+        from animedex.datarepo import push_after_batch
+
+        return push_after_batch(paths, load_settings(paths))
+    except Exception as exc:  # noqa: BLE001 - a backup problem never fails the batch
+        return f"data backup skipped: {exc}"
 
 
 def run_jobs(paths: Paths, batch: Batch, *, executor: Executor | None = None, echo: Echo | None = None) -> int:
