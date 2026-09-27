@@ -129,7 +129,7 @@ census:   # v1.6: counts only; the title list comes from AniList
   since: 1995
 ideate:
   target_domain: anime
-  grid_dims: ["power_combat.gate", "power_combat.cost_of_power", "power_combat.progression"]
+  grid_dims: ["power_combat.gate", "power_combat.set_structure", "power_combat.progression"]   # D-028: cost_of_power failed the AC-12 kappa gate
   operators: [reverse_incentive, redistribute_knowledge, transfer_cost, change_rule, combine_mechanisms, import_lane,
               revive_execution_flop, borrow_system]   # v1.6: the last two run only with their evidence
   judge_batch: 4

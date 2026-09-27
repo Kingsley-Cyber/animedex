@@ -60,6 +60,7 @@ class IdeaProfile(StrictModel):
     gate: Annotated[str, VocabEnum("power_combat.gate")]
     cost_of_power: Annotated[str, VocabEnum("power_combat.cost_of_power")]
     progression: Annotated[str, VocabEnum("power_combat.progression")]
+    set_structure: Annotated[str, VocabEnum("power_combat.set_structure")]   # a grid axis since D-028
     visible_counter: Annotated[str, VocabEnum("power_combat.visible_counter")]
     fight_medium: Annotated[str, VocabEnum("power_combat.fight_medium")]
     power_is: Annotated[str, VocabEnum("relationships.power_is")]

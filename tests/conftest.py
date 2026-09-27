@@ -222,8 +222,8 @@ def make_idea(n: int = 1, *, transfer_ids: tuple[str, ...] = ("ironvale_circuit_
            "consequences": {"choices": "She must pick a victim each storm.", "relationships": "The town fears her mercy.",
                             "outcomes": "Harbor survives while families vanish."},
            "profile": {"gate": "inherited", "cost_of_power": "relationships", "progression": "none",
-                       "visible_counter": "none", "fight_medium": "summon", "power_is": "individual"},
-           "bridge": ["cost_of_advancement"], "grid_cell": "inherited|relationships|none",
+                       "set_structure": "unique_to_few", "visible_counter": "none", "fight_medium": "summon", "power_is": "individual"},
+           "bridge": ["cost_of_advancement"], "grid_cell": "gate=inherited|set_structure=unique_to_few|progression=none",
            "atoms_used": list(transfer_ids), "borrowed_from": [closest], "broken_rule": "", "appetite": "",
            "closest_existing": closest, "why_not_a_clone": "The cost moves to others, which changes every choice.",
            "gates": {"structural_jaccard_max": 0.3, "procedural_jaccard_max": 0.25, "premise_cosine_max": 0.4,
@@ -243,7 +243,8 @@ def make_census(n: int, *, powered: bool = True, **over: Any) -> list[dict[str, 
     for i in range(1, n + 1):
         rec = {"census_id": f"anilist:{900000 + i}", "title": f"Census title {i}", "year": 2010, "medium": "anime",
                "format": "serialized", "popularity": 1000, "has_power_system": powered, "gate": "artifact",
-               "cost_of_power": "resource", "progression": "hybrid", "visible_counter": "rank_tier",
+               "cost_of_power": "resource", "progression": "hybrid", "set_structure": "hierarchical",
+               "visible_counter": "rank_tier",
                "fight_medium": "weapon", "power_is": "paired", "borrowed_system": "none", "trust": "recall",
                "batch_id": "census_test", "provenance": prov("CENSUS")}
         rec.update(over)

@@ -29,7 +29,7 @@ pytestmark = pytest.mark.pipeline
 
 CONCEPT = ("A courier can borrow any stranger's courage for one night, but the stranger forgets being brave, "
            "so every rescue leaves a town of people who never learn they were heroes.")
-PROFILE = {"gate": "contract", "cost_of_power": "lifespan", "progression": "linear",
+PROFILE = {"gate": "contract", "cost_of_power": "lifespan", "progression": "linear", "set_structure": "unique_to_few",
            "visible_counter": "collectible_count", "fight_medium": "energy", "power_is": "collective"}
 
 
@@ -109,7 +109,7 @@ def test_diagnose_runs_every_gate_the_judge_and_ablation_in_three_calls(indexed)
     assert "fix: operator change_rule" in "\n".join(lines)  # the twist is decoration
     stored = json.loads((indexed.root / res.json_path).read_text())
     assert res.json_path.startswith("data/diagnose/") and stored["card"]["profile"] == PROFILE
-    assert stored["concept"] == CONCEPT and len(stored["ablation"]) == 14  # 7 engine parts, twist, 6 profile (no broken rule)
+    assert stored["concept"] == CONCEPT and len(stored["ablation"]) == 15  # 7 engine parts, twist, 7 profile (no broken rule)
     md = (indexed.root / res.md_path).read_text()
     assert "## Checks" in md and "| novelty | FAIL |" in md and "## Which parts carry it (ablation)" in md
     structure_user = cs["ideate_generate"].provider.calls[0]["user"]

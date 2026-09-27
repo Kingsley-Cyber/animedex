@@ -115,6 +115,7 @@ def responder(system, user, schema, params):
     vocab = get_vocab()
     gates = [g for g in vocab.enum("power_combat.gate") if g != "other"]
     costs = [c for c in vocab.enum("power_combat.cost_of_power") if c != "other"]
+    sets = [s for s in vocab.enum("power_combat.set_structure") if s != "other"]
     out = {"logline": f"A tollkeeper numbered {k} lends strangers borrowed courage and collects it back with interest.",
            "premise": f"In harbor city number {k}, a quiet tollkeeper can lend courage to anyone, but every loan returns "
                       "doubled and heavier, so each rescue deepens a debt the whole district must one day repay.",
@@ -127,7 +128,7 @@ def responder(system, user, schema, params):
                             "relationships": "Neighbors become creditors of her kindness.",
                             "outcomes": "Victory bankrupts the people it protects."},
            "profile": {"gate": gates[k % len(gates)], "cost_of_power": costs[(k * 3) % len(costs)],
-                       "progression": "linear", "visible_counter": "numeric_level", "fight_medium": "energy",
+                       "set_structure": sets[(k * 3) % len(sets)], "progression": "linear", "visible_counter": "numeric_level", "fight_medium": "energy",
                        "power_is": "collective"},
            "broken_rule": "power is always paid for by its user", "appetite": "stories about shared debts",
            "closest_existing": (props["closest_existing"].get("enum") or ["a harbor saga"])[0],

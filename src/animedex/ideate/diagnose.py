@@ -2,7 +2,7 @@
 
 Kingsley's own concept, as text, goes through:
 1. one structuring call (slot `ideate_generate`, `prompts/diagnose_structure.md`) that turns it into
-   a card: logline, premise, theme, engine (7 parts), twist, consequences, profile (6 enums), closest
+   a card: logline, premise, theme, engine (7 parts), twist, consequences, profile (7 enums), closest
    existing title, broken rule, appetite, why different. Stored in data/diagnose/<id>.json (private);
 2. every gate exactly as on generated cards: clone, novelty, graveyard, name leak;
 3. the judge (same prompt and call shape as IDEATE, one card): H1, coherence, runway, why_different
@@ -90,7 +90,8 @@ PRESCRIPTIONS: dict[str, tuple[str, str, str]] = {
 }
 VERDICTS = ("load_bearing", "supporting", "decoration")
 PROFILE_PARTS = {"gate": "how the power is gained", "cost_of_power": "what using the power costs",
-                 "progression": "how the power grows", "visible_counter": "how progress is shown",
+                 "progression": "how the power grows",
+                 "set_structure": "how the powers are organized", "visible_counter": "how progress is shown",
                  "fight_medium": "what fights are fought with", "power_is": "whose power it is"}
 HIDDEN = "(reason withheld: written against a gold title while the blind is pending)"
 

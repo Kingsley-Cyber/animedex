@@ -360,7 +360,8 @@ def _flop_answer(judge_passes_rework: bool):
         k = kind(schema)
         if k == "generate":
             out["profile"] = {"gate": "contract", "cost_of_power": "memory", "progression": "linear",
-                              "visible_counter": "numeric_level", "fight_medium": "energy", "power_is": "collective"}
+                              "set_structure": "closed_set", "visible_counter": "numeric_level",
+                              "fight_medium": "energy", "power_is": "collective"}
             out["why_different"] = ("The memory cost resets each arc, so the loss the flop dwelt on never piles up."
                                     if "rework: why_different" in user else "This time it is better.")
         if k == "judge":
@@ -552,5 +553,5 @@ def test_cell_key_and_census_cell_counts(pool):
     CanonicalStore(pool).write("census", make_census(3))
     ctx = build_context(pool, load_settings(pool), get_vocab())
     dims = load_settings(pool).ideate["grid_dims"]
-    key = cell_key({"gate": "artifact", "cost_of_power": "resource", "progression": "hybrid"}, dims)
+    key = cell_key({"gate": "artifact", "set_structure": "hierarchical", "progression": "hybrid"}, dims)
     assert ctx.cell_census[key] == 3 and sum(ctx.cell_titles.values()) >= 1

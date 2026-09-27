@@ -36,7 +36,8 @@ from animedex.statgates import unreliable_fields
 from animedex.store.canonical import CanonicalStore
 
 PROFILE_PATHS = {"gate": "power_combat.gate", "cost_of_power": "power_combat.cost_of_power",
-                 "progression": "power_combat.progression", "visible_counter": "power_combat.visible_counter",
+                 "progression": "power_combat.progression", "set_structure": "power_combat.set_structure",  # D-028
+                 "visible_counter": "power_combat.visible_counter",
                  "fight_medium": "power_combat.fight_medium", "power_is": "relationships.power_is"}
 PROCEDURAL = ("gate", "cost_of_power", "progression", "visible_counter")
 WESTERN = ("western_animation", "adult_animation", "live_action", "film")

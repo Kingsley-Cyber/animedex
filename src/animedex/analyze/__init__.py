@@ -49,7 +49,7 @@ from animedex.store.atomic import atomic_write_text
 from animedex.store.canonical import CanonicalStore
 
 STRUCTURAL = ("power_combat.gate", "power_combat.cost_of_power", "power_combat.progression",
-              "power_combat.visible_counter", "power_combat.fight_medium", "relationships.power_is")
+              "power_combat.set_structure", "power_combat.visible_counter", "power_combat.fight_medium", "relationships.power_is")
 
 
 def structural_set(record: dict[str, Any]) -> list[str]:

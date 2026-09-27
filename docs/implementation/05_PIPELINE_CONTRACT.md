@@ -386,7 +386,7 @@ gates:
   premise_cosine_reject: 0.90
   premise_cosine_with_structural: 0.55
 ideate:
-  grid_dims: ["power_combat.gate", "power_combat.cost_of_power", "power_combat.progression"]
+  grid_dims: ["power_combat.gate", "power_combat.set_structure", "power_combat.progression"]   # D-028
   operators: [reverse_incentive, redistribute_knowledge, transfer_cost, change_rule, combine_mechanisms, import_lane]
   h1_min_changed_dimensions: 2
   generations: 3

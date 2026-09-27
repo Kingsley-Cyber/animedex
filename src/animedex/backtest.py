@@ -140,7 +140,7 @@ def premise_of(record: dict[str, Any]) -> str | None:
 
 
 def kit_of(record: dict[str, Any]) -> str:
-    """The power kit as the six structural enums (no phrases, so no names)."""
+    """The power kit as the seven structural enums (no phrases, so no names)."""
     parts = []
     for key, path in PROFILE_PATHS.items():
         block, name = path.split(".")

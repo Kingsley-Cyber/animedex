@@ -148,7 +148,7 @@ Enum values are exactly those of the request (`v1.8_request.md` §1–4, 6) and 
 | core | real_world_isomorphism, reacts_against | phrase | 12 |
 | core | core_fantasy | enum_multi | |
 
-The grid keeps using the primary cost of power. The phrase parts of list and group values feed the name-leak list like any phrase.
+The primary cost of power stays in the idea profile and the overlap gates; since D-028 it is no longer a grid axis (set_structure replaced it). The phrase parts of list and group values feed the name-leak list like any phrase.
 
 ## Moment — `moments.jsonl`
 ```json
@@ -423,7 +423,7 @@ Corpus-level coverage is derived in DuckDB. A zero-count gap is reportable as "o
   },
   "consequences": {"choices": "≤25 words", "relationships": "≤25 words", "outcomes": "≤25 words"},
   "profile": {
-    "gate": "", "cost_of_power": "", "progression": "",
+    "gate": "", "cost_of_power": "", "progression": "", "set_structure": "",
     "visible_counter": "", "fight_medium": "", "power_is": ""
   },
   "bridge": ["bridge concepts of atoms used"],

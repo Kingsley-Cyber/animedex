@@ -1,5 +1,10 @@
 # Changelog — docs/implementation
 
+## Grid axis — 2026-09-27
+- **AC-12 on the grid (D-028).** The gather-first agreement eval over 14 titles failed only on `power_combat.cost_of_power` (raw 0.79, kappa 0.74). `ideate.grid_dims` is now gate × set_structure × progression; all three pass (1.0/1.0, 0.93/0.89, 1.0/1.0).
+- **Idea profile.** `IdeaProfile` gains `set_structure` (so a card's cell is computable); the ANALYZE structural set, the backtest kit and the diagnose ablation carry it too. cost_of_power stays everywhere it was except the grid.
+- **Docs:** 04 (idea profile, grid note), 05 (config). `schemas/idea.schema.json` regenerated; `schema_version` unchanged (no card has been written yet).
+
 ## Statistics as gates — 2026-09-27
 Kingsley's ruling "statistics as gates" (operating brief): snapshots and counts only, no models; each statistic replaced the check it corresponds to inside its existing stage, and `animedex stats` is only a read-only summary. Offline: nothing here ran a live call. Items 2–8 and the page here; item 1's AC-12 kappa gate is in the agreement eval.
 - **Reliability, consumer side (item 1).** `eval/agreement/reliability.json` (`{"fields": {path: {n, raw, kappa, unreliable, pass}}}`): a field flagged unreliable takes its gap questions out of the gap reports (`zeros_are: excluded: unreliable field`), never forms a novelty pair, and marks a grid cell's zeros untrusted in the brief. No file, no exclusion (D-021c).
