@@ -30,7 +30,7 @@ HINT = re.compile(r"^(?P<name>.+?)\s*\((?P<hint>[^)]+)\)\s*$")
 SERIES = ("TV", "TV_SHORT", "ONA")
 PRINT_FORMATS = ("MANGA", "NOVEL", "ONE_SHOT")
 PRINT_HINTS = {"manga", "manhwa", "webtoon", "light novel", "novel", "print", "comic"}
-WEBTOON_SITES = ("webtoon", "naver", "kakao", "tapas", "lezhin", "piccoma", "tappytoon")
+WEBTOON_SITES = ("webtoon", "naver", "tapas", "lezhin", "tappytoon")   # webtoon-native platforms, not storefronts
 TRAILING_YEAR = re.compile(r"\s*\((19|20)\d{2}\)\s*$")
 
 
@@ -122,13 +122,14 @@ def _entry(cat: AniList, media: Media) -> dict[str, Any]:
 
 
 def print_medium(media: Media) -> str:
-    """manga / manhwa / webtoon / light_novel for an AniList manga-side entry."""
+    """manga / manhwa / webtoon / light_novel for an AniList manga-side entry. A webtoon is a Korean entry
+    on a webtoon-native platform; a Japanese manga licensed to Piccoma or Kakao stays a manga."""
     if media.format == "NOVEL":
         return "light_novel"
+    if media.country != "KR":
+        return "manga"
     links = " ".join(media.links).lower()
-    if any(site in links for site in WEBTOON_SITES):
-        return "webtoon"
-    return "manhwa" if media.country == "KR" else "manga"
+    return "webtoon" if any(site in links for site in WEBTOON_SITES) else "manhwa"
 
 
 def adaptation_of(media: Media) -> dict[str, Any]:

@@ -108,6 +108,7 @@ PRINT = {
                relations=[("ADAPTATION", 99, "ANIME", "TV", "Tower Song", 2027, "NOT_YET_RELEASED")]),
     13: mmedia(13, "Salt Diary", 2015, country="KR", chapters=120),
     14: mmedia(14, "Lantern Novel", 2020, fmt="NOVEL", volumes=9),
+    15: mmedia(15, "Ash Ledger", 2016, links=("Piccoma", "Kakao")),   # a Japanese manga on Korean storefronts
 }
 
 
@@ -148,6 +149,7 @@ def test_print_mediums_come_from_country_format_and_links():
     assert print_medium(cat.media(12, "MANGA")) == "webtoon"
     assert print_medium(cat.media(13, "MANGA")) == "manhwa"
     assert print_medium(cat.media(14, "MANGA")) == "light_novel"
+    assert print_medium(cat.media(15, "MANGA")) == "manga"   # storefront links never make a webtoon
     assert adaptation_of(cat.media(12, "MANGA"))["status"] == "announced"
     assert resolve(cat, "Lantern Novel (light novel)").entry["scope"]["numbering"] == "volumes"
 
