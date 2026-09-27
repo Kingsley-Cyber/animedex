@@ -78,10 +78,13 @@ class AtomSearch:
         rows = [r for r in all_atoms(self.paths)
                 if (kind == "any" or r["kind"] == kind) and (title_id is None or r["title_id"] == title_id)
                 and (r["eligible"] or not eligible_only)]
+        if not rows:
+            return {"ranker": "none", "note": "no atoms match: the index has none yet, or the filters exclude them",
+                    "session_rankers": dict(self.counts), "searched": 0, "results": []}
         ranker, note = "word_overlap", ""
         scores: list[float] = []
         embedder = self._ready_embedder()
-        if embedder is not None and rows:
+        if embedder is not None:
             try:
                 qv, *vs = self._embed([query, *(r["text"] for r in rows)])
                 scores, ranker = [cosine(qv, v) for v in vs], "embedding"
