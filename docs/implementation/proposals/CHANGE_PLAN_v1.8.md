@@ -54,7 +54,14 @@
 - **Build:** v1.7 about 1 day, v1.8 about 2 days: contracts and vocab, field kinds, the characters record, GATHER and INTERPRET prompts, IDEATE, about 45 CQ queries, and tests.
 - **Live:** about 70 calls to re-extract the 14 titles (roughly 2 hours at 3 titles at once), plus the recalibration pairs (embeddings only, no model calls).
 
-## 7. Decisions for Kingsley (recommendations first)
+## 7. Decisions (answered by Kingsley, 2026-09-27)
+- **Word caps:** the existing per-field caps stay. New v1.8 phrase fields default to 15 words; the listed ones get 20. A field whose cap is written in the request keeps that cap.
+- **One combined 14-title run** for v1.7 + v1.8: yes.
+- **Canonical data:** the current canonical data stays until the gather-first comparison is reviewed.
+- **INTERPRET:** claude-opus-5-5 at effort medium, plus an effort A/B on 3 titles.
+- **Steering:** `steering/rules.yaml`, each rule with id, rule, hard|soft and 1–2 examples. Every card lists the rules it satisfies.
+
+### Original options (kept for the record)
 1. **Word caps.** Recommended: keep the approved 15/20-word caps on the existing P1 phrase fields, and give new fields the request's caps (12 by default). Alternative: every phrase back to 12 words.
 2. **One combined run for the 14 titles.** Recommended: a single gather-first run covering the v1.7 comparison and the v1.8 fields, with the timing split. Alternative: two runs, a clean comparison first and the new fields second, at about twice the GATHER calls.
 3. **After the comparison.** Recommended: sourced gather-first values become canonical for the existing fields, and the recall-first values are kept as the baseline record.

@@ -104,6 +104,12 @@ The popularity of anime-style Roblox games as a sign of demand for power fantasi
 
 ---
 
+## Owner additions (2026-09-27, snapshot review)
+- **Baselines (A5):** confirm that both baselines get the same model, taste standard, steering rules and web tools as ANIMEDEX. If they don't, fix the baseline prompts before the packet. Today the web baseline's generation has web tools that ANIMEDEX's generation lacks, so decision 1 below settles it.
+- **Ideation call cap:** 60 calls per run, so one run covers three generations.
+- **Novelty:** census-backed novelty needs at least 200 powered census rows. Until then, novelty rests on bridge-concept pairs only.
+- **Judge:** it evaluates `why_different` on graveyard matches; "not blank" is not a pass.
+
 ## Decisions for Kingsley (recommendations first)
 1. **How the two baselines differ (A5).** Recommended:
    - Baseline 1 runs the same loop as ANIMEDEX (same prompt, operators, judge and prior-art check) with an empty brief. That isolates the index exactly.
