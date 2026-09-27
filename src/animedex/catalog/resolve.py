@@ -68,16 +68,24 @@ def likely_label(score: int | None) -> str | None:
     return None
 
 
-def _chain(cat: AniList, first: Media, limit: int = 8) -> list[Media]:
+def _chain(cat: AniList, first: Media, limit: int = 8, this_year: int | None = None) -> list[Media]:
+    """The entry plus direct TV sequels that have aired (announced seasons are not in scope)."""
+    from datetime import UTC, datetime
+
+    this_year = this_year or datetime.now(UTC).year
     chain = [first]
     while len(chain) < limit:
         cur = chain[-1]
         prev_end = cur.end[0] or cur.start[0] or 0
         nxt = next((r for r in cur.relations if r.kind == "SEQUEL" and r.type == "ANIME" and r.format in SERIES
-                    and r.start_year and prev_end and r.start_year - prev_end <= 5), None)
+                    and r.start_year and prev_end and r.start_year - prev_end <= 5
+                    and r.start_year <= this_year), None)
         if nxt is None or any(m.id == nxt.id for m in chain):
             break
-        chain.append(cat.media(nxt.id))
+        media = cat.media(nxt.id)
+        if media.status in ("NOT_YET_RELEASED", "CANCELLED"):
+            break
+        chain.append(media)
     return chain
 
 

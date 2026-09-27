@@ -173,6 +173,20 @@ def norm_url(url: Any) -> str:
     return urlunsplit((parts.scheme.lower(), parts.netloc.lower().removeprefix("www."), path, parts.query, ""))
 
 
+# Owner rule 2026-09-27: pipeline code never scrapes MyAnimeList pages (AniList, Jikan, or MAL's official
+# API instead). The web calls block fetching them, and a page from them is never an admissible citation.
+BLOCKED_SOURCE_HOSTS = ("myanimelist.net",)
+BLOCKED_SOURCE_NOTE = "myanimelist.net pages are not an allowed source"
+
+
+def blocked_source(url: Any) -> bool:
+    from urllib.parse import urlsplit
+
+    host = urlsplit(norm_url(url)).hostname or ""
+    return any(host == h or host.endswith("." + h) for h in BLOCKED_SOURCE_HOSTS)
+
+
 def url_set(urls: Any) -> set[str]:
-    return {norm_url(u) for u in (urls or []) if norm_url(u)}
+    """Admissible citations, by page identity: blocked sources never count."""
+    return {norm_url(u) for u in (urls or []) if norm_url(u) and not blocked_source(u)}
 

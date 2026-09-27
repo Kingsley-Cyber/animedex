@@ -238,3 +238,19 @@ def test_blind_packet_has_three_equal_arms_and_hides_the_key(pool):
     key = json.loads((pool.root / res.key).read_text())
     assert sorted({v["arm"] for v in key.values()}) == ["animedex", "plain", "web"]
     assert res.key.startswith("data/blind/") and (pool.root / res.ratings).is_file()
+
+
+def test_prior_art_counterexamples_cite_retrieved_pages_never_blocked_ones():
+    from animedex.ideate.llm import prior_art_problems
+    from animedex.pipeline.common import url_set
+
+    urls = url_set(["https://example.com/show", "https://myanimelist.net/anime/9"])
+
+    def out(url):
+        return {"checks": [{"ref": "c1", "verdict": "counterexample",
+                            "counterexamples": [{"title": "Show", "url": url, "match_note": "same system"}]}]}
+
+    assert prior_art_problems(out("https://www.example.com/show/"), ["c1"], urls) == []  # same page, other spelling
+    [blocked] = prior_art_problems(out("https://myanimelist.net/anime/9"), ["c1"], urls)
+    assert "myanimelist.net pages are not an allowed source" in blocked
+    assert "cite a URL" in prior_art_problems(out("https://elsewhere.example/x"), ["c1"], urls)[0]

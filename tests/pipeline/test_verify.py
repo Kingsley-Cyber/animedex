@@ -222,6 +222,28 @@ def test_native_mode_cites_only_urls_the_call_retrieved(repo):
     assert outcome["signals"][0]["source_ref"] == RATINGS
 
 
+def test_myanimelist_pages_are_never_admissible_citations(repo):
+    from animedex.pipeline.common import blocked_source, url_set
+
+    mal = "https://myanimelist.net/anime/1/Ironvale_Circuit_(TV)"
+    assert blocked_source("https://www.myanimelist.net/anime/1") and blocked_source(mal)
+    assert not blocked_source("https://api.jikan.moe/v4/anime/1") and not blocked_source("https://anilist.co/anime/1")
+    assert url_set([mal, FACTS]) == {FACTS}
+    via_mal = verify_out(fields=[{"path": "sensory.power_visual_signature", "status": "corrected",
+                                  "value": "violet circuitry lines on skin", "source_url": mal, "note": None}])
+    still_mal = json.loads(json.dumps(via_mal))
+    result, mock, _ = verify_native(repo, {("VERIFY", TID): [via_mal, still_mal]}, {FACTS, EPISODES, RATINGS, mal})
+    assert "myanimelist.net pages are not an allowed source" in mock.calls[1]["user"]
+    assert not result.titles and result.quarantined  # the tools returned the page, but it never counts
+    from animedex.pipeline.verify import Pending, apply
+
+    pending = Pending({"title_id": TID, "sensory": {"power_visual_signature": {"value": "x", "conf": 0.5}}}, [],
+                      ["sensory.power_visual_signature"])
+    record, _, outcome, res = apply(pending, via_mal, {mal, RATINGS}, prov={}, threshold=0.7)
+    assert res.statuses["sensory.power_visual_signature"] == "unresolved"  # apply drops it even unvalidated
+    assert record["sensory"]["power_visual_signature"]["value"] == "x" and outcome is not None
+
+
 def test_native_mode_flags_a_blown_search_cap(repo):
     good = verify_out(fields=[f for f in verify_out()["fields"] if f["path"] != "sensory.color_motif"])
     result, mock, _ = verify_native(repo, {("VERIFY", TID): [good]}, {FACTS, EPISODES, RATINGS}, searches=9)

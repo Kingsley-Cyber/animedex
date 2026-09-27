@@ -1,5 +1,11 @@
 # Changelog — docs/implementation
 
+## v1.6.1 — 2026-09-27 (owner rule: sources)
+- Pipeline code never scrapes MyAnimeList pages. Claude web calls pass `--disallowedTools WebFetch(domain:myanimelist.net)`, and the VERIFY, prior-art and web-baseline prompts say so (prompt versions 1.1.0).
+- A myanimelist.net URL is never an admissible citation (VERIFY fields, moments, outcome signals, failure evidence; prior-art counterexamples). It gets a specific repair message, and `apply` drops it to `unresolved` even without validation.
+- Before this rule, four VERIFY calls (Big Order, Future Diary, Hunter x Hunter, one gold title) opened seven MAL pages. Their MAL-cited facts are listed in the M2 report and are re-verified without MAL before M2 closes.
+- Backfill: announced (not yet released or future-dated) sequels are not added as seasons.
+
 ## v1.6 — 2026-09-27 (approved under Kingsley's autopilot ruling with the agent's recommendations)
 - Placement: code and docs landed at the M2→M3 boundary with v1.3. The census and prior-art checks still run between M4 and M5, as ordered, so blind review #1's "never done" claims are credible.
 - **Census (00, 02, 04, 05, 06, 07, 08):**

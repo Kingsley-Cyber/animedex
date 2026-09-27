@@ -32,6 +32,8 @@ from animedex.providers.cli_common import (
 
 CLI = "claude_cli"
 WEB_TOOLS = ("WebSearch", "WebFetch")
+# Owner rule 2026-09-27: pipeline code must not scrape MyAnimeList pages (use AniList, Jikan, or MAL's API).
+BLOCKED_FETCH = ("WebFetch(domain:myanimelist.net)", "WebFetch(domain:www.myanimelist.net)")
 _URL = re.compile(r"https?://[^\s\"'<>\[\]{}\\]+")
 
 
@@ -125,6 +127,7 @@ class ClaudeCliProvider:
             args += ["--effort", str(params["effort"])]
         if web:  # exactly the web tools, pre-approved (headless calls cannot answer a permission prompt)
             args += ["--allowedTools", ",".join(WEB_TOOLS), "--max-turns", str(int(web["max_turns"]))]
+            args += ["--disallowedTools", ",".join(BLOCKED_FETCH)]  # owner rule: never scrape these sites
         return args
 
     def generate(self, system: str, user: str, json_schema: dict[str, Any], params: dict[str, Any]) -> ProviderResponse:

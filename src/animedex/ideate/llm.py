@@ -14,6 +14,7 @@ from animedex.ideate.context import PROFILE_PATHS, Context
 from animedex.integrity import name_leaks
 from animedex.models import IdeaCard
 from animedex.ontology import Vocab
+from animedex.pipeline.common import BLOCKED_SOURCE_NOTE, blocked_source, norm_url
 from animedex.textutil import word_count
 
 OPERATORS = {
@@ -203,7 +204,9 @@ def prior_art_problems(out: dict[str, Any], refs: list[str], urls: set[str]) -> 
         if c.get("verdict") == "counterexample" and not c.get("counterexamples"):
             problems.append(f"{c.get('ref')}: a counterexample verdict needs the title and page")
         for x in c.get("counterexamples") or []:
-            if x.get("url") not in urls:
+            if blocked_source(x.get("url")):
+                problems.append(f"{c.get('ref')}: {BLOCKED_SOURCE_NOTE}; cite another page")
+            elif norm_url(x.get("url")) not in urls:
                 problems.append(f"{c.get('ref')}: cite a URL your searches returned or you opened in this session")
             if word_count(str(x.get("match_note") or "")) > 25:
                 problems.append(f"{c.get('ref')}: match_note 25 words max")

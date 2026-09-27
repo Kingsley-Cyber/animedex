@@ -170,3 +170,8 @@ Supersedes the provider, key and dollar-cap lines of the G1 rulings. The model c
   - If it loses to either baseline: stop building and diagnose, in the order in doc 11.
 - **Updates:** short and plain, one per milestone.
 
+## Owner ruling: evidence order, word caps, sources (Kingsley, 2026-09-27)
+- **Order:** the work branch is merged to main. Live runs go strictly in milestone order: finish M2 (re-run the quarantined titles on the fixed code), file and tag the M2 report, then M3 live on the gold set, then M4, the census, and M5. Check each milestone's ACs and metrics before the next one consumes its output. No live run on code that is behind a known fix.
+- **Word caps:** before spending more retries, report which fields overflow the 12-word cap and how often. Per-field caps are a contract change for Kingsley's approval. Never retry until outputs happen to fit.
+- **Sources:** pipeline code must not scrape MyAnimeList pages. Use AniList, Jikan, or MAL's official API. Web calls block myanimelist.net fetches, and its pages are never admissible citations.
+- **Queue:** Dragon Raja added to the donghua list.

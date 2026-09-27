@@ -477,6 +477,7 @@ def test_web_calls_get_exactly_the_web_tools_with_a_turn_cap(tmp_path):
     argv = calls(binary)[0]["argv"]
     assert argv[argv.index("--tools") + 1] == "WebSearch,WebFetch"
     assert argv[argv.index("--allowedTools") + 1] == "WebSearch,WebFetch" and argv[argv.index("--max-turns") + 1] == "17"
+    assert "WebFetch(domain:myanimelist.net)" in argv[argv.index("--disallowedTools") + 1]  # owner rule: no MAL
     assert resp.meta["web"]["urls"] == [] and "WebSearch" in resp.meta["expected_tools"]
     plain = p.args("s", SCHEMA, {"model": "claude-sonnet-5"})
     assert plain[plain.index("--tools") + 1] == "" and "--allowedTools" not in plain and "--max-turns" not in plain

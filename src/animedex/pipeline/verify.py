@@ -29,7 +29,7 @@ from animedex.guards import LiveRunRefused
 from animedex.models import CorpusEntry
 from animedex.ontology import Vocab
 from animedex.paths import Paths
-from animedex.pipeline.common import norm_url, url_set
+from animedex.pipeline.common import BLOCKED_SOURCE_NOTE, blocked_source, norm_url, url_set
 from animedex.prompts import RenderedPrompt, read_prompt
 from animedex.providers.base import ProviderError
 from animedex.providers.cli_common import CliAuthError, RateLimited
@@ -197,6 +197,13 @@ CITE_PAGES = "cite one of the provided page URLs"
 CITE_NATIVE = "cite a URL your searches returned or you opened in this session"
 
 
+def _cite(url: Any, urls: set[str], cite: str) -> str | None:
+    """None when `url` is an admissible citation, else what the repair should say."""
+    if blocked_source(url):
+        return f"{BLOCKED_SOURCE_NOTE}; {cite}"
+    return None if norm_url(url) in urls else cite
+
+
 def output_problems(out: dict[str, Any], pending: Pending, vocab: Vocab, pages: dict[str, TransientText] | set[str],
                     guards: GuardConfig, *, cite: str = CITE_PAGES) -> list[str]:
     problems = []
@@ -208,8 +215,8 @@ def output_problems(out: dict[str, Any], pending: Pending, vocab: Vocab, pages: 
         if path not in fields_to_check:
             problems.append(f"fields: {path!r} was not asked for")
             continue
-        if status in ("confirmed", "corrected") and norm_url(item.get("source_url")) not in urls:
-            problems.append(f"{path}: {cite}, or mark unresolved")
+        if status in ("confirmed", "corrected") and (why := _cite(item.get("source_url"), urls, cite)):
+            problems.append(f"{path}: {why}, or mark unresolved")
         if status == "corrected":
             value = item.get("value")
             if not value:
@@ -228,15 +235,16 @@ def output_problems(out: dict[str, Any], pending: Pending, vocab: Vocab, pages: 
     for item in out.get("moments", []):
         if item.get("moment_id") not in moment_ids:
             problems.append(f"moments: unknown moment_id {item.get('moment_id')!r}")
-        elif item.get("status") in ("confirmed", "corrected", "not_found") and norm_url(item.get("source_url")) not in urls:
-            problems.append(f"{item['moment_id']}: {cite}, or mark unresolved")
+        elif item.get("status") in ("confirmed", "corrected", "not_found") and (
+                why := _cite(item.get("source_url"), urls, cite)):
+            problems.append(f"{item['moment_id']}: {why}, or mark unresolved")
     oc = out.get("outcome")
     if oc:
         if not oc.get("signals"):
             problems.append("outcome needs at least one metric with its page URL")
         for s in oc.get("signals", []):
-            if norm_url(s.get("source_url")) not in urls:
-                problems.append(f"outcome signal {s.get('metric')!r}: {cite}")
+            if why := _cite(s.get("source_url"), urls, cite):
+                problems.append(f"outcome signal {s.get('metric')!r}: {why}")
         reason = oc.get("failure_reason")
         if oc.get("label") in ("mixed", "flop") and not reason:
             problems.append("outcome: mixed/flop needs a failure_reason")
@@ -251,8 +259,8 @@ def output_problems(out: dict[str, Any], pending: Pending, vocab: Vocab, pages: 
             elif level != "unknown":
                 if not evidence:
                     problems.append(f"outcome: failure_level {level} needs failure_evidence (25 words max)")
-                if norm_url(oc.get("failure_evidence_url")) not in urls:
-                    problems.append(f"outcome.failure_evidence_url: {cite}")
+                if why := _cite(oc.get("failure_evidence_url"), urls, cite):
+                    problems.append(f"outcome.failure_evidence_url: {why}")
         if evidence:
             if word_count(evidence) > 25:
                 problems.append("outcome.failure_evidence: 25 words max")

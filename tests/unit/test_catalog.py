@@ -16,9 +16,10 @@ from animedex.guards import load_corpus
 pytestmark = pytest.mark.unit
 
 
-def media(mid, english, year, *, fmt="TV", eps=12, pop=1000, score=80, country="JP", relations=(), end=None):
+def media(mid, english, year, *, fmt="TV", eps=12, pop=1000, score=80, country="JP", relations=(), end=None,
+          status="FINISHED"):
     return {"id": mid, "idMal": mid, "title": {"romaji": english, "english": english, "native": None}, "synonyms": [],
-            "format": fmt, "episodes": eps, "status": "FINISHED", "countryOfOrigin": country, "popularity": pop,
+            "format": fmt, "episodes": eps, "status": status, "countryOfOrigin": country, "popularity": pop,
             "averageScore": score, "startDate": {"year": year, "month": 4, "day": 1},
             "endDate": {"year": end or year, "month": 6, "day": 1}, "studios": {"nodes": [{"name": "Studio Test"}]},
             "relations": {"edges": [{"relationType": k, "node": {"id": i, "type": "ANIME", "format": f, "episodes": 12,
@@ -36,6 +37,10 @@ DB = {
     4: media(4, "Iron Tide: The Movie", 2016, fmt="MOVIE", pop=100),
     5: media(5, "Paper Crown", 2020, pop=700, country="CN", fmt="ONA"),
     6: media(6, "Glass Harbor", 2019, pop=800, score=85),
+    7: media(7, "Night Loom", 2021, pop=650, relations=[("SEQUEL", 8, "TV", "Night Loom Season 2", 2023)]),
+    8: media(8, "Night Loom Season 2", 2023, pop=400, status="NOT_YET_RELEASED"),
+    9: media(9, "Salt Bridge", 2022, pop=600, relations=[("SEQUEL", 10, "TV", "Salt Bridge Season 2", 2099)]),
+    10: media(10, "Salt Bridge Season 2", 2099, pop=10),
 }
 
 
@@ -74,6 +79,12 @@ def test_china_origin_is_donghua_and_films_have_no_seasons():
     assert resolve(cat, "Paper Crown").entry["medium"] == "donghua"
     film = resolve(cat, "Iron Tide: The Movie (2016)")
     assert film.entry["format"] == "film" and film.entry["scope"]["seasons"] == [] and film.entry["scope"]["numbering"] is None
+
+
+def test_announced_seasons_are_not_in_scope():
+    cat = fake_anilist()
+    assert resolve(cat, "Night Loom").entry["scope"]["seasons"] == [1]  # sequel listed but not yet released
+    assert resolve(cat, "Salt Bridge").entry["scope"]["seasons"] == [1]  # sequel dated in the future
 
 
 def test_slug_never_doubles_the_year():
