@@ -61,6 +61,7 @@ class Media:
     end: tuple[int | None, int | None]
     studios: tuple[str, ...]
     relations: tuple[Relation, ...] = field(default_factory=tuple)
+    id_mal: int | None = None  # MyAnimeList id: the reception client's key (catalog/reception.py)
 
     @property
     def ref(self) -> str:
@@ -87,7 +88,8 @@ def _media(d: dict[str, Any]) -> Media:
                  episodes=d.get("episodes"), status=d.get("status"), country=d.get("countryOfOrigin"),
                  popularity=int(d.get("popularity") or 0), score=d.get("averageScore"),
                  start=(sd.get("year"), sd.get("month")), end=(ed.get("year"), ed.get("month")),
-                 studios=tuple(n["name"] for n in ((d.get("studios") or {}).get("nodes") or [])), relations=tuple(rels))
+                 studios=tuple(n["name"] for n in ((d.get("studios") or {}).get("nodes") or [])), relations=tuple(rels),
+                 id_mal=int(d["idMal"]) if d.get("idMal") else None)
 
 
 MIN_INTERVAL_S = 2.0         # 30 requests a minute: AniList's degraded limit (owner rule)
@@ -104,6 +106,7 @@ class AniList:
         self.min_interval_s, self._sleep, self._last = min_interval_s, sleep, 0.0
         self.cache_dir, self.ttl_s, self._clock = cache_dir, ttl_s, clock
         self.requests = 0  # network requests made (cache hits are free)
+        self.fetched_at: float | None = None  # when the last response left AniList (a cache hit keeps its time)
 
     def _cache_file(self, query: str, variables: dict[str, Any]) -> Path | None:
         if self.cache_dir is None:
@@ -116,12 +119,14 @@ class AniList:
         if cached is not None and cached.is_file():
             entry = json.loads(cached.read_text(encoding="utf-8"))
             if self._clock() - float(entry.get("fetched_at", 0)) < self.ttl_s:
+                self.fetched_at = float(entry["fetched_at"])
                 return entry["data"]
         data = self._fetch(query, variables)
+        self.fetched_at = self._clock()
         if cached is not None:
             from animedex.store.atomic import atomic_write_text
 
-            atomic_write_text(cached, json.dumps({"fetched_at": self._clock(), "data": data}, sort_keys=True))
+            atomic_write_text(cached, json.dumps({"fetched_at": self.fetched_at, "data": data}, sort_keys=True))
         return data
 
     def _fetch(self, query: str, variables: dict[str, Any]) -> dict[str, Any]:
