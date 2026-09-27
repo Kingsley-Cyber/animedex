@@ -30,8 +30,9 @@ def _field(name: str) -> Callable[[dict[str, Any]], str]:
 
 
 def _check_key(r: dict[str, Any]) -> str:
+    """One record per verdict: an atom and its proof share a target_id, so the type is part of the key."""
     prov = r.get("provenance") or {}
-    return f"{r['target_id']}|{prov.get('run_id', '')}|{prov.get('created_at', '')}"
+    return f"{r['target_id']}|{r['target_type']}|{prov.get('run_id', '')}|{prov.get('created_at', '')}"
 
 
 RECORD_TYPES: dict[str, RecordType] = {

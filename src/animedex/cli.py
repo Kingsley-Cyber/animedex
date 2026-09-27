@@ -159,34 +159,91 @@ def verify(title: str = TitleOpt, all_: bool = AllOpt, dry_run: bool = DryOpt,
         typer.echo(f"  stopped: {result.stopped}", err=True)
 
 
-@app.command()
-def p2(title: str = TitleOpt, all_: bool = AllOpt, dry_run: bool = DryOpt) -> None:
-    """P2 WHY: effect + engine atoms (M3)."""
-    _stub("p2")
+def _masked(paths: Any) -> set[str]:
+    """Gold titles whose outputs stay counts-only (owner ruling 2026-09-27)."""
+    from animedex.gold import masked_titles
+    from animedex.guards import load_corpus
+
+    return masked_titles(paths, {t for t, e in load_corpus(paths).items() if "gold" in e.role_tags})
+
+
+def _say_issues(paths: Any, result: Any) -> None:
+    hidden = _masked(paths)
+    for label in ("quarantined", "failed", "refused", "skipped", "flags"):
+        for tid, why in getattr(result, label, []):
+            detail = "(details hidden: gold title, blind pending)" if tid in hidden else why[:200]
+            typer.echo(f"  {label} {tid}: {detail}", err=True)
+    if getattr(result, "stopped", None):
+        typer.echo(f"  stopped: {result.stopped}", err=True)
+
+
+def _analysis_stage(name: str, model_key: str, title: str | None, all_: bool) -> None:
+    from animedex.ontology import get_vocab
+    from animedex.pipeline.check import run_check
+    from animedex.pipeline.p2 import run_p2
+    from animedex.pipeline.p3 import run_p3
+    from animedex.pipeline.p4 import run_p4
+    from animedex.providers.factory import build_client
+    from animedex.store.runlog import RunLog, new_run_id
+
+    fn = {"P2": run_p2, "P3": run_p3, "CHECK": run_check, "P4": run_p4}[name]
+    paths = _paths()
+    settings, vocab = load_settings(paths), get_vocab(paths)
+    ids = [e.title_id for e in _entries(paths, title, all_)]
+    run_id = new_run_id()
+    runlog = RunLog(paths.raw_runs, run_id)
+    client = build_client(model_key, paths=paths, settings=settings, env=environment(paths), runlog=runlog,
+                          prompt_version="unset")
+    result = fn(paths, ids, client, vocab, settings, run_id=run_id)
+    runlog.write_ledger()
+    counts = ", ".join(f"{k} {v}" for k, v in sorted(result.counts.items())) or "no output"
+    typer.echo(f"{name} {run_id}: {len(result.done)} title(s) done; {counts}")
+    _say_issues(paths, result)
+    if name == "CHECK" and result.done:
+        typer.echo("next: animedex canonicalize (atoms and proofs land with their checks)")
+    if name == "P4" and result.done:
+        typer.echo("next: animedex canonicalize")
 
 
 @app.command()
-def p3(title: str = TitleOpt, all_: bool = AllOpt, dry_run: bool = DryOpt) -> None:
-    """P3 PROOF: contrast, explanation test, ablation (M3)."""
-    _stub("p3")
+def p2(title: str = TitleOpt, all_: bool = AllOpt) -> None:
+    """P2 WHY: effect + engine atoms from canonical, verified profiles."""
+    _analysis_stage("P2", "p2", title, all_)
 
 
 @app.command()
-def check(title: str = TitleOpt, all_: bool = AllOpt, dry_run: bool = DryOpt) -> None:
-    """CHECK: falsifying critic (M3)."""
-    _stub("check")
+def p3(title: str = TitleOpt, all_: bool = AllOpt) -> None:
+    """P3 PROOF: partner contrast, explanation test, ablation (one call per title)."""
+    _analysis_stage("P3", "p3", title, all_)
 
 
 @app.command()
-def p4(title: str = TitleOpt, all_: bool = AllOpt, dry_run: bool = DryOpt) -> None:
-    """P4 TRANSFER: domain-neutral patterns + conditions (M3)."""
-    _stub("p4")
+def check(title: str = TitleOpt, all_: bool = AllOpt) -> None:
+    """CHECK: a falsifying critic from a different model family; REVISE is re-checked once."""
+    _analysis_stage("CHECK", "check", title, all_)
 
 
 @app.command()
-def run(title: str = TitleOpt, all_: bool = AllOpt, dry_run: bool = DryOpt) -> None:
-    """P1 -> CANONICALIZE for one title (M3)."""
-    _stub("run")
+def p4(title: str = TitleOpt, all_: bool = AllOpt) -> None:
+    """P4 TRANSFER: domain-neutral patterns with essential, variable, failure conditions."""
+    _analysis_stage("P4", "p4", title, all_)
+
+
+@app.command()
+def run(title: str = TitleOpt, all_: bool = AllOpt) -> None:
+    """Full pipeline for the given titles, skipping finished work: P1 -> VERIFY -> P2 -> P3 -> CHECK -> P4."""
+    from animedex.ontology import get_vocab
+    from animedex.pipeline.orchestrate import run_batch
+
+    paths = _paths()
+    settings, vocab = load_settings(paths), get_vocab(paths)
+    ids = [e.title_id for e in _entries(paths, title, all_)]
+    report = run_batch(paths, ids, settings, environment(paths), vocab, echo=typer.echo)
+    for line in report.lines():
+        typer.echo(line)
+    if report.stopped:
+        typer.echo("Paused. Rerun the same command later; finished calls are cached.", err=True)
+        raise typer.Exit(3)
 
 
 @app.command()

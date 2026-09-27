@@ -13,6 +13,7 @@ data/raw/
 data/candidates/
 data/quarantine/
 data/cache/
+data/adjudication/
 /build/
 .env
 .venv/
