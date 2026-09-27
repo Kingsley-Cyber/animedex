@@ -64,9 +64,18 @@ def _state_done(paths: Paths) -> dict[str, set[str]]:
     return done
 
 
+def _done_ids(result: Any) -> list[str]:
+    if getattr(result, "done", None):
+        return list(result.done)
+    out = []
+    for t in getattr(result, "titles", []) or []:  # P1 returns records, VERIFY returns per-title results
+        out.append(t["title_id"] if isinstance(t, dict) else t.title_id)
+    return out
+
+
 def _summ(result: Any) -> dict[str, Any]:
-    return {k: getattr(result, k, []) for k in ("done", "quarantined", "failed", "refused", "skipped", "flags")} | {
-        "counts": dict(getattr(result, "counts", {}) or {})}
+    return {"done": _done_ids(result)} | {k: getattr(result, k, []) for k in (
+        "quarantined", "failed", "refused", "skipped", "flags")} | {"counts": dict(getattr(result, "counts", {}) or {})}
 
 
 def run_batch(paths: Paths, title_ids: list[str], settings: Settings, env: dict[str, str], vocab: Vocab, *,
@@ -130,6 +139,15 @@ def run_batch(paths: Paths, title_ids: list[str], settings: Settings, env: dict[
         engine = build_search(settings, env) if search == "auto" else search
         ok = stage("VERIFY", lambda client, run_id: run_verify(paths, [corpus[t] for t in pending], client, engine,
                                                                vocab, settings, run_id=run_id), pending, "verify")
+        retry_v = [t for t, _ in report.stages.get("VERIFY", {}).get("quarantined", [])]
+        if ok and retry_v:  # one fresh run for quarantined titles (their P1 candidates are still in place)
+            first = report.stages.pop("VERIFY")
+            ok = stage("VERIFY", lambda client, run_id: run_verify(paths, [corpus[t] for t in retry_v], client, engine,
+                                                                   vocab, settings, run_id=run_id), retry_v, "verify")
+            again = report.stages.get("VERIFY", {})
+            report.stages["VERIFY"] = {**first, "done": first["done"] + again.get("done", []),
+                                       "quarantined": again.get("quarantined", []),
+                                       "counts": {**first.get("counts", {}), "retried": len(retry_v)}}
     canon("P1/VERIFY")
     if ok:
         done = _state_done(paths)
