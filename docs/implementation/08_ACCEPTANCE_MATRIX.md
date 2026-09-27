@@ -13,7 +13,7 @@
 | AC-09 | Gold titles + partners have valid P1 profiles with scope; modules follow activation rules | `make validate` + rule test | M2 |
 | AC-10 | Verify list always contains outcome, sensory fields, and moment locators; low-confidence fields carry `uncertainty_reason` | Unit test | M2 |
 | AC-11 | No stored quotes, dialogue, or transcripts; text within length caps; no framing/blocking/editing claims in sensory fields | Test (length, quote, and keyword heuristics) | M2 |
-| AC-12 | P1 enum agreement across two runs ≥ 0.80 on gold | `make eval` | M2 |
+| AC-12 | Enum agreement across two INTERPRET runs (gather-first, v1.7): every grid field raw ≥ 0.80 and Cohen's kappa ≥ 0.80; a field under kappa 0.60 is flagged unreliable. Recall-first P1 (M2) measured 0.73 on gold. | `make eval` → `eval/agreement/reliability.json` | M2 (passed after v1.7, D-028) |
 | AC-13 | Web correction rate reported per field | Report | M2 |
 | AC-14 | Each title has ≥1 engine atom; total atoms ≤15 (fewer than 5 flagged, not failed); every atom has `evidence_refs`; every effect atom has `rival_because` | Contract test | M3 |
 | AC-15 | Every anime gold title has ≥1 cross-medium partner; every effect-atom proof has an explanation test | Contract test | M3 |

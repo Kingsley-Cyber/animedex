@@ -913,6 +913,14 @@ def _eval_agreement(paths: Any, settings: Any, vocab: Any, gold_ids: set[str]) -
 
     runs = sorted((paths.root / "eval" / "agreement" / "p1").glob("*/titles.jsonl"))
     canonical = [t for t in read_jsonl(paths.canonical / "titles.jsonl") if t["title_id"] in gold_ids]
+    # recall-first profiles only: a gather-first profile (INTERPRET, prompt version "<interpret>+p1-<p1>")
+    # against a recall-first second run would measure the method change, not agreement
+    recall = [t for t in canonical if "+p1-" not in str((t.get("provenance") or {}).get("prompt_version"))]
+    if canonical and not recall:
+        typer.echo("P1 enum agreement (recall-first): superseded; the gold profiles are gather-first now "
+                   "(M2 measured 0.7333 recall-first). AC-12 is the gather-first kappa gate below.")
+        return
+    canonical = recall
     if not runs or not canonical:
         typer.echo("P1 agreement (AC-12): needs canonical gold profiles and one `animedex p1 --agreement` run")
         return

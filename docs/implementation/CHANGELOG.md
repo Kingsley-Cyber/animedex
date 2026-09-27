@@ -1,5 +1,9 @@
 # Changelog — docs/implementation
 
+## v1.7 comparison — 2026-09-27
+- **Report:** `reports/V17_COMPARISON.md`. Gather-first is 25% faster per title (6m 32s → 4m 54s), retries fell from 39 to 3, gold enum agreement rose from 0.73 to 0.96 on M2's fields, and 36% of values carry a web source (was 10%). The effort A/B keeps INTERPRET at medium (D-029).
+- **`animedex eval`:** the recall-first P1 agreement line no longer compares gather-first gold profiles with recall-first second runs; it says it is superseded and points to the kappa gate.
+
 ## Grid axis — 2026-09-27
 - **AC-12 on the grid (D-028).** The gather-first agreement eval over 14 titles failed only on `power_combat.cost_of_power` (raw 0.79, kappa 0.74). `ideate.grid_dims` is now gate × set_structure × progression; all three pass (1.0/1.0, 0.93/0.89, 1.0/1.0).
 - **Idea profile.** `IdeaProfile` gains `set_structure` (so a card's cell is computable); the ANALYZE structural set, the backtest kit and the diagnose ablation carry it too. cost_of_power stays everywhere it was except the grid.
