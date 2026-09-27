@@ -192,3 +192,22 @@ def test_every_schema_the_light_path_sends_is_a_valid_json_schema():
         Draft202012Validator.check_schema(schema)
         assert all(len(e) >= 1 for e in enums(schema)), "an empty enum: the CLI refuses the schema"
     assert [e for e in enums(note_schema([])) if not e]   # what the old research schema sent
+
+
+def test_two_runs_in_the_same_second_never_share_a_card_file(repo, monkeypatch):
+    """Live 2026-09-27: two seeds started together and the later run overwrote the earlier cards."""
+    import animedex.light.quick as q
+
+    class Frozen(q.datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return q.datetime(2026, 9, 27, 18, 48, 15, tzinfo=tz)
+
+    monkeypatch.setattr(q, "datetime", Frozen)
+    setup(repo)
+    cards = [card(1, "ironvale_circuit_2021")]
+    paths_seen = []
+    for seed in (SEED, "a lane: death-game survival", SEED):
+        clients, _ = clients_for(repo, {}, cards, [verdict("C1", 3)])
+        paths_seen.append(quick(repo, clients, shows=["Ironvale Circuit"], n=1, seed=seed).path)
+    assert len(set(paths_seen)) == 3 and all("20260927_184815_" in p for p in paths_seen)

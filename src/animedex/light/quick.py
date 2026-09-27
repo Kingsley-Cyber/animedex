@@ -428,7 +428,10 @@ def run_quick(paths: Paths, settings: Settings, vocab: Vocab, *, seed: str, show
     hard = [r.id for r in rules if r.strength == "hard"]
     notes = read_notes(paths)
     res = QuickResult()
-    stamp = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
+    # the seed key keeps two runs started in the same second apart (2026-09-27: one overwrote the other)
+    stamp = f"{datetime.now(UTC).strftime('%Y%m%d_%H%M%S')}_{seed_key(seed)[:6]}"
+    while (paths.quick / f"{stamp}.md").exists():
+        stamp += "b"
     record: dict[str, Any] = {"seed": seed, "run_id": run_id, "created_at": created_at or datetime.now(UTC).isoformat(),
                               "rules": [r.__dict__ for r in rules]}
 
