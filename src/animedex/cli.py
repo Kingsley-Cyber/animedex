@@ -587,7 +587,7 @@ def eval_() -> None:
 def _eval_agreement(paths: Any, settings: Any, vocab: Any, gold_ids: set[str]) -> None:
     import json
 
-    from animedex.evaluation import p1_agreement
+    from animedex.evaluation import latest_per_title, p1_agreement
     from animedex.store.atomic import atomic_write_text
     from animedex.store.jsonl import read_jsonl
 
@@ -596,14 +596,16 @@ def _eval_agreement(paths: Any, settings: Any, vocab: Any, gold_ids: set[str]) -
     if not runs or not canonical:
         typer.echo("P1 agreement (AC-12): needs canonical gold profiles and one `animedex p1 --agreement` run")
         return
-    second = [t for t in read_jsonl(runs[-1]) if t["title_id"] in gold_ids]
+    second, used = latest_per_title(runs, gold_ids)
     report = p1_agreement(canonical, second, vocab)
     bar = float(settings.eval.get("bars", {}).get("p1_enum_agreement", 0.80))
-    report.update({"bar": bar, "second_run": runs[-1].parent.name,
-                   "pass": report["overall"] is not None and report["overall"] >= bar})
+    missing = sorted(gold_ids - {t["title_id"] for t in second})
+    report.update({"bar": bar, "second_runs": used, "gold_without_second_run": len(missing),
+                   "pass": report["overall"] is not None and report["overall"] >= bar and not missing})
     atomic_write_text(paths.root / "eval" / "agreement" / "p1_agreement.json", json.dumps(report, indent=2, sort_keys=True) + "\n")
-    typer.echo(f"P1 enum agreement (AC-12): {report['overall']} over {report['comparisons']} comparisons "
-               f"({'PASS' if report['pass'] else 'BELOW BAR'} vs {bar})")
+    typer.echo(f"P1 enum agreement (AC-12): {report['overall']} over {report['comparisons']} comparisons, "
+               f"{len(gold_ids) - len(missing)}/{len(gold_ids)} gold titles "
+               f"({'PASS' if report['pass'] else 'BELOW BAR or incomplete'} vs {bar})")
 
 
 def _eval_verify_rates(paths: Any, vocab: Any) -> None:

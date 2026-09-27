@@ -62,3 +62,22 @@ def test_p1_agreement_counts_enum_fields_only():
     assert report["comparisons"] == len(enum_active)
     assert report["per_field"]["power_combat.gate"] == 0.0
     assert report["overall"] == pytest.approx((len(enum_active) - 1) / len(enum_active), abs=1e-4)
+
+
+def test_agreement_uses_the_newest_rerun_per_gold_title(tmp_path):
+    import json
+
+    from animedex.evaluation import latest_per_title
+
+    def write(run, rows):
+        f = tmp_path / run / "titles.jsonl"
+        f.parent.mkdir()
+        f.write_text("".join(json.dumps(r) + "\n" for r in rows))
+        return f
+
+    a = write("run_20260927_010000_000001", [{"title_id": "x", "v": 1}, {"title_id": "y", "v": 1}])
+    b = write("run_20260927_020000_000001", [{"title_id": "x", "v": 2}, {"title_id": "z", "v": 2}])
+    got, runs = latest_per_title([b, a], {"x", "y"})
+    assert sorted((t["title_id"], t["v"]) for t in got) == [("x", 2), ("y", 1)]
+    assert runs == [a.parent.name, b.parent.name]
+

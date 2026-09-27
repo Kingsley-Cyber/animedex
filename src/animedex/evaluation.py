@@ -100,3 +100,17 @@ def p1_agreement(run_a: list[dict[str, Any]], run_b: list[dict[str, Any]], vocab
         "per_field": {p: round(s / n, 4) for p, (s, n) in per_field.items() if n},
         "per_title": {t: round(s / n, 4) for t, (s, n) in per_title.items() if n},
     }
+
+
+def latest_per_title(run_files: list[Any], ids: set[str]) -> tuple[list[dict[str, Any]], list[str]]:
+    """AC-12 second runs may cover the gold titles one at a time: the newest record per title wins
+    (run ids sort by time). Returns the records and the runs they came from."""
+    from animedex.store.jsonl import read_jsonl
+
+    latest: dict[str, tuple[str, dict[str, Any]]] = {}
+    for f in sorted(run_files, key=lambda p: p.parent.name):
+        for t in read_jsonl(f):
+            if t["title_id"] in ids:
+                latest[t["title_id"]] = (f.parent.name, t)
+    return [t for _, t in latest.values()], sorted({r for r, _ in latest.values()})
+
