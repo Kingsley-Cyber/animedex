@@ -86,3 +86,13 @@ decision list.
 - **Blind packet:** 20 champions vs. 20 baseline premises, up to the budget cap. Never loosen a gate to reach 20; if the cap hits first, review N vs. N.
 - **Data tiers:** only `data/canonical/` is committed.
 - Spec amendments from G0 are in `docs/implementation/CHANGELOG.md` v1.2.
+
+## Standing rule: change control (Kingsley, 2026-09-26)
+Typo fixes and clarifications can be applied directly. Any change that touches a contract, the scope, or more than one doc gets a change plan (`docs/implementation/proposals/`) and Kingsley's approval first, and never lands mid-milestone.
+
+## Owner rulings (G1, 2026-09-26)
+- **Models:** p1/verify on Sonnet 5 (recall quality needs a recent knowledge cutoff); p2/p3/ideate_generate on Opus 5.5; p4/ep/rollup_match on Haiku 4.5; check and ideate_judge on a non-Claude model via OpenRouter, chosen before M3. Every model id must resolve through the provider's models API before its first live run (`animedex smoke`).
+- **Fallbacks never change the model silently:** provenance records the model that actually served each call; a substituted answer is never cached; CHECK and the judge are strict slots that refuse any substitution (never cross model families).
+- **Keys** live only in `.env`, pasted by Kingsley. OpenRouter is the OpenAI-compatible endpoint. Search: Brave. Caps: $25/run, $3/title, $0.25/episode.
+- **Partner runs** start as soon as G1a closes. Report only cost, errors, and verify stats; never show partner or gold profiles before the gold annotations are committed.
+- **Gold annotations** come from Kingsley's own viewing, in his own words, without AI help (`eval/gold/README.md`).
