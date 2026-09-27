@@ -84,14 +84,24 @@ def write_candidates(paths: Paths, record_type: str, title_id: str, records: lis
     atomic_write_text(candidate_file(paths, record_type, title_id), dumps_jsonl(records))
 
 
-# ---------------------------------------------------------------- prompt rendering
+# ---------------------------------------------------------------- model inputs (compact context, v1.7 §3)
+# Owner ruling 2026-09-27: a model input is a compact structured slice, never a rendered Markdown report.
+# Every line is `key: value` (no bullets, headings or tables); a group of records opens with a
+# `key: count` line, then one `id: value; part: value; ...` line per record.
+def scope_lines(title: str, year: Any, medium: str, fmt: str, scope: dict[str, Any]) -> list[str]:
+    """A title's identity and declared scope as `key: value` lines."""
+    return [f"title: {title}", f"year: {year}", f"medium: {medium}", f"format: {fmt}",
+            f"scope: {scope['version']}",
+            f"seasons: {', '.join(str(s) for s in scope.get('seasons') or []) or 'n/a'}",
+            f"numbering: {scope.get('numbering') or 'n/a'}",
+            f"out_of_scope: {'; '.join(scope.get('exclude') or []) or 'nothing listed'}"]
+
+
 def render_profile(record: dict[str, Any], vocab: Vocab, *, verification: bool = True) -> list[str]:
-    """Compact, paraphrased profile lines: `path = value [verification]` for non-null fields."""
-    sc = record["scope"]
-    lines = [f"Title: {record['title']} ({record['year']}); medium {record['medium']}; format {record['format']}",
-             f"Scope: {sc['version']}; seasons {sc.get('seasons') or 'n/a'}; numbering {sc.get('numbering') or 'n/a'}; "
-             f"out of scope: {'; '.join(sc.get('exclude') or []) or 'nothing listed'}",
-             f"Modules active: {', '.join(record.get('modules_active') or []) or 'none'}"]
+    """Compact, paraphrased profile lines: identity and scope, then `path: value [verification]` for
+    non-null fields (a field's condition as `; when: ...`)."""
+    lines = [*scope_lines(record["title"], record["year"], record["medium"], record["format"], record["scope"]),
+             f"modules_active: {', '.join(record.get('modules_active') or []) or 'none'}"]
     for block in ["core", *(record.get("modules_active") or [])]:
         for f in vocab.block_fields(block):
             fv = (record.get(block) or {}).get(f.name) or {}
@@ -99,17 +109,18 @@ def render_profile(record: dict[str, Any], vocab: Vocab, *, verification: bool =
                 continue
             extra = f"; when: {fv['condition']}" if fv.get("condition") else ""
             tag = f" [{fv.get('verification')}]" if verification else ""
-            lines.append(f"- {f.path} = {fv['value']}{extra}{tag}")
+            lines.append(f"{f.path}: {fv['value']}{extra}{tag}")
     return lines
 
 
 def render_moments(moments: list[dict[str, Any]]) -> list[str]:
-    out = []
+    """`moments: N`, then `moment_id: description; why_it_hit: ...; locator: S1E4 [verification]`."""
+    out = [f"moments: {len(moments)}"]
     for m in moments:
         loc = m.get("locator") or {}
         where = f"S{loc.get('season')}E{loc.get('episode')}" if loc.get("episode") is not None else "episode unknown"
-        out.append(f"- {m['moment_id']}: {m['description']} (why it hit: {m['why_it_hit']}; {where}; "
-                   f"{m.get('verification')})")
+        out.append(f"{m['moment_id']}: {m['description']}; why_it_hit: {m['why_it_hit']}; locator: {where} "
+                   f"[{m.get('verification')}]")
     return out
 
 

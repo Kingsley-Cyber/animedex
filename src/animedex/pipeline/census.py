@@ -79,6 +79,13 @@ def output_schema(vocab: Vocab, ids: list[str]) -> dict[str, Any]:
     return _obj({"titles": {"type": "array", "items": item}})
 
 
+def render_user(batch: list[CensusItem]) -> str:
+    """`titles: N`, then one `census_id: title; year: ...; format: ...; medium: ...` line per title
+    (compact context, v1.7 §3)."""
+    return "\n".join([f"titles: {len(batch)}", *(f"{b.census_id}: {b.title}; year: {b.year or 'unknown'}; "
+                                                  f"format: {b.format}; medium: {b.medium}" for b in batch)])
+
+
 def run_census(paths: Paths, items: list[CensusItem], client: LLMClient, vocab: Vocab, settings: Settings, *,
                run_id: str, created_at: str | None = None) -> StageResult:
     prompt = read_prompt(paths.prompts / "census.md")
@@ -92,7 +99,7 @@ def run_census(paths: Paths, items: list[CensusItem], client: LLMClient, vocab: 
         batch = todo[start:start + size]
         ids = [b.census_id for b in batch]
         batch_id = f"{run_id}.b{start // size:03d}"
-        user = "TITLES\n" + "\n".join(f"- {b.census_id}: {b.title} ({b.year}, {b.format}, {b.medium})" for b in batch)
+        user = render_user(batch)
 
         def check(out: dict[str, Any], _ids: list[str] = ids) -> None:
             got = sorted(t.get("census_id") for t in out.get("titles") or [])

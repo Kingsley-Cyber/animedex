@@ -33,6 +33,7 @@ from animedex.pipeline.common import (
     BLOCKED_SOURCE_NOTE,
     blocked_source,
     norm_url,
+    scope_lines,
     supersede,
     url_set,
 )
@@ -167,16 +168,19 @@ def gather_pages(entry: CorpusEntry, pending: Pending, search: SearchBackend, se
 
 
 def render_user(entry: CorpusEntry, pending: Pending, vocab: Vocab, pages: dict[str, TransientText]) -> str:
-    lines = _brief(entry, pending, vocab) + ["", "Pages:"]
+    """The brief, then `pages: N` and each fetched page as a `page: <url>` line plus its text. Page text
+    stays raw (never escaped) so the run log's redaction can find and replace it (transient-text rule)."""
+    lines = [*_brief(entry, pending, vocab), f"pages: {len(pages)}"]
     for url, page in pages.items():
-        lines += [f"=== {url}", page.text, ""]
+        lines += [f"page: {url}", page.text, ""]
     return "\n".join(lines)
 
 
 def render_user_native(entry: CorpusEntry, pending: Pending, vocab: Vocab, limits: dict[str, int]) -> str:
     extra = f" ({limits['outcome_extra']} of them only for the outcome)" if limits["outcome_extra"] else ""
-    return "\n".join(_brief(entry, pending, vocab) + [
-        "", f"Limits: at most {limits['max_searches']} web searches{extra} and {limits['max_fetches']} page fetches."])
+    return "\n".join([*_brief(entry, pending, vocab),
+                      f"limits: at most {limits['max_searches']} web searches{extra} and {limits['max_fetches']} "
+                      "page fetches"])
 
 
 def _lens(vocab: Vocab, path: str) -> LensField | None:
@@ -224,24 +228,24 @@ def ask_view(entry: CorpusEntry, pending: Pending) -> tuple[Pending, list[str]]:
 
 
 def _brief(entry: CorpusEntry, pending: Pending, vocab: Vocab) -> list[str]:
-    lines = [f"Title: {entry.title} ({entry.year}); medium {entry.medium}; format {entry.format}",
-             f"Scope: {entry.scope.version}; seasons {entry.scope.seasons or 'n/a'}; "
-             f"numbering {entry.scope.numbering or 'n/a'}; out of scope: {'; '.join(entry.scope.exclude) or 'nothing listed'}",
-             "", "Fields to check (path = recalled value):"]
-    for path in pending.verify:
-        if path.startswith("moments."):
-            continue
+    """What to check, as `key: value` lines (compact context, v1.7 §3): the title and scope, then
+    `fields_to_check: N` (`path: recalled value [allowed values | word cap]`) and `moments_to_locate: N`
+    (`moment_id: description; recalled: S1 E4`)."""
+    lines = scope_lines(entry.title, entry.year, entry.medium, entry.format, entry.scope.model_dump(mode="json"))
+    fields = [p for p in pending.verify if not p.startswith("moments.")]
+    lines.append(f"fields_to_check: {len(fields)} (path: recalled value)")
+    for path in fields:
         fv = _field(pending.record, path) or {}
         f = _lens(vocab, path)
         if f is not None and f.kind == "enum":
-            hint = f"   [allowed: {' | '.join(vocab.enum(f.vocab or path))}]"
+            hint = f"[allowed: {' | '.join(vocab.enum(f.vocab or path))}]"
         else:
-            hint = f"   [max {_cap(vocab, path)} words]"
-        lines.append(f"- {path} = {fv.get('value')!r}{hint}")
-    lines += ["", "Moments to locate (moment_id: description; recalled season/episode):"]
+            hint = f"[max {_cap(vocab, path)} words]"
+        lines.append(f"{path}: {fv.get('value')!r} {hint}")
+    lines.append(f"moments_to_locate: {len(pending.moments)} (moment_id: description; recalled season/episode)")
     for m in pending.moments:
         loc = m.get("locator") or {}
-        lines.append(f"- {m['moment_id']}: {m['description']} (S{loc.get('season')} E{loc.get('episode')})")
+        lines.append(f"{m['moment_id']}: {m['description']}; recalled: S{loc.get('season')} E{loc.get('episode')}")
     return lines
 
 

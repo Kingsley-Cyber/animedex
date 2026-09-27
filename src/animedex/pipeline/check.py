@@ -75,26 +75,30 @@ def _atom_text(a: dict[str, Any]) -> str:
     refs = ", ".join(a["evidence_refs"])
     if a["atom_kind"] == "effect":
         e = a["effect"]
-        return (f"- {a['atom_id']} mechanism (effect, module {a['module']}): element: {e['element']}; feeling: "
-                f"{e['feeling']}; because: {e['because']}; rival_because: {e['rival_because']}; evidence: {refs}")
+        return (f"{a['atom_id']}: mechanism; kind: effect; module: {a['module']}; element: {e['element']}; "
+                f"feeling: {e['feeling']}; because: {e['because']}; rival_because: {e['rival_because']}; "
+                f"evidence: {refs}")
     g = a["engine"]
-    return (f"- {a['atom_id']} mechanism (engine, module {a['module']}): agent {g['agent']}; goal {g['goal']}; "
-            f"constraint {g['constraint']}; strategy {g['strategy']}; benefit {g['benefit']}; cost {g['cost']}; "
-            f"dilemma {g['dilemma']}; question {g['dramatic_question']}; evidence: {refs}")
+    return (f"{a['atom_id']}: mechanism; kind: engine; module: {a['module']}; agent: {g['agent']}; goal: {g['goal']}; "
+            f"constraint: {g['constraint']}; strategy: {g['strategy']}; benefit: {g['benefit']}; cost: {g['cost']}; "
+            f"dilemma: {g['dilemma']}; dramatic_question: {g['dramatic_question']}; evidence: {refs}")
 
 
 def _proof_text(p: dict[str, Any]) -> str:
-    parts = [f"{c['partner_title_id']} ({c['partner_role']}): has {c['partner_has']}; {c['difference']}"
+    parts = [f"{c['partner_title_id']} ({c['partner_role']}) has {c['partner_has']}, {c['difference']}"
              for c in p["contrast"]]
     test = p.get("explanation_test")
-    t = f"; explanation test favors {test['favors']} via {test['via_partner']}: {test['note']}" if test else ""
+    t = f"; explanation_test: favors {test['favors']} via {test['via_partner']}, {test['note']}" if test else ""
     ab = p["ablation"]
-    return f"- {p['atom_id']} proof: {' | '.join(parts)}{t}; ablation {ab['verdict']} ({ab['conf']}): {ab['if_removed']}"
+    return (f"{p['atom_id']}: proof; contrast: {' | '.join(parts)}{t}; ablation: {ab['verdict']} "
+            f"(conf {ab['conf']}), {ab['if_removed']}")
 
 
 def render_user(record: dict[str, Any], atoms: list[dict[str, Any]], proofs: list[dict[str, Any]], vocab: Vocab) -> str:
-    return "\n".join(["TITLE (verified profile)", *render_profile(record, vocab), "", "ATOMS",
-                      *map(_atom_text, atoms), "", "PROOFS", *map(_proof_text, proofs)])
+    """The verified profile, then `atoms: N` and `proofs: N` groups: `key: value` lines (compact context,
+    v1.7 §3). A proof has its atom's id."""
+    return "\n".join([*render_profile(record, vocab), f"atoms: {len(atoms)}", *map(_atom_text, atoms),
+                      f"proofs: {len(proofs)}", *map(_proof_text, proofs)])
 
 
 def _revised_atom(atom: dict[str, Any], rev: dict[str, Any]) -> dict[str, Any]:
