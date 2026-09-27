@@ -743,3 +743,39 @@ titles:
       - source material beyond the adaptation
     role_tags: []
     catalog_ref: anilist:178869
+
+  # --- backfill 2026-09-27 from print_first.txt: catalog-resolved; check the choices in build/reports/backfill.md ---
+  - title_id: jagaaan_2017
+    title: Jagaaan
+    year: 2017
+    medium: manga
+    format: serialized
+    scope:
+      version: manga (14 volumes, 2017-2021)
+      seasons: []
+      numbering: volumes
+      range:
+      - 1
+      - 14
+      exclude:
+      - screen adaptations
+      - spin-offs and side stories
+      - later print beyond the range
+    role_tags: []
+    catalog_ref: anilist:98328
+  - title_id: choujin_x_2021
+    title: Choujin X
+    year: 2021
+    medium: manga
+    format: serialized
+    scope:
+      version: manga (? chapters, 2021-ongoing)
+      seasons: []
+      numbering: chapters
+      range: null
+      exclude:
+      - screen adaptations
+      - spin-offs and side stories
+      - later print beyond the range
+    role_tags: []
+    catalog_ref: anilist:126693
