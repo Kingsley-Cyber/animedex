@@ -15,11 +15,11 @@ power_combat (active when extraordinary abilities or structured combat are a cen
 - mc_edge: how the protagonist is legibly the strongest (enum); creative_reinterpretation = using the power as a medium beyond its design; unique_cost = paying what nobody else will
 - power_embodiment: the form power takes (enum); bound_entity = a power with its own history and character
 - set_structure: how the roster of powers is organized (enum): closed_set = a fixed roster; hierarchical = a base set with sub-disciplines; open_variety = every user unique; pantheon = a roster of mythic or historical beings; universal_energy = one shared energy, many techniques
-- subset_mechanics: how sub-skills relate to a base power (one or more; enum)
+- subset_mechanics: how sub-skills relate to a base power (one or more; enum): specialization = a sub-skill of one base; combination = two bases fuse into a new one; forbidden_art = a taboo sub-skill; bloodline = inherited by lineage; legendary_unlock = rare or lost
 - set_scaffold: what the set is built on (enum): arbitrary = numbers or labels; cultural_reference = a scaffold the audience already knows (tarot, zodiac, sins, myth); semantic_domain = powers built from domains of meaning
 - member_depth: how much each power in the set carries: a label, an ability, or an identity with a history (enum)
 - world_integration: how deeply powers shape the world (enum)
 - rarity: how many people have power (enum)
-- power_up_mode: how users power up in a fight (one or more; enum); domain = the user rewrites the battlefield
+- power_up_mode: how users power up in a fight (one or more; enum): staged_forms = named stages; temporary_boost = a short burst with a cost; awakening = a one-time unlock; domain = the user rewrites the battlefield
 - power_up_cost: what powering up costs
 - fight_logic: what decides fights (one or more; enum); rules_exploitation = vows, restrictions, conditions
