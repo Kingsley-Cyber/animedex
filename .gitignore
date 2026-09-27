@@ -49,3 +49,7 @@ steering/
 seeds/
 data/diagnose/
 data/commentary/
+
+# operate tools (request A): private job records and title queues
+data/jobs/
+data/queue/

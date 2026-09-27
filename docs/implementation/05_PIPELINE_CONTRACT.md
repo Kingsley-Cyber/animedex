@@ -309,7 +309,8 @@ Snapshots and counts only, no models; each statistic replaced the check it corre
 ### MCP (request A, D-033)
 - **Command:** `animedex mcp` / `make mcp` (stdio). No model calls, no web.
 - **Read tools:** `search_atoms(query, kind, title_id, eligible_only, limit)` → ranked atoms with `ranker: embedding | word_overlap`; `get_atom`, `list_titles`, `get_title`, `find_titles(filters)`, `list_cqs`, `cq_answer`, `gaps`; `champions` only when every card in the latest blind packet is rated.
-- **Write tool:** `add_commentary(target_id, text)` appends one owner note; nothing else is written.
+- **Write tool:** `add_commentary(target_id, text)` appends one owner note.
+- **Operate tools (D-045):** `add_titles(titles, run)` (resolve, queue and start `backfill`; `run=false` previews the picks), `run_ideas(generations, arm)`, `check_concept(text)` (`diagnose`), `job_status()`, `stop_job()`. They start the existing commands detached (`data/jobs/`, `data/queue/`, private), one job at a time (a `make batch` run counts); the server itself still calls no model.
 
 ## Caching and idempotency
 `cache_key = sha256(id | pass | prompt_version | schema_version | vocab_version | model | params | upstream_hash)`, where `upstream_hash` hashes the canonical inputs the pass reads.

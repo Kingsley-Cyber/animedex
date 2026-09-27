@@ -6,6 +6,25 @@
 > `.control/policies/operating-brief.md`. Task state lives in Beads + URCP; do not
 > duplicate them here.
 
+## Operating ANIMEDEX (any harness: Claude Code, Hermes, Claude Desktop)
+The product runs from `make` in the repo root (`USAGE.md` is the plain-language guide) or from the MCP
+server (`bin/animedex-mcp`), which offers the same actions as tools. Map the owner's words to these and
+ask nothing else:
+
+| Owner says | Do |
+|---|---|
+| "add <show>", "index <show>" | `make backfill LIST=<file, one title per line>` or MCP `add_titles`; a year in parentheses picks the version; the picks are in `build/reports/backfill.md`; rerun the same command until it reports 0 waiting (4 titles per run, about 50 minutes) |
+| "ideas", "more cards", "ideate" | `make ideas` or MCP `run_ideas`: 60 calls, about 40 minutes, one more generation; cards in `build/reports/ideas.md` |
+| "check this concept: …" | `make diagnose TEXT="…"` or MCP `check_concept`; the verdicts are in the output (MCP: `job_status`) |
+| "status", "is it done" | `make status NAME=<batch>` or MCP `job_status` |
+| "review", "rate", "the packet" | `make review` (localhost rating page), then `make review-report` |
+| "what's in the index", "find …", "which shows …" | MCP `search_atoms`, `get_title`, `find_titles`, `cq_answer`, `gaps` |
+
+Rules that never bend: one live job at a time (never `make backfill` and `make ideas` together); never edit
+`data/canonical/` by hand; never show card text or the answer key before the blind review is rated, and never
+read `build/reports/ideas.md` to the owner before it; model outputs live only in the private data repo
+(`make data-push`).
+
 ## Session start
 ```bash
 harness bootstrap --json      # recover repo/env/task/proof state (not from chat)

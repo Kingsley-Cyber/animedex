@@ -96,9 +96,10 @@ def test_the_server_lists_its_tools_and_answers_a_call(index):
     server = build_server(index, AtomSearch(index, lambda: MockEmbedder()))
     names = {t.name for t in asyncio.run(server.list_tools())}
     assert names == {"search_atoms", "get_atom", "list_titles", "get_title", "find_titles", "list_cqs", "cq_answer",
-                     "gaps", "champions", "commentary", "add_commentary"}
+                     "gaps", "champions", "commentary", "add_commentary",
+                     "add_titles", "run_ideas", "check_concept", "job_status", "stop_job"}   # operate (D-045)
     read_only = {t.name for t in asyncio.run(server.list_tools()) if t.annotations and t.annotations.read_only_hint}
-    assert read_only == names - {"add_commentary"}
+    assert read_only == names - {"add_commentary", "add_titles", "run_ideas", "check_concept", "stop_job"}
     result = asyncio.run(server.call_tool("list_titles", {}))
     assert T1 in json.dumps(result.model_dump() if hasattr(result, "model_dump") else result, default=str)
 

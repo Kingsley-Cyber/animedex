@@ -76,7 +76,13 @@ Ask Claude about the index in plain words ("which shows make the hero pay with m
    "animedex": {"command": "uv", "args": ["run", "--directory", "/Users/king/Desktop/Ideation", "animedex", "mcp"]}
    ```
 
-2. Ask away. To leave a note on a show or an atom, say "add a note to ...". Notes stay in your private backup.
+   For Hermes, or any client that takes one plain command, use the wrapper script:
+
+   ```text
+   /Users/king/Desktop/Ideation/bin/animedex-mcp
+   ```
+
+2. Ask away. "Add Levius (2019)" indexes a show in the background, "run ideas" starts an ideation run, "check this concept: …" tests your own idea, "status" tells you how far a job got, and "add a note to …" saves your own note on a show or an atom. One job runs at a time; notes and jobs stay in your private backup.
 
 Idea cards stay hidden in chat until you've rated the whole blind packet, so the review stays blind.
 

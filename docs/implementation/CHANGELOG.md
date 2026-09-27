@@ -1,5 +1,8 @@
 # Changelog — docs/implementation
 
+## Operate tools for harnesses — 2026-09-27
+- **D-045.** MCP tools `add_titles` (resolve, preview or run the backfill), `run_ideas`, `check_concept`, `job_status`, `stop_job` (`mcpserver/jobs.py`): one detached job at a time, a `make batch` run counts, exited children are reaped so a finished job never reads as alive. `bin/animedex-mcp` for one-command clients (Hermes). AGENTS.md gets an operating table (owner's words → commands, and the rules that never bend). USAGE section 4, 05, 06 and the request A plan updated.
+
 ## Orchestrator is gather-first — 2026-09-27
 - **D-042.** `run_batch` (behind `animedex run` and `make backfill`) now runs GATHER → INTERPRET → VERIFY → CANONICALIZE → P2 → P3 → CHECK → CANONICALIZE → P4 → CANONICALIZE. It skips titles that already have gathered facts or a profile candidate, retries a quarantined INTERPRET once with fresh calls, and takes its API reception from the same source as the `gather` command (`reception=None` in tests). The recall-first P1 stage is no longer orchestrated; `animedex p1` stays as a command for replays. 05 updated.
 

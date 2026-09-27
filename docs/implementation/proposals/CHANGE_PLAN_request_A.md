@@ -19,11 +19,14 @@
 | `commentary(target_id)` | commentary, read | the notes on a target, newest first |
 | `add_commentary(target_id, text)` | commentary, write | appends one note (≤ 200 words, content guards); writes nowhere else |
 
+## Operate scope (added 2026-09-27, D-045)
+Kingsley asked that a harness in the middle should just do it: "add Raja" indexes the show. Five tools start the existing commands detached, one job at a time: `add_titles` (resolve, preview or run `backfill`), `run_ideas` (`ideate`), `check_concept` (`diagnose`), `job_status`, `stop_job`. `bin/animedex-mcp` is the one-command entry for Hermes and Claude Desktop, and AGENTS.md maps the owner's words to commands for harnesses that use the CLI directly. The server still calls no model; the launched command does, with the CLI's caps and logs.
+
 ## Rules
 1. **Read-only index.** Index tools open canonical files and the DuckDB build read-only. A test proves no index tool writes a file.
 2. **One write path.** `add_commentary` writes only `data/commentary/commentary.jsonl`, and only for a target id that exists. The data repo backs it up after each write batch (`make data-push`).
 3. **Blind review stays blind.** Until the review is imported (`animedex review` has ratings for every packet card), no tool returns idea cards, arms or the answer key. Champions become visible after import.
-4. **No model, no web.** The server imports no provider code. A test fails if it does.
+4. **No model, no web.** The server imports no provider code (a test fails if it does); the operate tools launch the CLI as a separate process.
 5. **Accounting.** Every `search_atoms` response carries `ranker: embedding | word_overlap`, and the server log counts fallbacks.
 
 ## Build steps (after the packet)
