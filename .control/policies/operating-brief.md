@@ -114,4 +114,9 @@ Supersedes the provider, key and dollar-cap lines of the G1 rulings. The model c
 - **Budget:** CLI providers use call caps per run and per title instead of dollar caps. Each call's reported cost is logged as a shadow cost. On a rate-limit error, stop cleanly and resume from cache later. A pipeline run must not exhaust the limits Kingsley's coding sessions need.
 - **First live step:** one tiny test call per provider, then stop. Kingsley checks his usage dashboards to confirm the calls counted against the subscriptions, not API billing, before any partner run.
 - **.env:** `ANTHROPIC_API_KEY` and `OPENAI_API_KEY` stay empty.
+- **Follow-ups (Kingsley, 2026-09-27):**
+  - Upgrade codex, but use an older model for CHECK and the judge, since the task is simple. They run on `gpt-5.6-terra` (codex-cli 0.157.1).
+  - Call caps confirmed at 40 per run and 6 per title.
+  - Search: VERIFY uses the model harness's own web search (claude's WebSearch/WebFetch). There is no Brave, SearXNG, or search key (CHANGELOG v1.2.2).
+  - Gold: Kingsley has seen SAO. Big Order stays pending until he says what he has watched, since the annotations must come from his own viewing.
 

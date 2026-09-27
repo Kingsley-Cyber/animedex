@@ -324,7 +324,8 @@ def _eval_verify_rates(paths: Any, vocab: Any) -> None:
 def smoke(title: str = typer.Option(None, "--title"),
           stage: str = typer.Option("m2", "--stage", help="Milestone whose model slots must be live: m2|m3|m5|m6"),
           providers: bool = typer.Option(False, "--providers",
-                                         help="One tiny call per subscription CLI provider, then stop (G1a).")) -> None:
+                                         help="One tiny call per subscription CLI provider, then stop (G1a)."),
+          only: str = typer.Option(None, "--only", help="With --providers: just this provider profile.")) -> None:
     """Live readiness for a milestone: what blocks it; model ids resolve; one tiny call per model."""
     from animedex.config import STAGE_SLOTS
 
@@ -336,7 +337,7 @@ def smoke(title: str = typer.Option(None, "--title"),
     settings = load_settings(paths)
     env = environment(paths)
     if providers:
-        if not _ping_cli_providers(paths, settings, env):
+        if not _ping_cli_providers(paths, settings, env, only):
             raise typer.Exit(1)
         return
     problems = live_problems(settings, env, slots)
@@ -380,8 +381,9 @@ def _resolve_models(settings: Any, env: dict[str, str], slots: list[str]) -> boo
 
 def _ping_models(paths: Any, settings: Any, env: dict[str, str], slots: list[str]) -> None:
     from animedex.budget import Budget
+    from animedex.providers.base import ProviderError
     from animedex.providers.client import CallContext
-    from animedex.providers.factory import build_client
+    from animedex.providers.factory import build_client, build_provider
     from animedex.store.runlog import RunLog, new_run_id
 
     schema = {"type": "object", "properties": {"ok": {"type": "boolean"}}, "required": ["ok"],
@@ -394,18 +396,28 @@ def _ping_models(paths: Any, settings: Any, env: dict[str, str], slots: list[str
         if key == "embeddings" or (spec.provider, spec.model) in seen:
             continue
         seen.add((spec.provider, spec.model))
-        client = build_client(key, paths=paths, settings=settings, env=env, runlog=runlog,
-                              prompt_version="smoke-1", budget=budget)
-        ctx = CallContext(pass_="SMOKE", record_id=f"{spec.provider}.{spec.model}", upstream=runlog.run_id)
-        done = client.complete_ex("Reply with JSON only.", 'Return {"ok": true}.', schema, ctx=ctx)
+        try:
+            provider = build_provider(spec.provider, settings, env)
+            login = getattr(provider, "login_status", lambda: {"logged_in": True, "api_key": False})()
+            if not login["logged_in"] or login["api_key"]:
+                typer.echo(f"{spec.provider}/{spec.model}: SKIPPED, no plan login (method {login.get('method')})",
+                           err=True)
+                continue
+            client = build_client(key, paths=paths, settings=settings, env=env, runlog=runlog,
+                                  prompt_version="smoke-1", budget=budget, provider=provider)
+            ctx = CallContext(pass_="SMOKE", record_id=f"{spec.provider}.{spec.model}", upstream=runlog.run_id)
+            done = client.complete_ex("Reply with JSON only.", 'Return {"ok": true}.', schema, ctx=ctx)
+        except ProviderError as exc:
+            typer.echo(f"{spec.provider}/{spec.model}: FAILED: {exc}", err=True)
+            continue
         served = f" (served by {done.model})" if done.substituted else ""
         typer.echo(f"{spec.provider}/{spec.model}: ok={done.data.get('ok')} "
                    f"tokens={done.usage.input_tokens}+{done.usage.output_tokens}{served}")
     runlog.write_ledger()
-    typer.echo(f"smoke spend: ${budget.spent_run:.4f}")
+    typer.echo(f"smoke spend: ${budget.spent_run:.4f}; subscription calls: {budget.calls_run}")
 
 
-def _ping_cli_providers(paths: Any, settings: Any, env: dict[str, str]) -> bool:
+def _ping_cli_providers(paths: Any, settings: Any, env: dict[str, str], only: str | None = None) -> bool:
     """G1a first live step: one tiny call per subscription CLI provider, reporting what billed it
     (login method, apiKeySource), what the CLI loaded, and the shadow cost. Nothing else runs."""
     from animedex.budget import Budget
@@ -421,7 +433,8 @@ def _ping_cli_providers(paths: Any, settings: Any, env: dict[str, str]) -> bool:
     picked: dict[str, str] = {}  # provider profile -> first model slot that uses it (config order)
     for key, spec in settings.models.items():
         profile = settings.providers.get(spec.provider)
-        if profile and profile.type in CLI_TYPES and spec.provider not in picked and not is_placeholder(spec.model):
+        if profile and profile.type in CLI_TYPES and spec.provider not in picked and not is_placeholder(spec.model) \
+                and only in (None, spec.provider):
             picked[spec.provider] = key
     if not picked:
         typer.echo("no model slot uses a subscription CLI provider", err=True)

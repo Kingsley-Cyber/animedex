@@ -153,4 +153,9 @@ def live_problems(settings: Settings, env: dict[str, str], model_keys: list[str]
         problems.append("search: set SEARCH_API_KEY in .env (Brave)")
     elif backend == "searxng" and not settings.search.get("base_url"):
         problems.append("search.base_url: set the SearXNG URL")
+    elif backend == "native":  # the verify model searches with its CLI's own web tools
+        spec = settings.models.get("verify")
+        profile = settings.providers.get(spec.provider) if spec else None
+        if profile is None or profile.type != "claude_cli":
+            problems.append("search.backend native: models.verify must use a claude_cli provider")
     return sorted(set(problems))

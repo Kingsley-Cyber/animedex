@@ -33,6 +33,13 @@ _AUTH = re.compile(r"not logged in|please run /login|auth(entication)? (failed|r
                    r"log ?in to|login required|unauthori[sz]ed|\b401\b", re.I)
 
 Runner = Callable[..., subprocess.CompletedProcess]
+# Tests install a guard so only fake CLIs can run: a real call would spend Kingsley's plan.
+BINARY_GUARD: Callable[[str], bool] | None = None
+
+
+def guard(binary: str) -> None:
+    if BINARY_GUARD is not None and not BINARY_GUARD(binary):
+        raise ProviderError(f"{binary}: real CLI calls are blocked here (test guard)")
 
 
 class RateLimited(ProviderError):
@@ -64,6 +71,7 @@ def classify(name: str, text: str) -> ProviderError:
 
 def run(args: list[str], *, input_text: str, cwd: str, timeout_s: float, runner: Runner = subprocess.run
         ) -> subprocess.CompletedProcess:
+    guard(args[0])
     try:
         return runner(args, input=input_text, capture_output=True, text=True, cwd=cwd, env=clean_env(),
                       timeout=timeout_s)
@@ -74,6 +82,7 @@ def run(args: list[str], *, input_text: str, cwd: str, timeout_s: float, runner:
 
 
 def cli_version(binary: str, runner: Runner = subprocess.run) -> str:
+    guard(binary)
     try:
         out = runner([binary, "--version"], capture_output=True, text=True, env=clean_env(), timeout=30)
     except (FileNotFoundError, subprocess.TimeoutExpired) as exc:
@@ -87,6 +96,7 @@ def cli_version(binary: str, runner: Runner = subprocess.run) -> str:
 def login_status(args: list[str], runner: Runner = subprocess.run) -> dict[str, Any]:
     """`<cli> auth/login status` under the stripped env: logged in? by what method? Never returns
     account details. An API-key login is flagged: it would bill the API, not the plan."""
+    guard(args[0])
     try:
         out = runner(args, capture_output=True, text=True, env=clean_env(), timeout=30)
     except (FileNotFoundError, subprocess.TimeoutExpired) as exc:
@@ -128,7 +138,8 @@ def user_level_names(home: Path | None = None) -> dict[str, set[str]]:
     return {"skills": skills, "agents": agents, "slash_commands": skills | commands}
 
 
-def unexpected_loads(summary: dict[str, Any], user_names: dict[str, set[str]] | None = None) -> list[str]:
+def unexpected_loads(summary: dict[str, Any], user_names: dict[str, set[str]] | None = None,
+                     expected_tools: set[str] | list[str] | None = None) -> list[str]:
     """What a call should not have: tools beyond StructuredOutput, MCP servers, plugins, memory
     files, an API key, or anything from the user's own ~/.claude skills/agents/commands. The CLI's
     bundled skills and agents are not listed: with no Skill or Agent tool the model cannot reach them."""
@@ -136,7 +147,7 @@ def unexpected_loads(summary: dict[str, Any], user_names: dict[str, set[str]] | 
         return []
     names = user_level_names() if user_names is None else user_names
     out = []
-    extra_tools = sorted(set(summary.get("tools") or []) - EXPECTED_TOOLS)
+    extra_tools = sorted(set(summary.get("tools") or []) - set(expected_tools or EXPECTED_TOOLS))
     if extra_tools:
         out.append(f"tools: {', '.join(extra_tools)}")
     for key in ("mcp_servers", "plugins", "memory_paths"):
@@ -149,6 +160,11 @@ def unexpected_loads(summary: dict[str, Any], user_names: dict[str, set[str]] | 
             out.append(f"user-level {key}: {', '.join(mine)}")
     if summary.get("commands_run"):
         out.append(f"commands run by the agent: {summary['commands_run']}")
+    other = [i for i in summary.get("other_items") or [] if i != "error"]
+    if other:
+        out.append(f"agent actions beyond the answer: {', '.join(other)}")
+    for warning in summary.get("warnings") or []:
+        out.append(f"CLI warning: {warning}")
     src = summary.get("apiKeySource")
     if src not in (None, "none"):
         out.append(f"apiKeySource={src} (an API key, not the subscription)")

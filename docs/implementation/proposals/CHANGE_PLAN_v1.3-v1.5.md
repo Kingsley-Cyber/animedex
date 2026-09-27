@@ -15,7 +15,8 @@ Kingsley ruled that the switch to subscription CLIs is a G1a decision and can la
   - v1.4 request A (MCP): the MCP server never calls a model, so it is unaffected.
   - v1.5 Studio: EPGEN/EPCHECK model slots use the same CLI providers and call caps.
   - EPCHECK should sit on `codex_cli` so the checker family differs from the generator family, as CHECK does now.
-- Numbering is unchanged: v1.3, v1.4, v1.5 still follow v1.2.1.
+- v1.2.2 (2026-09-27, same G1a basis): VERIFY uses native CLI web search. EP's episode-summary fetches (M6) should reuse the same native path when EP is built.
+- Numbering is unchanged: v1.3, v1.4, v1.5 still follow v1.2.2.
 
 ## 1. Impact map
 

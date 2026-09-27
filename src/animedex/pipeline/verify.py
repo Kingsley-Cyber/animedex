@@ -6,6 +6,10 @@
   this call (recall is not verification); otherwise it is `unresolved`.
 - Recall-vs-web conflicts (corrections) are logged; moments the pages place outside scope are dropped.
 Outputs rewrite the title's candidates in place and add an outcome candidate.
+
+Native mode (`search.backend: native`, G1a 2026-09-27): no search API. The model searches with its
+CLI's own WebSearch/WebFetch tools under a hard turn limit, and a citation counts only if that
+call's tool traffic retrieved the URL. Page text never reaches this process's logs or cache.
 """
 
 from __future__ import annotations
@@ -43,9 +47,19 @@ MOMENT_STATUS = ["confirmed", "corrected", "unresolved", "not_found"]
 CONFOUNDERS = ["studio", "budget_signal", "source_popularity", "platform", "release_context"]
 
 
-def render_prompt(paths: Paths) -> RenderedPrompt:
-    main = read_prompt(paths.prompts / "verify_web.md")
+def render_prompt(paths: Paths, *, native: bool = False) -> RenderedPrompt:
+    main = read_prompt(paths.prompts / ("verify_native.md" if native else "verify_web.md"))
     return RenderedPrompt(main.body, main.version)
+
+
+def native_limits(pending: Pending, settings: Settings) -> dict[str, int]:
+    """The per-title search cap (05) carried over to the model's own web tools."""
+    cfg = settings.verify
+    searches = int(cfg.get("max_searches_per_title", 3))
+    extra = int(cfg.get("outcome_extra_searches", 2)) if "core.outcome" in pending.verify else 0
+    fetches = (searches + extra) * int(cfg.get("pages_per_search", 2))
+    return {"max_searches": searches + extra, "outcome_extra": extra, "max_fetches": fetches,
+            "max_turns": searches + extra + fetches + 2}
 
 
 def output_schema(vocab: Vocab) -> dict[str, Any]:
@@ -142,6 +156,19 @@ def gather_pages(entry: CorpusEntry, pending: Pending, search: SearchBackend, se
 
 
 def render_user(entry: CorpusEntry, pending: Pending, vocab: Vocab, pages: dict[str, TransientText]) -> str:
+    lines = _brief(entry, pending, vocab) + ["", "Pages:"]
+    for url, page in pages.items():
+        lines += [f"=== {url}", page.text, ""]
+    return "\n".join(lines)
+
+
+def render_user_native(entry: CorpusEntry, pending: Pending, vocab: Vocab, limits: dict[str, int]) -> str:
+    extra = f" ({limits['outcome_extra']} of them only for the outcome)" if limits["outcome_extra"] else ""
+    return "\n".join(_brief(entry, pending, vocab) + [
+        "", f"Limits: at most {limits['max_searches']} web searches{extra} and {limits['max_fetches']} page fetches."])
+
+
+def _brief(entry: CorpusEntry, pending: Pending, vocab: Vocab) -> list[str]:
     lines = [f"Title: {entry.title} ({entry.year}); medium {entry.medium}; format {entry.format}",
              f"Scope: {entry.scope.version}; seasons {entry.scope.seasons or 'n/a'}; "
              f"numbering {entry.scope.numbering or 'n/a'}; out of scope: {'; '.join(entry.scope.exclude) or 'nothing listed'}",
@@ -158,14 +185,15 @@ def render_user(entry: CorpusEntry, pending: Pending, vocab: Vocab, pages: dict[
     for m in pending.moments:
         loc = m.get("locator") or {}
         lines.append(f"- {m['moment_id']}: {m['description']} (S{loc.get('season')} E{loc.get('episode')})")
-    lines += ["", "Pages:"]
-    for url, page in pages.items():
-        lines += [f"=== {url}", page.text, ""]
-    return "\n".join(lines)
+    return lines
 
 
-def output_problems(out: dict[str, Any], pending: Pending, vocab: Vocab, pages: dict[str, TransientText],
-                    guards: GuardConfig) -> list[str]:
+CITE_PAGES = "cite one of the provided page URLs"
+CITE_NATIVE = "cite a URL your searches returned or you opened in this session"
+
+
+def output_problems(out: dict[str, Any], pending: Pending, vocab: Vocab, pages: dict[str, TransientText] | set[str],
+                    guards: GuardConfig, *, cite: str = CITE_PAGES) -> list[str]:
     problems = []
     urls = set(pages)
     fields_to_check = {p for p in pending.verify if not p.startswith("moments.")}
@@ -176,7 +204,7 @@ def output_problems(out: dict[str, Any], pending: Pending, vocab: Vocab, pages: 
             problems.append(f"fields: {path!r} was not asked for")
             continue
         if status in ("confirmed", "corrected") and item.get("source_url") not in urls:
-            problems.append(f"{path}: cite one of the provided page URLs, or mark unresolved")
+            problems.append(f"{path}: {cite}, or mark unresolved")
         if status == "corrected":
             value = item.get("value")
             if not value:
@@ -196,14 +224,14 @@ def output_problems(out: dict[str, Any], pending: Pending, vocab: Vocab, pages: 
         if item.get("moment_id") not in moment_ids:
             problems.append(f"moments: unknown moment_id {item.get('moment_id')!r}")
         elif item.get("status") in ("confirmed", "corrected", "not_found") and item.get("source_url") not in urls:
-            problems.append(f"{item['moment_id']}: cite one of the provided page URLs, or mark unresolved")
+            problems.append(f"{item['moment_id']}: {cite}, or mark unresolved")
     oc = out.get("outcome")
     if oc:
         if not oc.get("signals"):
             problems.append("outcome needs at least one metric with its page URL")
         for s in oc.get("signals", []):
             if s.get("source_url") not in urls:
-                problems.append(f"outcome signal {s.get('metric')!r}: cite a provided page URL")
+                problems.append(f"outcome signal {s.get('metric')!r}: {cite}")
         reason = oc.get("failure_reason")
         if oc.get("label") in ("mixed", "flop") and not reason:
             problems.append("outcome: mixed/flop needs a failure_reason")
@@ -224,7 +252,7 @@ class VerifyTitleResult:
     notes: list[str] = field(default_factory=list)
 
 
-def apply(pending: Pending, out: dict[str, Any], pages: dict[str, TransientText], *, prov: dict[str, Any],
+def apply(pending: Pending, out: dict[str, Any], pages: dict[str, TransientText] | set[str], *, prov: dict[str, Any],
           threshold: float) -> tuple[dict[str, Any], list[dict[str, Any]], dict[str, Any] | None, VerifyTitleResult]:
     record = json.loads(json.dumps(pending.record))
     res = VerifyTitleResult(record["title_id"])
@@ -284,11 +312,13 @@ class VerifyResult:
     stopped: str | None = None
 
 
-def run_verify(paths: Paths, entries: list[CorpusEntry], client: LLMClient, search: SearchBackend, vocab: Vocab,
-               settings: Settings, *, run_id: str, guards: GuardConfig | None = None,
+def run_verify(paths: Paths, entries: list[CorpusEntry], client: LLMClient, search: SearchBackend | None,
+               vocab: Vocab, settings: Settings, *, run_id: str, guards: GuardConfig | None = None,
                created_at: str | None = None) -> VerifyResult:
+    """`search=None` is native mode: the model's own web tools do the searching."""
     guards = guards or GuardConfig.from_settings(settings)
-    prompt = render_prompt(paths)
+    native = search is None
+    prompt = render_prompt(paths, native=native)
     client.prompt_version = prompt.version
     schema = output_schema(vocab)
     threshold = float(settings.verify.get("conf_threshold", 0.7))
@@ -304,13 +334,27 @@ def run_verify(paths: Paths, entries: list[CorpusEntry], client: LLMClient, sear
         try:
             if client.provider.live and client.title_guard:
                 client.title_guard(tid)  # blind guard before any web or model traffic for this title
-            pages, notes = gather_pages(entry, pending, search, settings, budget)
+            pages, notes = ({}, []) if native else gather_pages(entry, pending, search, settings, budget)
         except LiveRunRefused as exc:
             result.skipped.append((tid, str(exc)))
             continue
         out: dict[str, Any] = {"fields": [], "moments": [], "outcome": None}
         completion = None
-        if pages:
+        sources: dict[str, TransientText] | set[str] = pages
+        if native and (pending.verify or pending.moments):
+            limits = native_limits(pending, settings)
+            ctx = CallContext(pass_="VERIFY", record_id=tid, title_id=tid,
+                              upstream=upstream_hash([pending.record, *pending.moments, {"verify": pending.verify},
+                                                      {"search": "native", "limits": limits}]))
+
+            def check_native(data: dict[str, Any], meta: dict[str, Any], _p: Pending = pending) -> None:
+                urls = set(((meta or {}).get("web") or {}).get("urls") or [])
+                problems = output_problems(data, _p, vocab, urls, guards, cite=CITE_NATIVE)
+                if problems:
+                    raise ValueError("; ".join(problems[:25]))
+
+            call = (prompt.system, render_user_native(entry, pending, vocab, limits), {"web": limits}, check_native)
+        elif pages:
             ctx = CallContext(pass_="VERIFY", record_id=tid, title_id=tid,
                               upstream=upstream_hash([pending.record, *pending.moments, {"verify": pending.verify},
                                                       {"pages": sorted((u, p.placeholder) for u, p in pages.items())}]),
@@ -321,10 +365,20 @@ def run_verify(paths: Paths, entries: list[CorpusEntry], client: LLMClient, sear
                 if problems:
                     raise ValueError("; ".join(problems[:25]))
 
+            call = (prompt.system, render_user(entry, pending, vocab, pages), None, check)
+        else:
+            call = None
+        if call is not None:
+            system, user, params, validate = call
             try:
-                completion = client.complete_ex(prompt.system, render_user(entry, pending, vocab, pages), schema,
-                                                ctx=ctx, validate=check)
+                completion = client.complete_ex(system, user, schema, params, ctx=ctx, validate=validate)
                 out = completion.data
+                if native:
+                    web = completion.meta.get("web") or {}
+                    sources = set(web.get("urls") or [])
+                    budget.log = list(web.get("queries") or [])
+                    if int(web.get("searches") or 0) > limits["max_searches"]:
+                        notes.append(f"search cap exceeded: {web['searches']} searches > {limits['max_searches']}")
             except InvalidOutput as exc:
                 quarantine(paths.quarantine, "VERIFY", "title", tid, exc.raw, exc.errors)
                 result.quarantined.append((tid, exc.errors[-1][:300]))
@@ -342,7 +396,7 @@ def run_verify(paths: Paths, entries: list[CorpusEntry], client: LLMClient, sear
                 "prompt_version": prompt.version, "schema_version": SCHEMA_VERSION, "vocab_version": vocab.version,
                 "cache_key": completion.cache_key if completion else None,
                 "created_at": created_at or datetime.now(UTC).isoformat()}
-        record, moments, outcome, res = apply(pending, out, pages, prov=prov, threshold=threshold)
+        record, moments, outcome, res = apply(pending, out, sources, prov=prov, threshold=threshold)
         res.searches, res.notes = budget.log, notes
         atomic_write_text(paths.candidates / "title" / f"{tid}.jsonl", dumps_jsonl([record]))
         atomic_write_text(paths.candidates / "moment" / f"{tid}.jsonl", dumps_jsonl(moments))
@@ -350,7 +404,7 @@ def run_verify(paths: Paths, entries: list[CorpusEntry], client: LLMClient, sear
             atomic_write_text(paths.candidates / "outcome" / f"{tid}.jsonl", dumps_jsonl([outcome]))
         summary = {"title_id": tid, "run_id": run_id, "statuses": res.statuses, "conflicts": res.conflicts,
                    "dropped_moments": res.dropped_moments, "outcome": res.outcome, "searches": res.searches,
-                   "notes": res.notes, "sources": sorted(pages)}
+                   "notes": res.notes, "sources": sorted(sources)}
         atomic_write_text(paths.candidates / "verify" / f"{tid}.result.json", json.dumps(summary, indent=2) + "\n")
         result.titles.append(res)
     return result

@@ -8,7 +8,8 @@
 | P1 | Scope declared | Preventive | Every title has scope | Stage blocked |
 | P1 | Confidence floor | Detective | `conf < 0.7` | Added to verify list; `uncertainty_reason` required |
 | VERIFY | Mandatory verify set | Preventive | Outcome, sensory, moment locators | Mark `unresolved` if not settled |
-| VERIFY | Search cap | Budget | 3/title (+2 for outcome) | Stop; mark `unresolved` |
+| VERIFY | Search cap | Budget | 3/title (+2 for outcome). Native: also a hard turn limit; searches counted | Stop; mark `unresolved`. Native: flag a cap overrun in the verify notes |
+| VERIFY | Retrieved-source citation | Preventive | A confirm/correct must cite a URL this call retrieved (native: from its own tool traffic) | One repair, then `unresolved` |
 | VERIFY | Recall–web conflict | Detective | — | Web wins if credible, else `unresolved`; logged |
 | P2 | Evidence required | Preventive | ≥1 `evidence_ref` | Atom rejected |
 | P2 | Engine present | Preventive | ≥1 engine atom per title | Re-run P2 once, then flag |

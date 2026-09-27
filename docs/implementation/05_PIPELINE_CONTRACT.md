@@ -45,6 +45,11 @@ Flags: `--all` (every title in the corpus), `--dry-run` (print prompts and cache
 ### VERIFY
 - **In:** P1 candidate + verify list. **Out:** updated fields (`source: web`, verification status, `source_ref`) + outcomes record.
 - Search cap: `verify.max_searches_per_title` (+ `verify.outcome_extra_searches` for outcomes).
+- Native search (`search.backend: native`):
+  - The model gets WebSearch and WebFetch only.
+  - Limits: searches = the cap above; fetches = searches × `verify.pages_per_search`; hard turn limit = searches + fetches + 2.
+  - Searches above the cap are flagged in the title's verify notes.
+  - A status of confirmed or corrected needs a URL that the same call's searches returned or fetches opened. Anything else is rejected once for repair, then marked `unresolved`.
 - Recall vs. web conflict: web wins if the source is credible; otherwise `unresolved`. Conflicts are logged.
 - Precondition for P2.
 
@@ -184,7 +189,7 @@ models:           # concrete model ids, not aliases; strict_model refuses any ot
   eval_match:      {provider: claude_cli, model: "<haiku-id>"}
 pricing:          # API-billed provider/model pairs only; CLI calls log their reported cost as a shadow cost
   "<provider/model>": {input_per_mtok: "<set>", output_per_mtok: "<set>"}
-search: {backend: "<search-backend>"}
+search: {backend: native}   # or brave | tavily | searxng (API backends; brave/tavily need SEARCH_API_KEY)
 budget:
   calls_per_run: "<set>"        # subscription CLIs: call caps, not dollars
   calls_per_title: "<set>"

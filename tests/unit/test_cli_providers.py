@@ -99,6 +99,7 @@ if cfg["mode"] == "rate_limit":
     print(json.dumps({"type": "turn.failed", "error": {"message": "You've hit your usage limit."}}))
     sys.exit(1)
 Path(args[args.index("-o") + 1]).write_text(json.dumps({"ok": True}))
+print(json.dumps({"type": "item.completed", "item": {"id": "i0", "type": "error", "message": "demo warning"}}))
 print(json.dumps({"type": "item.completed", "item": {"id": "i1", "type": "agent_message", "text": "{}"}}))
 print(json.dumps({"type": "turn.completed", "usage": {"input_tokens": 20, "cached_input_tokens": 5,
                                                        "output_tokens": 3}}))
@@ -170,6 +171,7 @@ def test_codex_call_is_ephemeral_read_only_and_feature_stripped(tmp_path, poison
     disabled = {argv[i + 1] for i, a in enumerate(argv) if a == "--disable"}
     assert set(DISABLED_FEATURES) <= disabled and "shell_tool" in disabled
     assert argv[argv.index("-m") + 1] == "gpt-6-astra" and 'model_reasoning_effort="high"' in argv
+    assert "skills.include_instructions=false" in argv and "include_environment_context=false" in argv
     assert os.path.realpath(argv[argv.index("-C") + 1]) == os.path.realpath(call["cwd"])
     assert json.loads(call["schema"]) == SCHEMA
     assert call["stdin"].startswith(PREFIX + "CHECK PROMPT") and call["stdin"].endswith("CHECK INPUT")
@@ -177,6 +179,7 @@ def test_codex_call_is_ephemeral_read_only_and_feature_stripped(tmp_path, poison
     assert resp.usage == Usage(20, 3, 5, 0) and resp.meta["billing"] == "subscription"
     assert p.last_init["served_model_source"] == "requested" and p.last_init["commands_run"] == 0
     assert "~/.codex/AGENTS.md" in p.last_init["user_level_leaks"]
+    assert p.last_init["warnings"] == ["demo warning"] and "CLI warning: demo warning" in unexpected_loads(p.last_init, {})
 
 
 # --- errors, login, served model ---------------------------------------------------------------
@@ -239,7 +242,8 @@ def test_unexpected_loads_are_reported():
     assert "user-level skills: graphify" in report and "user-level slash_commands: graphify" in report
     assert not any("simplify" in r for r in report), "bundled skills are not user-level"
     assert any("apiKeySource=ANTHROPIC_API_KEY" in r for r in report)
-    assert unexpected_loads({"model": "gpt-6-astra", "commands_run": 2}, {}) == ["commands run by the agent: 2"]
+    assert unexpected_loads({"model": "gpt-6-astra", "commands_run": 2, "other_items": ["collab_tool_call"]}, {}) == [
+        "commands run by the agent: 2", "agent actions beyond the answer: collab_tool_call"]
 
 
 def test_user_level_names_reads_names_only(tmp_path):
@@ -403,10 +407,19 @@ def test_smoke_providers_makes_one_tiny_call_per_cli_and_reports(repo, tmp_path,
     out = result.output
     assert "ANTHROPIC_API_KEY" in out and "sk-ant-test" not in out  # names reported, values never
     assert "requested=claude-sonnet-5 served=claude-sonnet-5 ok=True" in out
-    assert "requested=gpt-6-astra served=gpt-6-astra ok=True" in out
+    assert "requested=gpt-5.6-terra served=gpt-5.6-terra ok=True" in out
     assert "REPORT: user-level: ~/.codex/AGENTS.md" in out and "calls made: 2" in out
     ledger = json.loads(next(repo.raw_runs.rglob("ledger.json")).read_text())
     assert ledger["total_cost_usd"] == 0.0 and ledger["total_shadow_cost_usd"] == 0.0123
+
+
+def test_smoke_providers_only_calls_the_named_provider(repo, tmp_path):
+    claude = fake_cli(tmp_path, "claude", FAKE_CLAUDE, logged_in=True, auth_method="claude.ai", mode="ok")
+    codex = fake_cli(tmp_path, "codex", FAKE_CODEX, login="Logged in using ChatGPT", mode="ok")
+    point_config_at(repo, claude, codex)
+    result = CliRunner().invoke(app, ["smoke", "--providers", "--only", "claude_cli"])
+    assert result.exit_code == 0, result.output
+    assert len(calls(claude)) == 1 and calls(codex) == [] and "calls made: 1" in result.output
 
 
 def test_smoke_providers_refuses_without_a_plan_login(repo, tmp_path):
@@ -427,3 +440,86 @@ def test_env_var_names_only(monkeypatch):
 
 def test_provider_errors_are_provider_errors():
     assert issubclass(RateLimited, ProviderError) and issubclass(CliAuthError, ProviderError)
+
+
+# --- native web search (VERIFY) and the test guard ---------------------------------------------------
+
+WEB_STREAM = [
+    {"type": "assistant", "message": {"content": [
+        {"type": "tool_use", "id": "t1", "name": "WebSearch", "input": {"query": "Ironvale Circuit 2021 anime"}},
+        {"type": "tool_use", "id": "t2", "name": "WebFetch", "input": {"url": "https://ref.example/a", "prompt": "p"}},
+        {"type": "tool_use", "id": "t3", "name": "WebFetch", "input": {"url": "https://down.example/b", "prompt": "p"}},
+    ]}},
+    {"type": "user", "message": {"content": [
+        {"type": "tool_result", "tool_use_id": "t1",
+         "content": 'Links: [{"title":"A","url":"https://ref.example/a"},{"title":"C","url":"https://c.example/x?y=1"}]'},
+        {"type": "tool_result", "tool_use_id": "t2", "content": [{"type": "text", "text": "SECRET PAGE TEXT"}]},
+        {"type": "tool_result", "tool_use_id": "t3", "is_error": True, "content": "fetch failed"},
+    ]}},
+]
+
+
+def test_web_evidence_keeps_urls_never_text():
+    from animedex.providers.claude_cli import web_evidence
+
+    web = web_evidence(WEB_STREAM)
+    assert web["queries"] == ["Ironvale Circuit 2021 anime"] and (web["searches"], web["fetches"]) == (1, 2)
+    assert web["fetched"] == ["https://ref.example/a"]  # the failed fetch is not evidence
+    assert web["urls"] == ["https://c.example/x?y=1", "https://ref.example/a"]
+    assert "SECRET" not in json.dumps(web)
+
+
+def test_web_calls_get_exactly_the_web_tools_with_a_turn_cap(tmp_path):
+    binary = fake_cli(tmp_path, "claude", FAKE_CLAUDE, logged_in=True, auth_method="claude.ai", mode="ok")
+    p = ClaudeCliProvider(binary=str(binary))
+    web = {"max_searches": 5, "outcome_extra": 2, "max_fetches": 10, "max_turns": 17}
+    resp = p.generate("s", "u", SCHEMA, {"model": "claude-sonnet-5", "web": web})
+    argv = calls(binary)[0]["argv"]
+    assert argv[argv.index("--tools") + 1] == "WebSearch,WebFetch"
+    assert argv[argv.index("--allowedTools") + 1] == "WebSearch,WebFetch" and argv[argv.index("--max-turns") + 1] == "17"
+    assert resp.meta["web"]["urls"] == [] and "WebSearch" in resp.meta["expected_tools"]
+    plain = p.args("s", SCHEMA, {"model": "claude-sonnet-5"})
+    assert plain[plain.index("--tools") + 1] == "" and "--allowedTools" not in plain and "--max-turns" not in plain
+
+
+class WebFake(FakeCli):
+    def generate(self, system, user, json_schema, params):
+        import dataclasses
+
+        resp = super().generate(system, user, json_schema, params)
+        return dataclasses.replace(resp, meta={**resp.meta, "web": {"urls": ["https://ref.example/a"], "searches": 1},
+                                               "expected_tools": ["StructuredOutput", "WebSearch", "WebFetch"]})
+
+
+def test_validate_sees_the_web_evidence_and_the_cache_keeps_it(tmp_path):
+    seen = []
+    c = cli_client(tmp_path, WebFake(), Budget(None, None, None, calls_per_run=9, calls_per_title=9))
+    first = c.complete_ex("s", "u", SCHEMA, {"web": {"max_turns": 3}}, ctx=ctx(),
+                          validate=lambda data, meta: seen.append(meta))
+    assert seen == [{"web": {"urls": ["https://ref.example/a"], "searches": 1}}] and first.meta == seen[0]
+    hit = c.complete_ex("s", "u", SCHEMA, {"web": {"max_turns": 3}}, ctx=ctx(), validate=lambda data, meta: 1 / 0)
+    assert hit.cache_hit and hit.meta == first.meta  # cached answers keep their evidence, never re-validated
+    entry = json.loads((tmp_path / "runs" / "run_c" / "calls.jsonl").read_text().splitlines()[0])
+    assert entry["cli"]["web"]["urls"] == ["https://ref.example/a"] and entry["cli"]["unexpected"] == []
+
+
+def test_codex_refuses_web_calls(tmp_path):
+    binary = fake_cli(tmp_path, "codex", FAKE_CODEX, login="Logged in using ChatGPT", mode="ok")
+    with pytest.raises(ProviderError, match="claude_cli only"):
+        CodexCliProvider(binary=str(binary)).generate("s", "u", SCHEMA, {"model": "gpt-5.6-terra", "web": {"max_turns": 3}})
+    assert calls(binary) == []
+
+
+def test_tests_can_never_run_the_real_clis():
+    with pytest.raises(ProviderError, match="blocked"):
+        ClaudeCliProvider(binary="claude")
+    with pytest.raises(ProviderError, match="blocked"):
+        CodexCliProvider(binary="codex")
+
+
+def test_milestone_smoke_in_tests_stops_before_any_real_call(repo, monkeypatch):
+    for key in ("SEARCH_API_KEY",):
+        monkeypatch.delenv(key, raising=False)
+    result = CliRunner().invoke(app, ["smoke", "--stage", "m2"])
+    assert result.exit_code == 1 and "blocked" in result.output + (result.stderr if result.stderr_bytes else "")
+

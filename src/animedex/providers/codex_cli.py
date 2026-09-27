@@ -8,10 +8,11 @@ multi-agent features are switched off per call, as are the environment-context a
 blocks. codex exec has no system-prompt flag, so the pass prompt leads the prompt. Commands the
 agent runs anyway are reported (they should be none).
 
-Checked with `codex debug prompt-input` (2026-09-26, codex-cli 0.146.0): two user-level items
-still reach the model and cannot be switched off per call without moving CODEX_HOME (which holds
-the login): ~/.codex/AGENTS.md and the installed-skills list. `USER_LEVEL_LEAKS` names them so
-every call's metadata reports them.
+Checked with `codex debug prompt-input` (2026-09-27, codex-cli 0.157.1): one user-level item still
+reaches the model and cannot be switched off per call without moving CODEX_HOME (which holds the
+login): ~/.codex/AGENTS.md. `USER_LEVEL_LEAKS` names it so every call's metadata reports it. Models
+whose catalog entry has multi_agent_version v2 (gpt-5.6-sol/terra) also get codex's built-in
+multi-agent "team" instructions; the collaboration tools themselves are off.
 """
 
 from __future__ import annotations
@@ -31,16 +32,17 @@ PREFIX = ("You are answering one structured-output request. Do not run commands,
 _MODEL_LINE = re.compile(r"^\s*model:\s*(\S+)", re.M)
 # Features that add tools or instructions to an agent turn; off for every extraction call.
 DISABLED_FEATURES = (
-    "shell_tool", "unified_exec", "shell_snapshot", "apps", "plugins", "remote_plugin", "skill_search",
-    "skill_mcp_dependency_install", "tool_suggest", "image_generation", "browser_use", "browser_use_external",
-    "computer_use", "in_app_browser", "multi_agent", "goals", "hooks", "personality", "code_mode_host",
-    "workspace_dependencies",
+    "shell_tool", "unified_exec", "unified_exec_tty", "shell_snapshot", "apps", "plugins", "remote_plugin",
+    "skill_search", "skill_mcp_dependency_install", "tool_suggest", "image_generation", "view_image", "browser_use",
+    "browser_use_external", "browser_use_full_cdp_access", "computer_use", "in_app_browser", "in_app_chat",
+    "in_app_local_automation", "multi_agent", "goals", "hooks", "personality", "code_mode_host",
+    "workspace_dependencies", "sleep_tool", "worktrees", "realtime_conversation", "daemon_auto_start",
 )
 CONFIG_OVERRIDES = (
     "include_environment_context=false", "include_permissions_instructions=false",
-    "include_apps_instructions=false", 'web_search="disabled"', "tools.view_image=false",
+    "include_apps_instructions=false", "skills.include_instructions=false", 'web_search="disabled"',
 )
-USER_LEVEL_LEAKS = ("~/.codex/AGENTS.md", "installed skills list")
+USER_LEVEL_LEAKS = ("~/.codex/AGENTS.md",)
 
 
 class CodexCliProvider:
@@ -79,6 +81,8 @@ class CodexCliProvider:
         return args + ["-"]
 
     def generate(self, system: str, user: str, json_schema: dict[str, Any], params: dict[str, Any]) -> ProviderResponse:
+        if params.get("web"):
+            raise ProviderError(f"{self.name}: native web search is wired for claude_cli only (models.verify)")
         with tempfile.TemporaryDirectory(prefix="animedex-call-") as cwd, \
                 tempfile.TemporaryDirectory(prefix="animedex-io-") as io_dir:
             schema_path = str(Path(io_dir) / "schema.json")
@@ -96,6 +100,9 @@ class CodexCliProvider:
                     continue
         failures = [e for e in events if e.get("type") in ("error", "turn.failed")]
         commands = [e for e in events if (e.get("item") or {}).get("type") == "command_execution"]
+        item_types = sorted({str((e.get("item") or {}).get("type")) for e in events
+                             if e.get("type") == "item.completed" and (e.get("item") or {}).get("type")
+                             not in ("agent_message", "reasoning")})
         usage = next((e.get("usage") for e in reversed(events) if e.get("type") == "turn.completed"), None) or {}
         event_model = next((str(e["model"]) for e in events if e.get("model")), None)
         m = _MODEL_LINE.search(proc.stderr or "")
@@ -105,7 +112,10 @@ class CodexCliProvider:
             served, source = m.group(1), "stderr"
         else:  # codex reports no served model: recorded as requested, marked unverified
             served, source = str(params.get("model") or "default"), "requested"
+        warnings = [str((e.get("item") or {}).get("message") or "")[:200] for e in events
+                    if e.get("type") == "item.completed" and (e.get("item") or {}).get("type") == "error"]
         self.last_init = {"model": served, "served_model_source": source, "commands_run": len(commands),
+                          "other_items": item_types, "warnings": warnings,
                           "thread": next((e.get("thread_id") for e in events if e.get("type") == "thread.started"), None),
                           "user_level_leaks": list(USER_LEVEL_LEAKS)}
         if proc.returncode != 0 or failures or not last.strip():

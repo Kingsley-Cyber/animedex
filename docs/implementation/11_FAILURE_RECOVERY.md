@@ -13,6 +13,7 @@
 | CLI loads user-level config | Init metadata / `codex debug prompt-input` | Report it; strip it if a flag exists | Isolation flags; allowlisted env |
 | Timeout | Client timeout | Retry once; split P3 batch | Smaller batches |
 | Budget cap hit | Cost ledger | Stop after current title/episode; report | Cheap models for P1/P4/EP |
+| Native search runs long or over cap | Turn limit hit (CLI error) / counted searches | Skip the title (`unresolved`), log; over-cap is flagged | Limits in the prompt; hard `--max-turns` |
 | Web verification inconclusive | No credible source | Mark `unresolved`; block P2 only if a gold title's outcome is unresolved | Better query templates |
 | Recall–web conflict | Verify diff | Web wins if credible; log | Track per-field correction rate |
 | Scope leak (other adaptation or unadapted source) | CHECK `scope_leak` / EP scope check | Reject or revise; tighten the title's scope `exclude` list | Scope in every prompt |

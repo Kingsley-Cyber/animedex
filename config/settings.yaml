@@ -45,12 +45,12 @@ models:   # G1a, approved 2026-09-26; routed to subscription CLIs 2026-09-26. Co
   verify:          {provider: claude_cli, model: claude-sonnet-5, params: {effort: high}}
   p2:              {provider: claude_cli, model: claude-opus-5-5, params: {effort: high}}
   p3:              {provider: claude_cli, model: claude-opus-5-5, params: {effort: high}}
-  check:           {provider: codex_cli, model: gpt-6-astra, params: {effort: high}, strict_model: true}
+  check:           {provider: codex_cli, model: gpt-5.6-terra, strict_model: true}   # owner: an older model is enough
   p4:              {provider: claude_cli, model: claude-haiku-4-5-20251001}
   ep:              {provider: claude_cli, model: claude-haiku-4-5-20251001}
   rollup_match:    {provider: claude_cli, model: claude-haiku-4-5-20251001}
   ideate_generate: {provider: claude_cli, model: claude-opus-5-5, params: {effort: high}}
-  ideate_judge:    {provider: codex_cli, model: gpt-6-astra, params: {effort: high}, strict_model: true}
+  ideate_judge:    {provider: codex_cli, model: gpt-5.6-terra, strict_model: true}   # owner: an older model is enough
   embeddings:      {provider: local, model: "<embedding-model>"}              # Ollama; pull a model before M5
   eval_match:      {provider: claude_cli, model: claude-haiku-4-5-20251001}   # PROPOSED (not in the G1a list); AC-17, M3
 # USD per 1M tokens for API-billed "<provider>/<model>" pairs (local models: 0). Subscription CLI
@@ -60,13 +60,15 @@ pricing:
   "anthropic/claude-sonnet-5":           {input_per_mtok: 2.0, output_per_mtok: 10.0}
   "anthropic/claude-haiku-4-5-20251001": {input_per_mtok: 1.0, output_per_mtok: 5.0}
 
-search: {backend: brave, api_key_env: SEARCH_API_KEY}
+# G1a 2026-09-27 (Kingsley): VERIFY searches with the claude CLI's own WebSearch/WebFetch tools, not
+# a search API. A citation counts only if that call's tool traffic retrieved the URL.
+search: {backend: native}
 
 budget:   # G1a, approved 2026-09-26
   # Subscription CLIs: call caps (the plan limits your coding sessions share). A rate/usage-limit
   # error stops the run cleanly; finished calls stay cached and the rerun resumes from the cache.
-  calls_per_run: 40             # PROPOSED, confirm before partner runs
-  calls_per_title: 6            # PROPOSED: M2 needs 2 per title (P1 + VERIFY), 4 with repairs
+  calls_per_run: 40             # confirmed by Kingsley 2026-09-27
+  calls_per_title: 6            # confirmed; M2 needs 2 per title (P1 + VERIFY), 4 with repairs
   min_seconds_between_calls: 5
   # API-billed providers only (none in use):
   run_cap_usd: 25

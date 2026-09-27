@@ -112,10 +112,14 @@ class SearchConfigError(RuntimeError):
     pass
 
 
-def build_search(settings: Settings, env: dict[str, str], *, transport: httpx.BaseTransport | None = None) -> SearchBackend:
+def build_search(settings: Settings, env: dict[str, str], *, transport: httpx.BaseTransport | None = None
+                 ) -> SearchBackend | None:
+    """None means `native`: VERIFY's model searches with its own CLI web tools (G1a 2026-09-27)."""
     backend = str(settings.search.get("backend", ""))
     if is_placeholder(backend) or not backend:
         raise SearchConfigError("search.backend is not set (G1a)")
+    if backend == "native":
+        return None
     key = env.get(str(settings.search.get("api_key_env", "SEARCH_API_KEY")), "")
     if backend == "mock":
         return MockSearch()
@@ -129,7 +133,7 @@ def build_search(settings: Settings, env: dict[str, str], *, transport: httpx.Ba
         if not base:
             raise SearchConfigError("search.base_url is required for searxng")
         return SearxngSearch(str(base), transport=transport)
-    raise SearchConfigError(f"unknown search backend {backend!r} (brave | tavily | searxng)")
+    raise SearchConfigError(f"unknown search backend {backend!r} (native | brave | tavily | searxng)")
 
 
 @dataclass

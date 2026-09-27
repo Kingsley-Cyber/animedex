@@ -160,7 +160,10 @@ animedex/
 - Embeddings: separate adapter; default is a local model (config). Used for premise similarity and for matching proposed atoms in ROLLUP.
 
 ## Web sources
-- Adapter interface: `search(query) -> results`, `fetch(url) -> text`. Backend is config.
+- Backend is config. `native` (G1a, v1.2.2) means the VERIFY model searches with its CLI's own WebSearch/WebFetch tools. There is no search API and no key.
+  - These are the only tools such a call gets: pre-approved, with a hard turn limit.
+  - A citation counts only if that call's own tool traffic retrieved the URL.
+- API backends keep the adapter interface `search(query) -> results`, `fetch(url) -> text`.
 - Used for field verification (VERIFY) and episode summaries (EP).
 - Web text is used transiently and never stored. Only paraphrased values (≤60 words for episode summaries) and source URLs are kept.
 

@@ -4,13 +4,19 @@
 prompt as the system prompt, from an empty scratch dir, with `--safe-mode` (no CLAUDE.md, skills,
 plugins, hooks, MCP servers, memory), `--setting-sources project` (no user settings file: the
 scratch dir has no project settings), `--tools ""` (the only tool left is StructuredOutput, which
-returns the schema answer), `--strict-mcp-config`, and `--no-session-persistence`. Never `--bare` (that mode only authenticates with an API key) and never
-`--fallback-model` (no silent substitution). The init event is kept so every call shows what loaded.
+returns the schema answer), `--strict-mcp-config`, and `--no-session-persistence`. Never `--bare`
+(that mode only authenticates with an API key) and never `--fallback-model` (no silent
+substitution). The init event is kept so every call shows what loaded.
+
+Native web search (VERIFY, G1a 2026-09-27): a call with `params["web"]` gets exactly WebSearch and
+WebFetch, pre-approved, with a hard `--max-turns`. The stream's tool calls are read for the web
+evidence (queries, fetched URLs, URLs the searches returned). Page text is never kept.
 """
 
 from __future__ import annotations
 
 import json
+import re
 import tempfile
 from typing import Any
 
@@ -25,6 +31,43 @@ from animedex.providers.cli_common import (
 )
 
 CLI = "claude_cli"
+WEB_TOOLS = ("WebSearch", "WebFetch")
+_URL = re.compile(r"https?://[^\s\"'<>()\[\]{}\\]+")
+
+
+def _block_text(content: Any) -> str:
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        return "\n".join(str(b.get("text") or "") for b in content if isinstance(b, dict))
+    return ""
+
+
+def web_evidence(events: list[dict[str, Any]]) -> dict[str, Any]:
+    """Queries, fetched URLs and search-result URLs from one call's tool traffic. URLs only: the
+    page text in the tool results is read for links and dropped (web text is transient)."""
+    uses: dict[str, tuple[str, dict[str, Any]]] = {}
+    for e in events:
+        if e.get("type") == "assistant":
+            for block in (e.get("message") or {}).get("content") or []:
+                if isinstance(block, dict) and block.get("type") == "tool_use" and block.get("name") in WEB_TOOLS:
+                    uses[str(block.get("id"))] = (block["name"], block.get("input") or {})
+    fetched: set[str] = set()
+    found: set[str] = set()
+    for e in events:
+        if e.get("type") != "user":
+            continue
+        for block in (e.get("message") or {}).get("content") or []:
+            if not isinstance(block, dict) or block.get("type") != "tool_result" or block.get("is_error"):
+                continue
+            name, inp = uses.get(str(block.get("tool_use_id")), ("", {}))
+            if name == "WebFetch" and inp.get("url"):
+                fetched.add(str(inp["url"]))
+            elif name == "WebSearch":
+                found.update(u.rstrip(".,;:") for u in _URL.findall(_block_text(block.get("content"))))
+    queries = [str(inp.get("query", "")) for name, inp in uses.values() if name == "WebSearch"]
+    return {"searches": len(queries), "fetches": sum(1 for name, _ in uses.values() if name == "WebFetch"),
+            "queries": queries, "fetched": sorted(fetched), "found": sorted(found), "urls": sorted(fetched | found)}
 
 
 def served_model(requested: str, init: dict[str, Any] | None, model_usage: dict[str, Any]) -> tuple[str, list[str]]:
@@ -57,13 +100,14 @@ class ClaudeCliProvider:
         self.last_init: dict[str, Any] = {}
 
     def args(self, system: str, json_schema: dict[str, Any], params: dict[str, Any]) -> list[str]:
+        web = params.get("web")
         args = [
             self.binary, "-p",
             "--output-format", "stream-json", "--verbose",
             "--model", str(params["model"]),
             "--system-prompt", system,
             "--json-schema", json.dumps(json_schema, sort_keys=True),
-            "--tools", "",
+            "--tools", ",".join(WEB_TOOLS) if web else "",
             "--safe-mode",
             "--setting-sources", "project",  # the scratch dir has none: no user settings (model, effort)
             "--strict-mcp-config",
@@ -71,6 +115,8 @@ class ClaudeCliProvider:
         ]
         if "effort" in self.send_params and params.get("effort"):
             args += ["--effort", str(params["effort"])]
+        if web:  # exactly the web tools, pre-approved (headless calls cannot answer a permission prompt)
+            args += ["--allowedTools", ",".join(WEB_TOOLS), "--max-turns", str(int(web["max_turns"]))]
         return args
 
     def generate(self, system: str, user: str, json_schema: dict[str, Any], params: dict[str, Any]) -> ProviderResponse:
@@ -109,7 +155,9 @@ class ClaudeCliProvider:
             stop_reason=result.get("subtype"),
             request_id=result.get("session_id"),
             meta={"cli": CLI, "cli_version": self.version, "shadow_cost_usd": result.get("total_cost_usd"),
-                  "init": self.last_init, "billing": self.billing, "other_models": others},
+                  "init": self.last_init, "billing": self.billing, "other_models": others,
+                  "expected_tools": ["StructuredOutput", *WEB_TOOLS] if params.get("web") else ["StructuredOutput"],
+                  **({"web": web_evidence(events)} if params.get("web") else {})},
         )
 
     def resolve_model(self, model_id: str) -> str:

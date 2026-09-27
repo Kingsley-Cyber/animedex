@@ -173,3 +173,67 @@ def test_verify_json_summary_has_no_page_text(repo):
     summary = json.loads((repo.candidates / "verify" / f"{TID}.result.json").read_text())
     assert summary["sources"] == sorted(PAGE)
     assert all(page[:40] not in json.dumps(summary) for page in PAGE.values())
+
+
+# ---------------------------------------------------------------- native mode (G1a 2026-09-27)
+class WebMock(MockProvider):
+    """Mock model whose answers carry the web evidence a claude_cli call would report."""
+
+    def __init__(self, urls, searches=2, **kw):
+        super().__init__(**kw)
+        self.urls, self.searches, self.params = sorted(urls), searches, []
+
+    def generate(self, system, user, json_schema, params):
+        import dataclasses
+
+        self.params.append(params)
+        resp = super().generate(system, user, json_schema, params)
+        web = {"searches": self.searches, "fetches": 1, "queries": [f"q{i}" for i in range(self.searches)],
+               "fetched": [self.urls[0]], "found": self.urls, "urls": self.urls}
+        return dataclasses.replace(resp, meta={"web": web})
+
+
+def verify_native(repo, responses, urls, searches=2):
+    run(repo, {KEY: make_draft()})
+    settings = load_settings(repo)
+    mock = WebMock(urls, searches, responses=responses)
+    client = LLMClient(provider=mock, provider_name="mock", spec=ModelSpec(provider="mock", model="v"),
+                       prompt_version="unset", schema_version=SCHEMA_VERSION, vocab_version=get_vocab().version,
+                       cache=ResponseCache(repo.cache), runlog=RunLog(repo.raw_runs, "run_n"))
+    result = run_verify(repo, [CorpusEntry.model_validate(ENTRY)], client, None, get_vocab(), settings,
+                        run_id="run_n", created_at="2026-09-27T13:00:00+00:00")
+    return result, mock, client
+
+
+def test_native_mode_cites_only_urls_the_call_retrieved(repo):
+    bad = verify_out()  # sensory.color_motif cites a URL the tools never returned
+    good = verify_out(fields=[f for f in bad["fields"] if f["path"] != "sensory.color_motif"])
+    result, mock, _ = verify_native(repo, {("VERIFY", TID): [bad, good]}, {FACTS, EPISODES, RATINGS})
+    assert "cite a URL your searches returned or you opened in this session" in mock.calls[1]["user"]
+    assert "Limits: at most" in mock.calls[0]["user"] and "Pages:" not in mock.calls[0]["user"]
+    web = mock.params[0]["web"]
+    assert web["max_turns"] == web["max_searches"] + web["max_fetches"] + 2 and web["outcome_extra"] == 2
+    [r] = result.titles
+    assert r.statuses["sensory.power_visual_signature"] == "corrected"
+    assert r.statuses["sensory.color_motif"] == "unresolved" and r.searches == ["q0", "q1"]
+    summary = json.loads((repo.candidates / "verify" / f"{TID}.result.json").read_text())
+    assert summary["sources"] == sorted({FACTS, EPISODES, RATINGS})
+    [outcome] = read_jsonl(repo.candidates / "outcome" / f"{TID}.jsonl")
+    assert outcome["signals"][0]["source_ref"] == RATINGS
+
+
+def test_native_mode_flags_a_blown_search_cap(repo):
+    good = verify_out(fields=[f for f in verify_out()["fields"] if f["path"] != "sensory.color_motif"])
+    result, mock, _ = verify_native(repo, {("VERIFY", TID): [good]}, {FACTS, EPISODES, RATINGS}, searches=9)
+    [r] = result.titles
+    assert len(mock.calls) == 1 and any(n.startswith("search cap exceeded: 9 searches") for n in r.notes)
+
+
+def test_native_backend_needs_a_claude_cli_verify_slot(repo):
+    from animedex.config import live_problems
+
+    s = load_settings(repo)
+    assert s.search["backend"] == "native"
+    assert not [p for p in live_problems(s, {}, ["p1", "verify"]) if p.startswith("search")]
+    s.models["verify"].provider = "codex_cli"
+    assert "search.backend native: models.verify must use a claude_cli provider" in live_problems(s, {}, ["verify"])

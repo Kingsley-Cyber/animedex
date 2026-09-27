@@ -226,3 +226,13 @@ def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
         parts = set(Path(str(item.fspath)).parts)
         if parts & {"contract", "pipeline"}:
             item.add_marker(pytest.mark.integration)
+
+
+@pytest.fixture(autouse=True)
+def no_real_cli(monkeypatch: pytest.MonkeyPatch, tmp_path_factory: pytest.TempPathFactory) -> None:
+    """Only fake CLIs under pytest's temp dir may run. A real `claude`/`codex` call would spend
+    Kingsley's subscription, so every test refuses it."""
+    from animedex.providers import cli_common
+
+    base = str(tmp_path_factory.getbasetemp().resolve())
+    monkeypatch.setattr(cli_common, "BINARY_GUARD", lambda binary: str(Path(binary).resolve()).startswith(base))

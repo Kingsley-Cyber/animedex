@@ -17,6 +17,7 @@ refuse it outright.
 
 from __future__ import annotations
 
+import inspect
 import json
 import re
 import time
@@ -29,6 +30,7 @@ from pydantic import ValidationError
 from animedex.budget import Budget, Price
 from animedex.config import ModelSpec
 from animedex.providers.base import Provider, ProviderError, Usage, same_model
+from animedex.providers.cli_common import unexpected_loads
 from animedex.store.cache import ResponseCache, cache_key
 from animedex.store.runlog import RunLog, TransientText
 
@@ -89,11 +91,34 @@ class Completion:
     cache_hit: bool
     substituted: bool = False  # served by a different model than requested; never cached
     identity: str = ""         # provider identity, e.g. claude_cli@2.1.251
+    meta: dict[str, Any] = field(default_factory=dict)  # persisted provider evidence, e.g. {"web": {...}}
 
     @property
     def provenance_model(self) -> str:
         """What goes in provenance.model: provider identity (CLI name + version) + served model."""
         return f"{self.identity}/{self.model}" if self.identity else self.model
+
+
+KEPT_META = ("web",)  # provider evidence worth caching (URLs and counts, never page text)
+
+
+def _required_args(fn: Callable[..., Any]) -> int:
+    try:
+        params = inspect.signature(fn).parameters.values()
+    except (TypeError, ValueError):
+        return 1
+    return sum(1 for p in params if p.default is p.empty and p.kind in (p.POSITIONAL_ONLY, p.POSITIONAL_OR_KEYWORD))
+
+
+def run_validate(validate: Callable[..., Any] | None, data: dict[str, Any], meta: dict[str, Any]) -> None:
+    """`validate(data)`, or `validate(data, meta)` when it takes two required args (VERIFY checks
+    citations against the call's own web evidence)."""
+    if validate is None:
+        return
+    if _required_args(validate) >= 2:
+        validate(data, meta)
+    else:
+        validate(data)
 
 
 class LLMClient:
@@ -186,7 +211,7 @@ class LLMClient:
         params: dict[str, Any] | None = None,
         *,
         ctx: CallContext,
-        validate: Callable[[dict[str, Any]], Any] | None = None,
+        validate: Callable[..., Any] | None = None,
     ) -> Completion:
         key = self.key_for(ctx, params)
         log_common = {"pass_": ctx.pass_, "record_id": ctx.record_id, "provider": self.identity,
@@ -198,7 +223,7 @@ class LLMClient:
                                  input_tokens=0, output_tokens=0, cost_usd=0.0, user=user,
                                  response=json.dumps(hit["json"], sort_keys=True))
             return Completion(hit["json"], Usage(), hit.get("model", ""), key, True, False,
-                              hit.get("identity", self.identity))
+                              hit.get("identity", self.identity), hit.get("meta") or {})
 
         if self.provider.live and ctx.title_id:
             self.title_guard(ctx.title_id)  # type: ignore[misc]
@@ -232,7 +257,11 @@ class LLMClient:
                     self.budget.charge(cost, ctx.title_id, ctx.episode_id)
             total = total + resp.usage
             substituted = self.provider.live and not same_model(self.spec.model, resp.model)
-            cli_meta = {k: resp.meta[k] for k in ("cli", "cli_version", "init") if k in resp.meta} or None
+            kept = {k: resp.meta[k] for k in KEPT_META if k in resp.meta}
+            cli_meta = {k: resp.meta[k] for k in ("cli", "cli_version", "init", "other_models") if k in resp.meta}
+            if "init" in resp.meta:
+                cli_meta["unexpected"] = unexpected_loads(resp.meta["init"], expected_tools=resp.meta.get("expected_tools"))
+            cli_meta = {**cli_meta, **kept} or None
             if substituted and self.spec.strict_model:
                 self.runlog.log_call(**log_common, model=resp.model, cache_hit=False, attempt=attempt,
                                      input_tokens=resp.usage.input_tokens, output_tokens=resp.usage.output_tokens,
@@ -245,8 +274,7 @@ class LLMClient:
                                  error=f"substituted: served by {resp.model}" if substituted else None)
             try:
                 data = parse_json(resp.text)
-                if validate is not None:
-                    validate(data)
+                run_validate(validate, data, kept)
             except (ValueError, ValidationError) as exc:
                 errors.append(str(exc))
                 if attempt == 0:
@@ -255,6 +283,7 @@ class LLMClient:
                 raise InvalidOutput(errors, resp.text) from exc
             if not substituted:  # a fallback answer is never cached: reruns retry the requested model
                 self.cache.put(ctx.pass_, key, {"json": data, "model": resp.model, "usage": asdict(total),
-                                                "provider": self.provider_name, "identity": self.identity})
-            return Completion(data, total, resp.model, key, False, substituted, self.identity)
+                                                "provider": self.provider_name, "identity": self.identity,
+                                                "meta": kept})
+            return Completion(data, total, resp.model, key, False, substituted, self.identity, kept)
         raise AssertionError("unreachable")  # pragma: no cover

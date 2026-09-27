@@ -1,5 +1,16 @@
 # Changelog — docs/implementation
 
+## v1.2.2 — 2026-09-27
+G1a search decision by Kingsley: VERIFY uses the model harness's own web search. There is no search API.
+
+- `search.backend: native` (03, 05):
+  - The VERIFY call on `claude_cli` gets exactly WebSearch and WebFetch, pre-approved.
+  - Limits come from the existing caps: searches = `max_searches_per_title` (+ outcome extra); fetches = searches × `pages_per_search`; hard turn limit = searches + fetches + 2.
+- **Evidence rule (05, 06):** a confirm/correct must cite a URL that the same call's searches returned or its fetches opened. The citation check reads URLs from the call's tool traffic, and page text is never kept. The cache stores the URL list, so cached answers keep their evidence.
+- **Controls (06, 11):** searches over the cap are flagged in the verify notes. Hitting the turn limit skips the title.
+- CHECK and the judge run on `gpt-5.6-terra` via `codex_cli`. Kingsley ruled that an older model is enough.
+- Call caps confirmed: 40 per run, 6 per title.
+
 ## v1.2.1 — 2026-09-26
 G1a provider change, decided by Kingsley. It lands inside M2 because it changes providers, config and budget wording, not data contracts. Noted in `proposals/CHANGE_PLAN_v1.3-v1.5.md`.
 

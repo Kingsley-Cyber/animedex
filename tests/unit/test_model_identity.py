@@ -110,6 +110,7 @@ def test_smoke_m2_blocks_only_on_m2_needs(repo, monkeypatch):
         monkeypatch.delenv(key, raising=False)
     data = yaml.safe_load(repo.config_file.read_text(encoding="utf-8"))
     data["models"]["check"]["model"] = "<codex-model>"  # an unfilled slot that only M3 needs
+    data["search"] = {"backend": "brave", "api_key_env": "SEARCH_API_KEY"}  # a missing key that M2 needs
     repo.config_file.write_text(yaml.safe_dump(data, sort_keys=False), encoding="utf-8")
     result = CliRunner().invoke(app, ["smoke", "--stage", "m2"])
     assert result.exit_code == 1
