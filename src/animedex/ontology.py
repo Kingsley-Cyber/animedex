@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import json
 import re
-from collections.abc import Iterator
+from collections.abc import Iterable, Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -17,12 +17,38 @@ import yaml
 
 from animedex.paths import Paths
 
-FieldKind = Literal["phrase", "enum"]
+FieldKind = Literal["phrase", "enum", "enum_multi", "list", "group"]
+PartKind = Literal["phrase", "enum"]
+KINDS: tuple[str, ...] = ("phrase", "enum", "enum_multi", "list", "group")
+ENUM_KINDS = ("enum", "enum_multi")
+TEST_MAX_WORDS = 30  # a discrimination test is one sentence (owner ruling, grid reliability)
+
+
+def version_tuple(version: str) -> tuple[int, ...]:
+    """A version as a comparable tuple, e.g. (1, 5, 0); anything unparseable sorts after every real one."""
+    try:
+        return tuple(int(p) for p in str(version).split("."))
+    except ValueError:
+        return (10**6,)
+
+
+@dataclass(frozen=True)
+class LensPart:
+    """A typed sub-field of a `list` item or a `group` value (vocab 1.5.0)."""
+
+    name: str
+    kind: PartKind
+    vocab: str | None = None
+    max_words: int | None = None  # phrase parts
 
 
 @dataclass(frozen=True)
 class LensField:
-    """One P1 field: `block` is "core" or a module name; `path` is "<block>.<name>"."""
+    """One P1 field: `block` is "core" or a module name; `path` is "<block>.<name>".
+
+    Kinds (vocab 1.5.0): `phrase` and `enum` hold a string; `enum_multi` a non-empty list of enum
+    values; `list` up to `max_items` small objects with typed `parts`; `group` one object with fixed
+    `parts`. Every kind keeps the same conf/source/verification/epistemic envelope."""
 
     block: str
     name: str
@@ -30,10 +56,23 @@ class LensField:
     vocab: str | None = None
     conditional: bool = False
     max_words: int | None = None  # phrase fields only (vocab 1.4.0: per field, default lens.phrase_max_words)
+    parts: tuple[LensPart, ...] = ()   # list items and group sub-fields
+    max_items: int | None = None       # list fields
+    since: str | None = None           # records made under an older vocab may omit the field
+    differs_from: str | None = None    # optional second value: must differ from this same-block field
+    outcome_in: tuple[str, ...] = ()   # only titles whose core.outcome is one of these carry a value
+    needs_source: bool = False         # a value needs a cited page (source_ref)
+    abstract: bool = False             # no names or medium words (premise_abstraction)
 
     @property
     def path(self) -> str:
         return f"{self.block}.{self.name}"
+
+    def enum_vocabs(self) -> list[tuple[str, str]]:
+        """(sub-path, vocab field) for every enum the field holds: "" for the value itself."""
+        if self.kind in ENUM_KINDS and self.vocab:
+            return [("", self.vocab)]
+        return [(f".{p.name}", p.vocab) for p in self.parts if p.kind == "enum" and p.vocab]
 
 
 class OntologyError(ValueError):
@@ -65,6 +104,10 @@ class Vocab:
             m: self._activation(m, body.get("activation") or {"kind": "judgment"}) for m, body in modules.items()
         }
         self._by_path = {f.path: f for f in self.lens_fields()}
+        for f in self.lens_fields():
+            self._check_pairing(f)
+        for name in self.fields:
+            self._check_tests(name)
 
     @staticmethod
     def _activation(module: str, spec: dict[str, Any]) -> dict[str, Any]:
@@ -82,20 +125,79 @@ class Vocab:
         return spec
 
     def _lens_field(self, block: str, name: str, spec: dict[str, Any]) -> LensField:
+        path = f"{block}.{name}"
         kind = spec.get("kind")
-        if kind not in ("phrase", "enum"):
-            raise OntologyError(f"lens field {block}.{name}: kind must be phrase|enum")
+        if kind not in KINDS:
+            raise OntologyError(f"lens field {path}: kind must be {'|'.join(KINDS)}")
         vocab = spec.get("vocab")
-        if kind == "enum" and vocab not in self.fields:
-            raise OntologyError(f"lens field {block}.{name}: unknown vocab field {vocab!r}")
+        if kind in ENUM_KINDS and vocab not in self.fields:
+            raise OntologyError(f"lens field {path}: unknown vocab field {vocab!r}")
+        if kind not in ENUM_KINDS and vocab is not None:
+            raise OntologyError(f"lens field {path}: only enum kinds take a vocab")
         max_words = None
         if kind == "phrase":
-            max_words = spec.get("max_words", self.phrase_max_words)
-            if not isinstance(max_words, int) or max_words < 1:
-                raise OntologyError(f"lens field {block}.{name}: max_words must be a positive integer")
+            max_words = self._cap(path, spec.get("max_words", self.phrase_max_words))
         elif "max_words" in spec:
-            raise OntologyError(f"lens field {block}.{name}: only phrase fields take max_words")
-        return LensField(block, name, kind, vocab, bool(spec.get("conditional", False)), max_words)
+            raise OntologyError(f"lens field {path}: only phrase fields take max_words")
+        parts: tuple[LensPart, ...] = ()
+        key = {"list": "item", "group": "fields"}.get(kind)
+        if key is not None:
+            body = spec.get(key)
+            if not isinstance(body, dict) or not body:
+                raise OntologyError(f"lens field {path}: a {kind} field needs `{key}` with its sub-fields")
+            parts = tuple(self._part(f"{path}.{n}", n, sub) for n, sub in body.items())
+        for other in ({"item", "fields"} - {key}):
+            if other in spec:
+                raise OntologyError(f"lens field {path}: only a {'list' if other == 'item' else 'group'} field takes `{other}`")
+        max_items = spec.get("max_items")
+        if kind == "list" and (not isinstance(max_items, int) or max_items < 1):
+            raise OntologyError(f"lens field {path}: a list field needs max_items (a positive integer)")
+        if kind != "list" and max_items is not None:
+            raise OntologyError(f"lens field {path}: only list fields take max_items")
+        since = spec.get("since")
+        if since is not None and not re.fullmatch(r"\d+\.\d+\.\d+", str(since)):
+            raise OntologyError(f"lens field {path}: since must be a version like 1.5.0")
+        outcome_in = tuple(spec.get("outcome_in") or ())
+        if outcome_in and "core.outcome" in self.fields and not set(outcome_in) <= set(self.enum("core.outcome")):
+            raise OntologyError(f"lens field {path}: outcome_in must list core.outcome values")
+        abstract = bool(spec.get("abstract", False))
+        if abstract and kind != "phrase":
+            raise OntologyError(f"lens field {path}: only phrase fields can be abstract")
+        return LensField(block, name, kind, vocab, bool(spec.get("conditional", False)), max_words, parts,
+                         max_items, since, spec.get("differs_from"), outcome_in, bool(spec.get("needs_source", False)),
+                         abstract)
+
+    def _cap(self, where: str, max_words: Any) -> int:
+        if not isinstance(max_words, int) or max_words < 1:
+            raise OntologyError(f"lens field {where}: max_words must be a positive integer")
+        return max_words
+
+    def _part(self, where: str, name: str, spec: dict[str, Any]) -> LensPart:
+        kind = spec.get("kind") if isinstance(spec, dict) else None
+        if kind == "phrase":
+            return LensPart(name, "phrase", None, self._cap(where, spec.get("max_words", self.phrase_max_words)))
+        if kind == "enum":
+            if spec.get("vocab") not in self.fields:
+                raise OntologyError(f"lens field {where}: unknown vocab field {spec.get('vocab')!r}")
+            return LensPart(name, "enum", spec["vocab"])
+        raise OntologyError(f"lens field {where}: a sub-field kind must be phrase|enum")
+
+    def _check_pairing(self, f: LensField) -> None:
+        if f.differs_from is None:
+            return
+        other = self._by_path.get(f"{f.block}.{f.differs_from}")
+        if other is None or (other.kind, other.vocab) != (f.kind, f.vocab) or other is f:
+            raise OntologyError(f"lens field {f.path}: differs_from must name another {f.block} field of the same kind")
+
+    def _check_tests(self, name: str) -> None:
+        """Discrimination tests (owner ruling, grid reliability): one sentence per listed value."""
+        tests = self.fields[name].get("tests") or {}
+        unknown = sorted(set(tests) - set(self.enum(name)))
+        if unknown:
+            raise OntologyError(f"vocab {name}: tests for values not in the enum: {unknown}")
+        for value, text in tests.items():
+            if not str(text).strip() or len(str(text).split()) > TEST_MAX_WORDS:
+                raise OntologyError(f"vocab {name}: the test for {value} must be 1-{TEST_MAX_WORDS} words")
 
     # enums ---------------------------------------------------------------
     def enum(self, field_name: str) -> tuple[str, ...]:
@@ -109,6 +211,10 @@ class Vocab:
 
     def cq_refs(self, field_name: str) -> list[str]:
         return list(self.fields[field_name].get("cq_refs", []))
+
+    def tests(self, field_name: str) -> dict[str, str]:
+        """value -> its discrimination test (what makes it right and its nearest neighbour wrong)."""
+        return dict(self.fields[field_name].get("tests") or {})
 
     # lens ----------------------------------------------------------------
     @property
@@ -263,7 +369,7 @@ def normalize_enum(vocab: Vocab, field_name: str, raw: Any) -> Normalized:
 # ------------------------------------------------------------ CQ coverage (AC-04)
 @dataclass
 class CoverageRow:
-    kind: Literal["lens_field", "module", "vocab_field", "bridge_concept"]
+    kind: Literal["lens_field", "module", "vocab_field", "bridge_concept", "record_field"]
     name: str
     cqs: list[str] = field(default_factory=list)
 
@@ -302,10 +408,11 @@ class CoverageReport:
 
 
 def coverage_report(
-    vocab: Vocab, bridge: Bridge, cqs: CQSet, record_paths: set[str]
+    vocab: Vocab, bridge: Bridge, cqs: CQSet, record_paths: set[str], record_fields: Iterable[str] = ()
 ) -> CoverageReport:
     """Field -> CQ table. Lens fields are covered by `requires:`; modules, vocab fields, and
-    bridge concepts by their declared `cq_refs` (04 invariants)."""
+    bridge concepts by their declared `cq_refs` (04 invariants). `record_fields` (v1.8: characters,
+    failure patterns, P4 and idea additions) are covered by a `requires:` on the field or below it."""
     errors: list[str] = []
     known = cqs.ids
     lens_paths = {f.path for f in vocab.lens_fields()}
@@ -339,4 +446,9 @@ def coverage_report(
         rows.append(
             CoverageRow("bridge_concept", name, declared(f"bridge {name}", list(spec.get("cq_refs", []))))
         )
+    for name in record_fields:
+        if name not in record_paths:
+            errors.append(f"record field {name!r} is not a record path")
+        cqs_for = {q for req, ids in requiring.items() if req == name or req.startswith(name + ".") for q in ids}
+        rows.append(CoverageRow("record_field", name, sorted(cqs_for)))
     return CoverageReport(rows, sorted(set(errors)))

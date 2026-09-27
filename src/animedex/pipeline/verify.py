@@ -36,6 +36,7 @@ from animedex.pipeline.common import (
     supersede,
     url_set,
 )
+from animedex.pipeline.lens_values import describe, phrase_texts, shape_problems
 from animedex.prompts import RenderedPrompt, read_prompt
 from animedex.providers.base import ProviderError
 from animedex.providers.cli_common import CliAuthError, RateLimited
@@ -71,9 +72,12 @@ def native_limits(pending: Pending, settings: Settings) -> dict[str, int]:
 
 def output_schema(vocab: Vocab) -> dict[str, Any]:
     nullable = {"type": ["string", "null"]}
+    # vocab 1.5.0: a corrected value takes its field's shape (text, a list of values or items, an object)
+    shaped = {"type": ["string", "array", "object", "null"],
+              "description": "the corrected value in the shape the field's hint shows; null unless corrected"}
     field_item = {"type": "object", "additionalProperties": False, "properties": {
         "path": {"type": "string"}, "status": {"type": "string", "enum": FIELD_STATUS},
-        "value": nullable, "source_url": nullable, "note": nullable}}
+        "value": shaped, "source_url": nullable, "note": nullable}}
     field_item["required"] = list(field_item["properties"])
     moment_item = {"type": "object", "additionalProperties": False, "properties": {
         "moment_id": {"type": "string"}, "status": {"type": "string", "enum": MOMENT_STATUS},
@@ -190,18 +194,28 @@ def _cap(vocab: Vocab, path: str) -> int:
 
 
 def _value_problems(path: str, value: Any, vocab: Vocab, guards: GuardConfig | None) -> list[str]:
-    """Why a corrected value cannot be stored (empty, off-vocab, over its word cap, quoted)."""
+    """Why a corrected value cannot be stored (empty, off-vocab, the wrong shape for its kind, over a
+    word cap, quoted)."""
     if not value:
         return ["corrected needs a value"]
     f = _lens(vocab, path)
     if f is not None and f.kind == "enum":
         ok = value in vocab.enum(f.vocab or path) or str(value).lower().startswith("other:")
         return [] if ok else [f"{value!r} is not an allowed value"]
-    problems = [f"{cap} words max"] if word_count(str(value)) > (cap := _cap(vocab, path)) else []
-    if guards is not None:
-        problems += quote_problems(str(value), guards.min_quote_words) + dialogue_problems(str(value))
-        if path.startswith("sensory."):
-            problems += framing_problems(str(value), guards.framing_terms)
+    if f is not None and f.kind != "phrase":  # vocab 1.5.0 kinds: enum_multi, list, group
+        problems = [f"{path}{sub}: {msg}" for sub, msg in shape_problems(f, value, vocab)]
+        texts = [(f"{path}{sub}", text, cap) for sub, text, cap in phrase_texts(f, value)]
+    elif not isinstance(value, str):
+        return ["a phrase field takes text"]
+    else:
+        problems, texts = [], [(path, value, _cap(vocab, path))]
+    for where, text, cap in texts:
+        if word_count(text) > cap:
+            problems.append(f"{cap} words max" if where == path else f"{where}: {cap} words max")
+        if guards is not None:
+            problems += quote_problems(text, guards.min_quote_words) + dialogue_problems(text)
+            if path.startswith("sensory."):
+                problems += framing_problems(text, guards.framing_terms)
     return problems
 
 
@@ -235,9 +249,13 @@ def _brief(entry: CorpusEntry, pending: Pending, vocab: Vocab) -> list[str]:
         f = _lens(vocab, path)
         if f is not None and f.kind == "enum":
             hint = f"   [allowed: {' | '.join(vocab.enum(f.vocab or path))}]"
+        elif f is not None and f.kind != "phrase":
+            hint = f"   [{describe(f, vocab)}]"
         else:
             hint = f"   [max {_cap(vocab, path)} words]"
-        lines.append(f"- {path} = {fv.get('value')!r}{hint}")
+        value = fv.get("value")
+        shown = repr(value) if value is None or isinstance(value, str) else json.dumps(value, ensure_ascii=False)
+        lines.append(f"- {path} = {shown}{hint}")
     lines += ["", "Moments to locate (moment_id: description; recalled season/episode):"]
     for m in pending.moments:
         loc = m.get("locator") or {}
@@ -308,6 +326,21 @@ def output_problems(out: dict[str, Any], pending: Pending, vocab: Vocab, pages: 
 
 
 # ---------------------------------------------------------------- apply
+NO_SOURCE = "no cited source found for this claim"
+
+
+def _outcome_bound(record: dict[str, Any], vocab: Vocab | None) -> None:
+    """vocab 1.5.0: a field kept only for some outcomes (promise_break: mixed/flop) is cleared when the
+    checked outcome is another one."""
+    if vocab is None:
+        return
+    outcome = ((record.get("core") or {}).get("outcome") or {}).get("value")
+    for f in vocab.lens_fields():
+        fv = (record.get(f.block) or {}).get(f.name)
+        if f.outcome_in and isinstance(fv, dict) and fv.get("value") is not None and outcome not in f.outcome_in:
+            fv.update(value=None, conf=0.0, uncertainty_reason=f"only for {' or '.join(f.outcome_in)} titles")
+
+
 class _Sources:
     """`url in sources` by normalized page identity (fetched pages or native web evidence)."""
 
@@ -358,7 +391,11 @@ def apply(pending: Pending, out: dict[str, Any], pages: dict[str, TransientText]
                       conf=max(fv["conf"], threshold))
         else:
             fv.update(verification="unresolved")
+            f = _lens(vocab, path) if vocab is not None else None
+            if f is not None and f.needs_source and not fv.get("source_ref"):
+                fv.update(value=None, conf=0.0, uncertainty_reason=NO_SOURCE)  # an unsourced claim is not kept
         res.statuses[path] = status
+    _outcome_bound(record, vocab)
     asked_moments = {m["moment_id"] for m in ask.moments}
     by_moment = {i.get("moment_id"): i for i in out.get("moments") or [] if i.get("moment_id") in asked_moments}
     moments = []

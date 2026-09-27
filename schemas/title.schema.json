@@ -41,6 +41,28 @@
     "CoreBlock": {
       "additionalProperties": false,
       "properties": {
+        "anticipation_hooks": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FV_core_anticipation_hooks"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "audience_promise": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FV_core_audience_promise"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
         "borrowed_template": {
           "$ref": "#/$defs/FV_core_borrowed_template"
         },
@@ -53,17 +75,127 @@
         "central_opposition": {
           "$ref": "#/$defs/FV_core_central_opposition"
         },
+        "conflict_scale": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FV_core_conflict_scale"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "core_fantasy": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FV_core_core_fantasy"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
         "core_question": {
           "$ref": "#/$defs/FV_core_core_question"
         },
+        "ending_type": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FV_core_ending_type"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "ensemble_size": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FV_core_ensemble_size"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "escalation_model": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FV_core_escalation_model"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
         "flaw": {
           "$ref": "#/$defs/FV_core_flaw"
+        },
+        "genre_move": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FV_core_genre_move"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "institutions": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FV_core_institutions"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         },
         "knowledge_gap": {
           "$ref": "#/$defs/FV_core_knowledge_gap"
         },
         "logline_hook": {
           "$ref": "#/$defs/FV_core_logline_hook"
+        },
+        "mc_archetype": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FV_core_mc_archetype"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "mc_goal_type": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FV_core_mc_goal_type"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "mc_start": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FV_core_mc_start"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         },
         "moral_line": {
           "$ref": "#/$defs/FV_core_moral_line"
@@ -74,17 +206,149 @@
         "outcome": {
           "$ref": "#/$defs/FV_core_outcome"
         },
+        "pilot_hook_type": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FV_core_pilot_hook_type"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "premise_abstraction": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FV_core_premise_abstraction"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
         "premise_engine": {
           "$ref": "#/$defs/FV_core_premise_engine"
         },
         "primary_feeling": {
           "$ref": "#/$defs/FV_core_primary_feeling"
         },
+        "promise_break": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FV_core_promise_break"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "promise_mechanism": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FV_core_promise_mechanism"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "reacts_against": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FV_core_reacts_against"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "real_world_isomorphism": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FV_core_real_world_isomorphism"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
         "reveal_cadence": {
           "$ref": "#/$defs/FV_core_reveal_cadence"
         },
+        "rival_type": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FV_core_rival_type"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "setting_type": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FV_core_setting_type"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
         "stakes_clock": {
           "$ref": "#/$defs/FV_core_stakes_clock"
+        },
+        "story_engine": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FV_core_story_engine"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "story_engine_secondary": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FV_core_story_engine_secondary"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "thematic_argument": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FV_core_thematic_argument"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "threat_structure": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FV_core_threat_structure"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         },
         "tone": {
           "$ref": "#/$defs/FV_core_tone"
@@ -97,6 +361,17 @@
         },
         "world_rules": {
           "$ref": "#/$defs/FV_core_world_rules"
+        },
+        "world_visibility": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FV_core_world_visibility"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         }
       },
       "required": [
@@ -391,6 +666,7 @@
             "shojo",
             "josei",
             "kodomo",
+            "no_magazine_demographic",
             "other",
             null
           ],
@@ -617,6 +893,205 @@
         "epistemic"
       ],
       "title": "FV_comedy_satire_comedic_engine",
+      "type": "object"
+    },
+    "FV_core_anticipation_hooks": {
+      "additionalProperties": false,
+      "properties": {
+        "condition": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Condition"
+        },
+        "conf": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Conf",
+          "type": "number"
+        },
+        "epistemic": {
+          "enum": [
+            "observed",
+            "derived",
+            "interpretive",
+            "external_metric"
+          ],
+          "title": "Epistemic",
+          "type": "string"
+        },
+        "source": {
+          "enum": [
+            "recall",
+            "web",
+            "episodes"
+          ],
+          "title": "Source",
+          "type": "string"
+        },
+        "source_ref": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source Ref"
+        },
+        "uncertainty_reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Uncertainty Reason"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/Item_core_anticipation_hooks"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Value"
+        },
+        "verification": {
+          "enum": [
+            "not_required",
+            "unverified",
+            "web_confirmed",
+            "web_corrected",
+            "derived_from_episodes",
+            "unresolved"
+          ],
+          "title": "Verification",
+          "type": "string"
+        }
+      },
+      "required": [
+        "conf",
+        "source",
+        "verification",
+        "epistemic"
+      ],
+      "title": "FV_core_anticipation_hooks",
+      "type": "object"
+    },
+    "FV_core_audience_promise": {
+      "additionalProperties": false,
+      "properties": {
+        "condition": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Condition"
+        },
+        "conf": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Conf",
+          "type": "number"
+        },
+        "epistemic": {
+          "enum": [
+            "observed",
+            "derived",
+            "interpretive",
+            "external_metric"
+          ],
+          "title": "Epistemic",
+          "type": "string"
+        },
+        "source": {
+          "enum": [
+            "recall",
+            "web",
+            "episodes"
+          ],
+          "title": "Source",
+          "type": "string"
+        },
+        "source_ref": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source Ref"
+        },
+        "uncertainty_reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Uncertainty Reason"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Value"
+        },
+        "verification": {
+          "enum": [
+            "not_required",
+            "unverified",
+            "web_confirmed",
+            "web_corrected",
+            "derived_from_episodes",
+            "unresolved"
+          ],
+          "title": "Verification",
+          "type": "string"
+        }
+      },
+      "required": [
+        "conf",
+        "source",
+        "verification",
+        "epistemic"
+      ],
+      "title": "FV_core_audience_promise",
       "type": "object"
     },
     "FV_core_borrowed_template": {
@@ -1011,6 +1486,220 @@
       "title": "FV_core_central_opposition",
       "type": "object"
     },
+    "FV_core_conflict_scale": {
+      "additionalProperties": false,
+      "properties": {
+        "condition": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Condition"
+        },
+        "conf": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Conf",
+          "type": "number"
+        },
+        "epistemic": {
+          "enum": [
+            "observed",
+            "derived",
+            "interpretive",
+            "external_metric"
+          ],
+          "title": "Epistemic",
+          "type": "string"
+        },
+        "source": {
+          "enum": [
+            "recall",
+            "web",
+            "episodes"
+          ],
+          "title": "Source",
+          "type": "string"
+        },
+        "source_ref": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source Ref"
+        },
+        "uncertainty_reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Uncertainty Reason"
+        },
+        "value": {
+          "default": null,
+          "enum": [
+            "personal",
+            "local",
+            "national",
+            "world",
+            "cosmic",
+            null
+          ],
+          "title": "Value",
+          "x-vocab": "core.conflict_scale"
+        },
+        "verification": {
+          "enum": [
+            "not_required",
+            "unverified",
+            "web_confirmed",
+            "web_corrected",
+            "derived_from_episodes",
+            "unresolved"
+          ],
+          "title": "Verification",
+          "type": "string"
+        }
+      },
+      "required": [
+        "conf",
+        "source",
+        "verification",
+        "epistemic"
+      ],
+      "title": "FV_core_conflict_scale",
+      "type": "object"
+    },
+    "FV_core_core_fantasy": {
+      "additionalProperties": false,
+      "properties": {
+        "condition": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Condition"
+        },
+        "conf": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Conf",
+          "type": "number"
+        },
+        "epistemic": {
+          "enum": [
+            "observed",
+            "derived",
+            "interpretive",
+            "external_metric"
+          ],
+          "title": "Epistemic",
+          "type": "string"
+        },
+        "source": {
+          "enum": [
+            "recall",
+            "web",
+            "episodes"
+          ],
+          "title": "Source",
+          "type": "string"
+        },
+        "source_ref": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source Ref"
+        },
+        "uncertainty_reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Uncertainty Reason"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "items": {
+                "enum": [
+                  "secret_strength",
+                  "underestimated_then_vindicated",
+                  "mastery",
+                  "found_family",
+                  "revenge",
+                  "transgression",
+                  "being_chosen",
+                  "protection",
+                  "freedom",
+                  "competence",
+                  "other"
+                ],
+                "type": "string",
+                "x-vocab": "core.core_fantasy"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Value"
+        },
+        "verification": {
+          "enum": [
+            "not_required",
+            "unverified",
+            "web_confirmed",
+            "web_corrected",
+            "derived_from_episodes",
+            "unresolved"
+          ],
+          "title": "Verification",
+          "type": "string"
+        }
+      },
+      "required": [
+        "conf",
+        "source",
+        "verification",
+        "epistemic"
+      ],
+      "title": "FV_core_core_fantasy",
+      "type": "object"
+    },
     "FV_core_core_question": {
       "additionalProperties": false,
       "properties": {
@@ -1109,6 +1798,306 @@
       "title": "FV_core_core_question",
       "type": "object"
     },
+    "FV_core_ending_type": {
+      "additionalProperties": false,
+      "properties": {
+        "condition": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Condition"
+        },
+        "conf": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Conf",
+          "type": "number"
+        },
+        "epistemic": {
+          "enum": [
+            "observed",
+            "derived",
+            "interpretive",
+            "external_metric"
+          ],
+          "title": "Epistemic",
+          "type": "string"
+        },
+        "source": {
+          "enum": [
+            "recall",
+            "web",
+            "episodes"
+          ],
+          "title": "Source",
+          "type": "string"
+        },
+        "source_ref": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source Ref"
+        },
+        "uncertainty_reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Uncertainty Reason"
+        },
+        "value": {
+          "default": null,
+          "enum": [
+            "triumphant",
+            "bittersweet",
+            "tragic",
+            "open",
+            "unfinished",
+            "other",
+            null
+          ],
+          "title": "Value",
+          "x-vocab": "core.ending_type"
+        },
+        "verification": {
+          "enum": [
+            "not_required",
+            "unverified",
+            "web_confirmed",
+            "web_corrected",
+            "derived_from_episodes",
+            "unresolved"
+          ],
+          "title": "Verification",
+          "type": "string"
+        }
+      },
+      "required": [
+        "conf",
+        "source",
+        "verification",
+        "epistemic"
+      ],
+      "title": "FV_core_ending_type",
+      "type": "object"
+    },
+    "FV_core_ensemble_size": {
+      "additionalProperties": false,
+      "properties": {
+        "condition": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Condition"
+        },
+        "conf": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Conf",
+          "type": "number"
+        },
+        "epistemic": {
+          "enum": [
+            "observed",
+            "derived",
+            "interpretive",
+            "external_metric"
+          ],
+          "title": "Epistemic",
+          "type": "string"
+        },
+        "source": {
+          "enum": [
+            "recall",
+            "web",
+            "episodes"
+          ],
+          "title": "Source",
+          "type": "string"
+        },
+        "source_ref": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source Ref"
+        },
+        "uncertainty_reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Uncertainty Reason"
+        },
+        "value": {
+          "default": null,
+          "enum": [
+            "solo",
+            "duo",
+            "trio",
+            "team",
+            "large_ensemble",
+            null
+          ],
+          "title": "Value",
+          "x-vocab": "core.ensemble_size"
+        },
+        "verification": {
+          "enum": [
+            "not_required",
+            "unverified",
+            "web_confirmed",
+            "web_corrected",
+            "derived_from_episodes",
+            "unresolved"
+          ],
+          "title": "Verification",
+          "type": "string"
+        }
+      },
+      "required": [
+        "conf",
+        "source",
+        "verification",
+        "epistemic"
+      ],
+      "title": "FV_core_ensemble_size",
+      "type": "object"
+    },
+    "FV_core_escalation_model": {
+      "additionalProperties": false,
+      "properties": {
+        "condition": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Condition"
+        },
+        "conf": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Conf",
+          "type": "number"
+        },
+        "epistemic": {
+          "enum": [
+            "observed",
+            "derived",
+            "interpretive",
+            "external_metric"
+          ],
+          "title": "Epistemic",
+          "type": "string"
+        },
+        "source": {
+          "enum": [
+            "recall",
+            "web",
+            "episodes"
+          ],
+          "title": "Source",
+          "type": "string"
+        },
+        "source_ref": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source Ref"
+        },
+        "uncertainty_reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Uncertainty Reason"
+        },
+        "value": {
+          "default": null,
+          "enum": [
+            "vertical_power",
+            "horizontal_tools",
+            "stakes_over_power",
+            "structural_reset",
+            "cost_scaled",
+            "none",
+            "other",
+            null
+          ],
+          "title": "Value",
+          "x-vocab": "core.escalation_model"
+        },
+        "verification": {
+          "enum": [
+            "not_required",
+            "unverified",
+            "web_confirmed",
+            "web_corrected",
+            "derived_from_episodes",
+            "unresolved"
+          ],
+          "title": "Verification",
+          "type": "string"
+        }
+      },
+      "required": [
+        "conf",
+        "source",
+        "verification",
+        "epistemic"
+      ],
+      "title": "FV_core_escalation_model",
+      "type": "object"
+    },
     "FV_core_flaw": {
       "additionalProperties": false,
       "properties": {
@@ -1205,6 +2194,208 @@
         "epistemic"
       ],
       "title": "FV_core_flaw",
+      "type": "object"
+    },
+    "FV_core_genre_move": {
+      "additionalProperties": false,
+      "properties": {
+        "condition": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Condition"
+        },
+        "conf": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Conf",
+          "type": "number"
+        },
+        "epistemic": {
+          "enum": [
+            "observed",
+            "derived",
+            "interpretive",
+            "external_metric"
+          ],
+          "title": "Epistemic",
+          "type": "string"
+        },
+        "source": {
+          "enum": [
+            "recall",
+            "web",
+            "episodes"
+          ],
+          "title": "Source",
+          "type": "string"
+        },
+        "source_ref": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source Ref"
+        },
+        "uncertainty_reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Uncertainty Reason"
+        },
+        "value": {
+          "default": null,
+          "enum": [
+            "subversion",
+            "synthesis",
+            "escalation",
+            "purification",
+            "inversion",
+            "return_to_basics",
+            "other",
+            null
+          ],
+          "title": "Value",
+          "x-vocab": "core.genre_move"
+        },
+        "verification": {
+          "enum": [
+            "not_required",
+            "unverified",
+            "web_confirmed",
+            "web_corrected",
+            "derived_from_episodes",
+            "unresolved"
+          ],
+          "title": "Verification",
+          "type": "string"
+        }
+      },
+      "required": [
+        "conf",
+        "source",
+        "verification",
+        "epistemic"
+      ],
+      "title": "FV_core_genre_move",
+      "type": "object"
+    },
+    "FV_core_institutions": {
+      "additionalProperties": false,
+      "properties": {
+        "condition": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Condition"
+        },
+        "conf": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Conf",
+          "type": "number"
+        },
+        "epistemic": {
+          "enum": [
+            "observed",
+            "derived",
+            "interpretive",
+            "external_metric"
+          ],
+          "title": "Epistemic",
+          "type": "string"
+        },
+        "source": {
+          "enum": [
+            "recall",
+            "web",
+            "episodes"
+          ],
+          "title": "Source",
+          "type": "string"
+        },
+        "source_ref": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source Ref"
+        },
+        "uncertainty_reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Uncertainty Reason"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/Item_core_institutions"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Value"
+        },
+        "verification": {
+          "enum": [
+            "not_required",
+            "unverified",
+            "web_confirmed",
+            "web_corrected",
+            "derived_from_episodes",
+            "unresolved"
+          ],
+          "title": "Verification",
+          "type": "string"
+        }
+      },
+      "required": [
+        "conf",
+        "source",
+        "verification",
+        "epistemic"
+      ],
+      "title": "FV_core_institutions",
       "type": "object"
     },
     "FV_core_knowledge_gap": {
@@ -1401,6 +2592,309 @@
         "epistemic"
       ],
       "title": "FV_core_logline_hook",
+      "type": "object"
+    },
+    "FV_core_mc_archetype": {
+      "additionalProperties": false,
+      "properties": {
+        "condition": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Condition"
+        },
+        "conf": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Conf",
+          "type": "number"
+        },
+        "epistemic": {
+          "enum": [
+            "observed",
+            "derived",
+            "interpretive",
+            "external_metric"
+          ],
+          "title": "Epistemic",
+          "type": "string"
+        },
+        "source": {
+          "enum": [
+            "recall",
+            "web",
+            "episodes"
+          ],
+          "title": "Source",
+          "type": "string"
+        },
+        "source_ref": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source Ref"
+        },
+        "uncertainty_reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Uncertainty Reason"
+        },
+        "value": {
+          "default": null,
+          "enum": [
+            "underdog",
+            "chosen_one",
+            "prodigy",
+            "villain_protagonist",
+            "everyman",
+            "already_overpowered",
+            "veteran",
+            "other",
+            null
+          ],
+          "title": "Value",
+          "x-vocab": "core.mc_archetype"
+        },
+        "verification": {
+          "enum": [
+            "not_required",
+            "unverified",
+            "web_confirmed",
+            "web_corrected",
+            "derived_from_episodes",
+            "unresolved"
+          ],
+          "title": "Verification",
+          "type": "string"
+        }
+      },
+      "required": [
+        "conf",
+        "source",
+        "verification",
+        "epistemic"
+      ],
+      "title": "FV_core_mc_archetype",
+      "type": "object"
+    },
+    "FV_core_mc_goal_type": {
+      "additionalProperties": false,
+      "properties": {
+        "condition": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Condition"
+        },
+        "conf": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Conf",
+          "type": "number"
+        },
+        "epistemic": {
+          "enum": [
+            "observed",
+            "derived",
+            "interpretive",
+            "external_metric"
+          ],
+          "title": "Epistemic",
+          "type": "string"
+        },
+        "source": {
+          "enum": [
+            "recall",
+            "web",
+            "episodes"
+          ],
+          "title": "Source",
+          "type": "string"
+        },
+        "source_ref": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source Ref"
+        },
+        "uncertainty_reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Uncertainty Reason"
+        },
+        "value": {
+          "default": null,
+          "enum": [
+            "find_someone",
+            "revenge",
+            "become_the_best",
+            "protect",
+            "escape_or_survive",
+            "change_the_world",
+            "restore_what_was_lost",
+            "other",
+            null
+          ],
+          "title": "Value",
+          "x-vocab": "core.mc_goal_type"
+        },
+        "verification": {
+          "enum": [
+            "not_required",
+            "unverified",
+            "web_confirmed",
+            "web_corrected",
+            "derived_from_episodes",
+            "unresolved"
+          ],
+          "title": "Verification",
+          "type": "string"
+        }
+      },
+      "required": [
+        "conf",
+        "source",
+        "verification",
+        "epistemic"
+      ],
+      "title": "FV_core_mc_goal_type",
+      "type": "object"
+    },
+    "FV_core_mc_start": {
+      "additionalProperties": false,
+      "properties": {
+        "condition": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Condition"
+        },
+        "conf": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Conf",
+          "type": "number"
+        },
+        "epistemic": {
+          "enum": [
+            "observed",
+            "derived",
+            "interpretive",
+            "external_metric"
+          ],
+          "title": "Epistemic",
+          "type": "string"
+        },
+        "source": {
+          "enum": [
+            "recall",
+            "web",
+            "episodes"
+          ],
+          "title": "Source",
+          "type": "string"
+        },
+        "source_ref": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source Ref"
+        },
+        "uncertainty_reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Uncertainty Reason"
+        },
+        "value": {
+          "default": null,
+          "enum": [
+            "weakest",
+            "below_average",
+            "average",
+            "strong",
+            "overpowered",
+            null
+          ],
+          "title": "Value",
+          "x-vocab": "core.mc_start"
+        },
+        "verification": {
+          "enum": [
+            "not_required",
+            "unverified",
+            "web_confirmed",
+            "web_corrected",
+            "derived_from_episodes",
+            "unresolved"
+          ],
+          "title": "Verification",
+          "type": "string"
+        }
+      },
+      "required": [
+        "conf",
+        "source",
+        "verification",
+        "epistemic"
+      ],
+      "title": "FV_core_mc_start",
       "type": "object"
     },
     "FV_core_moral_line": {
@@ -1696,6 +3190,205 @@
       "title": "FV_core_outcome",
       "type": "object"
     },
+    "FV_core_pilot_hook_type": {
+      "additionalProperties": false,
+      "properties": {
+        "condition": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Condition"
+        },
+        "conf": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Conf",
+          "type": "number"
+        },
+        "epistemic": {
+          "enum": [
+            "observed",
+            "derived",
+            "interpretive",
+            "external_metric"
+          ],
+          "title": "Epistemic",
+          "type": "string"
+        },
+        "source": {
+          "enum": [
+            "recall",
+            "web",
+            "episodes"
+          ],
+          "title": "Source",
+          "type": "string"
+        },
+        "source_ref": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source Ref"
+        },
+        "uncertainty_reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Uncertainty Reason"
+        },
+        "value": {
+          "default": null,
+          "enum": [
+            "cold_open_action",
+            "mystery_hook",
+            "tragedy_inciting",
+            "power_awakening",
+            "transported",
+            "status_quo_disruption",
+            "other",
+            null
+          ],
+          "title": "Value",
+          "x-vocab": "core.pilot_hook_type"
+        },
+        "verification": {
+          "enum": [
+            "not_required",
+            "unverified",
+            "web_confirmed",
+            "web_corrected",
+            "derived_from_episodes",
+            "unresolved"
+          ],
+          "title": "Verification",
+          "type": "string"
+        }
+      },
+      "required": [
+        "conf",
+        "source",
+        "verification",
+        "epistemic"
+      ],
+      "title": "FV_core_pilot_hook_type",
+      "type": "object"
+    },
+    "FV_core_premise_abstraction": {
+      "additionalProperties": false,
+      "properties": {
+        "condition": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Condition"
+        },
+        "conf": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Conf",
+          "type": "number"
+        },
+        "epistemic": {
+          "enum": [
+            "observed",
+            "derived",
+            "interpretive",
+            "external_metric"
+          ],
+          "title": "Epistemic",
+          "type": "string"
+        },
+        "source": {
+          "enum": [
+            "recall",
+            "web",
+            "episodes"
+          ],
+          "title": "Source",
+          "type": "string"
+        },
+        "source_ref": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source Ref"
+        },
+        "uncertainty_reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Uncertainty Reason"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Value"
+        },
+        "verification": {
+          "enum": [
+            "not_required",
+            "unverified",
+            "web_confirmed",
+            "web_corrected",
+            "derived_from_episodes",
+            "unresolved"
+          ],
+          "title": "Verification",
+          "type": "string"
+        }
+      },
+      "required": [
+        "conf",
+        "source",
+        "verification",
+        "epistemic"
+      ],
+      "title": "FV_core_premise_abstraction",
+      "type": "object"
+    },
     "FV_core_premise_engine": {
       "additionalProperties": false,
       "properties": {
@@ -1892,6 +3585,398 @@
       "title": "FV_core_primary_feeling",
       "type": "object"
     },
+    "FV_core_promise_break": {
+      "additionalProperties": false,
+      "properties": {
+        "condition": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Condition"
+        },
+        "conf": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Conf",
+          "type": "number"
+        },
+        "epistemic": {
+          "enum": [
+            "observed",
+            "derived",
+            "interpretive",
+            "external_metric"
+          ],
+          "title": "Epistemic",
+          "type": "string"
+        },
+        "source": {
+          "enum": [
+            "recall",
+            "web",
+            "episodes"
+          ],
+          "title": "Source",
+          "type": "string"
+        },
+        "source_ref": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source Ref"
+        },
+        "uncertainty_reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Uncertainty Reason"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Value"
+        },
+        "verification": {
+          "enum": [
+            "not_required",
+            "unverified",
+            "web_confirmed",
+            "web_corrected",
+            "derived_from_episodes",
+            "unresolved"
+          ],
+          "title": "Verification",
+          "type": "string"
+        }
+      },
+      "required": [
+        "conf",
+        "source",
+        "verification",
+        "epistemic"
+      ],
+      "title": "FV_core_promise_break",
+      "type": "object"
+    },
+    "FV_core_promise_mechanism": {
+      "additionalProperties": false,
+      "properties": {
+        "condition": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Condition"
+        },
+        "conf": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Conf",
+          "type": "number"
+        },
+        "epistemic": {
+          "enum": [
+            "observed",
+            "derived",
+            "interpretive",
+            "external_metric"
+          ],
+          "title": "Epistemic",
+          "type": "string"
+        },
+        "source": {
+          "enum": [
+            "recall",
+            "web",
+            "episodes"
+          ],
+          "title": "Source",
+          "type": "string"
+        },
+        "source_ref": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source Ref"
+        },
+        "uncertainty_reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Uncertainty Reason"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Value"
+        },
+        "verification": {
+          "enum": [
+            "not_required",
+            "unverified",
+            "web_confirmed",
+            "web_corrected",
+            "derived_from_episodes",
+            "unresolved"
+          ],
+          "title": "Verification",
+          "type": "string"
+        }
+      },
+      "required": [
+        "conf",
+        "source",
+        "verification",
+        "epistemic"
+      ],
+      "title": "FV_core_promise_mechanism",
+      "type": "object"
+    },
+    "FV_core_reacts_against": {
+      "additionalProperties": false,
+      "properties": {
+        "condition": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Condition"
+        },
+        "conf": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Conf",
+          "type": "number"
+        },
+        "epistemic": {
+          "enum": [
+            "observed",
+            "derived",
+            "interpretive",
+            "external_metric"
+          ],
+          "title": "Epistemic",
+          "type": "string"
+        },
+        "source": {
+          "enum": [
+            "recall",
+            "web",
+            "episodes"
+          ],
+          "title": "Source",
+          "type": "string"
+        },
+        "source_ref": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source Ref"
+        },
+        "uncertainty_reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Uncertainty Reason"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Value"
+        },
+        "verification": {
+          "enum": [
+            "not_required",
+            "unverified",
+            "web_confirmed",
+            "web_corrected",
+            "derived_from_episodes",
+            "unresolved"
+          ],
+          "title": "Verification",
+          "type": "string"
+        }
+      },
+      "required": [
+        "conf",
+        "source",
+        "verification",
+        "epistemic"
+      ],
+      "title": "FV_core_reacts_against",
+      "type": "object"
+    },
+    "FV_core_real_world_isomorphism": {
+      "additionalProperties": false,
+      "properties": {
+        "condition": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Condition"
+        },
+        "conf": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Conf",
+          "type": "number"
+        },
+        "epistemic": {
+          "enum": [
+            "observed",
+            "derived",
+            "interpretive",
+            "external_metric"
+          ],
+          "title": "Epistemic",
+          "type": "string"
+        },
+        "source": {
+          "enum": [
+            "recall",
+            "web",
+            "episodes"
+          ],
+          "title": "Source",
+          "type": "string"
+        },
+        "source_ref": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source Ref"
+        },
+        "uncertainty_reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Uncertainty Reason"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Value"
+        },
+        "verification": {
+          "enum": [
+            "not_required",
+            "unverified",
+            "web_confirmed",
+            "web_corrected",
+            "derived_from_episodes",
+            "unresolved"
+          ],
+          "title": "Verification",
+          "type": "string"
+        }
+      },
+      "required": [
+        "conf",
+        "source",
+        "verification",
+        "epistemic"
+      ],
+      "title": "FV_core_real_world_isomorphism",
+      "type": "object"
+    },
     "FV_core_reveal_cadence": {
       "additionalProperties": false,
       "properties": {
@@ -1990,6 +4075,205 @@
       "title": "FV_core_reveal_cadence",
       "type": "object"
     },
+    "FV_core_rival_type": {
+      "additionalProperties": false,
+      "properties": {
+        "condition": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Condition"
+        },
+        "conf": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Conf",
+          "type": "number"
+        },
+        "epistemic": {
+          "enum": [
+            "observed",
+            "derived",
+            "interpretive",
+            "external_metric"
+          ],
+          "title": "Epistemic",
+          "type": "string"
+        },
+        "source": {
+          "enum": [
+            "recall",
+            "web",
+            "episodes"
+          ],
+          "title": "Source",
+          "type": "string"
+        },
+        "source_ref": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source Ref"
+        },
+        "uncertainty_reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Uncertainty Reason"
+        },
+        "value": {
+          "default": null,
+          "enum": [
+            "friend_rival",
+            "antagonist_rival",
+            "mirror_rival",
+            "none",
+            null
+          ],
+          "title": "Value",
+          "x-vocab": "core.rival_type"
+        },
+        "verification": {
+          "enum": [
+            "not_required",
+            "unverified",
+            "web_confirmed",
+            "web_corrected",
+            "derived_from_episodes",
+            "unresolved"
+          ],
+          "title": "Verification",
+          "type": "string"
+        }
+      },
+      "required": [
+        "conf",
+        "source",
+        "verification",
+        "epistemic"
+      ],
+      "title": "FV_core_rival_type",
+      "type": "object"
+    },
+    "FV_core_setting_type": {
+      "additionalProperties": false,
+      "properties": {
+        "condition": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Condition"
+        },
+        "conf": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Conf",
+          "type": "number"
+        },
+        "epistemic": {
+          "enum": [
+            "observed",
+            "derived",
+            "interpretive",
+            "external_metric"
+          ],
+          "title": "Epistemic",
+          "type": "string"
+        },
+        "source": {
+          "enum": [
+            "recall",
+            "web",
+            "episodes"
+          ],
+          "title": "Source",
+          "type": "string"
+        },
+        "source_ref": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source Ref"
+        },
+        "uncertainty_reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Uncertainty Reason"
+        },
+        "value": {
+          "default": null,
+          "enum": [
+            "modern_urban",
+            "historical",
+            "secondary_fantasy",
+            "isekai",
+            "future_scifi",
+            "post_apocalyptic",
+            "other",
+            null
+          ],
+          "title": "Value",
+          "x-vocab": "core.setting_type"
+        },
+        "verification": {
+          "enum": [
+            "not_required",
+            "unverified",
+            "web_confirmed",
+            "web_corrected",
+            "derived_from_episodes",
+            "unresolved"
+          ],
+          "title": "Verification",
+          "type": "string"
+        }
+      },
+      "required": [
+        "conf",
+        "source",
+        "verification",
+        "epistemic"
+      ],
+      "title": "FV_core_setting_type",
+      "type": "object"
+    },
     "FV_core_stakes_clock": {
       "additionalProperties": false,
       "properties": {
@@ -2086,6 +4370,414 @@
         "epistemic"
       ],
       "title": "FV_core_stakes_clock",
+      "type": "object"
+    },
+    "FV_core_story_engine": {
+      "additionalProperties": false,
+      "properties": {
+        "condition": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Condition"
+        },
+        "conf": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Conf",
+          "type": "number"
+        },
+        "epistemic": {
+          "enum": [
+            "observed",
+            "derived",
+            "interpretive",
+            "external_metric"
+          ],
+          "title": "Epistemic",
+          "type": "string"
+        },
+        "source": {
+          "enum": [
+            "recall",
+            "web",
+            "episodes"
+          ],
+          "title": "Source",
+          "type": "string"
+        },
+        "source_ref": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source Ref"
+        },
+        "uncertainty_reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Uncertainty Reason"
+        },
+        "value": {
+          "default": null,
+          "enum": [
+            "tournament",
+            "journey_quest",
+            "ladder_climb",
+            "investigation",
+            "war_campaign",
+            "death_game_rounds",
+            "monster_of_the_week",
+            "survival",
+            "political_intrigue",
+            "revenge",
+            "slice_of_life",
+            "other",
+            null
+          ],
+          "title": "Value",
+          "x-vocab": "core.story_engine"
+        },
+        "verification": {
+          "enum": [
+            "not_required",
+            "unverified",
+            "web_confirmed",
+            "web_corrected",
+            "derived_from_episodes",
+            "unresolved"
+          ],
+          "title": "Verification",
+          "type": "string"
+        }
+      },
+      "required": [
+        "conf",
+        "source",
+        "verification",
+        "epistemic"
+      ],
+      "title": "FV_core_story_engine",
+      "type": "object"
+    },
+    "FV_core_story_engine_secondary": {
+      "additionalProperties": false,
+      "properties": {
+        "condition": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Condition"
+        },
+        "conf": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Conf",
+          "type": "number"
+        },
+        "epistemic": {
+          "enum": [
+            "observed",
+            "derived",
+            "interpretive",
+            "external_metric"
+          ],
+          "title": "Epistemic",
+          "type": "string"
+        },
+        "source": {
+          "enum": [
+            "recall",
+            "web",
+            "episodes"
+          ],
+          "title": "Source",
+          "type": "string"
+        },
+        "source_ref": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source Ref"
+        },
+        "uncertainty_reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Uncertainty Reason"
+        },
+        "value": {
+          "default": null,
+          "enum": [
+            "tournament",
+            "journey_quest",
+            "ladder_climb",
+            "investigation",
+            "war_campaign",
+            "death_game_rounds",
+            "monster_of_the_week",
+            "survival",
+            "political_intrigue",
+            "revenge",
+            "slice_of_life",
+            "other",
+            null
+          ],
+          "title": "Value",
+          "x-vocab": "core.story_engine"
+        },
+        "verification": {
+          "enum": [
+            "not_required",
+            "unverified",
+            "web_confirmed",
+            "web_corrected",
+            "derived_from_episodes",
+            "unresolved"
+          ],
+          "title": "Verification",
+          "type": "string"
+        }
+      },
+      "required": [
+        "conf",
+        "source",
+        "verification",
+        "epistemic"
+      ],
+      "title": "FV_core_story_engine_secondary",
+      "type": "object"
+    },
+    "FV_core_thematic_argument": {
+      "additionalProperties": false,
+      "properties": {
+        "condition": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Condition"
+        },
+        "conf": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Conf",
+          "type": "number"
+        },
+        "epistemic": {
+          "enum": [
+            "observed",
+            "derived",
+            "interpretive",
+            "external_metric"
+          ],
+          "title": "Epistemic",
+          "type": "string"
+        },
+        "source": {
+          "enum": [
+            "recall",
+            "web",
+            "episodes"
+          ],
+          "title": "Source",
+          "type": "string"
+        },
+        "source_ref": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source Ref"
+        },
+        "uncertainty_reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Uncertainty Reason"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Group_core_thematic_argument"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "verification": {
+          "enum": [
+            "not_required",
+            "unverified",
+            "web_confirmed",
+            "web_corrected",
+            "derived_from_episodes",
+            "unresolved"
+          ],
+          "title": "Verification",
+          "type": "string"
+        }
+      },
+      "required": [
+        "conf",
+        "source",
+        "verification",
+        "epistemic"
+      ],
+      "title": "FV_core_thematic_argument",
+      "type": "object"
+    },
+    "FV_core_threat_structure": {
+      "additionalProperties": false,
+      "properties": {
+        "condition": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Condition"
+        },
+        "conf": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Conf",
+          "type": "number"
+        },
+        "epistemic": {
+          "enum": [
+            "observed",
+            "derived",
+            "interpretive",
+            "external_metric"
+          ],
+          "title": "Epistemic",
+          "type": "string"
+        },
+        "source": {
+          "enum": [
+            "recall",
+            "web",
+            "episodes"
+          ],
+          "title": "Source",
+          "type": "string"
+        },
+        "source_ref": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source Ref"
+        },
+        "uncertainty_reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Uncertainty Reason"
+        },
+        "value": {
+          "default": null,
+          "enum": [
+            "single_final_boss",
+            "escalating_ladder",
+            "rotating_threats",
+            "society_itself",
+            "other",
+            null
+          ],
+          "title": "Value",
+          "x-vocab": "core.threat_structure"
+        },
+        "verification": {
+          "enum": [
+            "not_required",
+            "unverified",
+            "web_confirmed",
+            "web_corrected",
+            "derived_from_episodes",
+            "unresolved"
+          ],
+          "title": "Verification",
+          "type": "string"
+        }
+      },
+      "required": [
+        "conf",
+        "source",
+        "verification",
+        "epistemic"
+      ],
+      "title": "FV_core_threat_structure",
       "type": "object"
     },
     "FV_core_tone": {
@@ -2478,6 +5170,103 @@
         "epistemic"
       ],
       "title": "FV_core_world_rules",
+      "type": "object"
+    },
+    "FV_core_world_visibility": {
+      "additionalProperties": false,
+      "properties": {
+        "condition": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Condition"
+        },
+        "conf": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Conf",
+          "type": "number"
+        },
+        "epistemic": {
+          "enum": [
+            "observed",
+            "derived",
+            "interpretive",
+            "external_metric"
+          ],
+          "title": "Epistemic",
+          "type": "string"
+        },
+        "source": {
+          "enum": [
+            "recall",
+            "web",
+            "episodes"
+          ],
+          "title": "Source",
+          "type": "string"
+        },
+        "source_ref": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source Ref"
+        },
+        "uncertainty_reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Uncertainty Reason"
+        },
+        "value": {
+          "default": null,
+          "enum": [
+            "hidden",
+            "open",
+            "contained",
+            null
+          ],
+          "title": "Value",
+          "x-vocab": "core.world_visibility"
+        },
+        "verification": {
+          "enum": [
+            "not_required",
+            "unverified",
+            "web_confirmed",
+            "web_corrected",
+            "derived_from_episodes",
+            "unresolved"
+          ],
+          "title": "Verification",
+          "type": "string"
+        }
+      },
+      "required": [
+        "conf",
+        "source",
+        "verification",
+        "epistemic"
+      ],
+      "title": "FV_core_world_visibility",
       "type": "object"
     },
     "FV_film_act_structure": {
@@ -2946,6 +5735,8 @@
             "relationships",
             "resource",
             "moral",
+            "self_imposed_restriction",
+            "imposed_penalty",
             "none",
             "other",
             null
@@ -2973,6 +5764,222 @@
         "epistemic"
       ],
       "title": "FV_power_combat_cost_of_power",
+      "type": "object"
+    },
+    "FV_power_combat_cost_of_power_secondary": {
+      "additionalProperties": false,
+      "properties": {
+        "condition": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Condition"
+        },
+        "conf": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Conf",
+          "type": "number"
+        },
+        "epistemic": {
+          "enum": [
+            "observed",
+            "derived",
+            "interpretive",
+            "external_metric"
+          ],
+          "title": "Epistemic",
+          "type": "string"
+        },
+        "source": {
+          "enum": [
+            "recall",
+            "web",
+            "episodes"
+          ],
+          "title": "Source",
+          "type": "string"
+        },
+        "source_ref": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source Ref"
+        },
+        "uncertainty_reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Uncertainty Reason"
+        },
+        "value": {
+          "default": null,
+          "enum": [
+            "physical_toll",
+            "lifespan",
+            "memory",
+            "identity_or_humanity",
+            "relationships",
+            "resource",
+            "moral",
+            "self_imposed_restriction",
+            "imposed_penalty",
+            "none",
+            "other",
+            null
+          ],
+          "title": "Value",
+          "x-vocab": "power_combat.cost_of_power"
+        },
+        "verification": {
+          "enum": [
+            "not_required",
+            "unverified",
+            "web_confirmed",
+            "web_corrected",
+            "derived_from_episodes",
+            "unresolved"
+          ],
+          "title": "Verification",
+          "type": "string"
+        }
+      },
+      "required": [
+        "conf",
+        "source",
+        "verification",
+        "epistemic"
+      ],
+      "title": "FV_power_combat_cost_of_power_secondary",
+      "type": "object"
+    },
+    "FV_power_combat_fight_logic": {
+      "additionalProperties": false,
+      "properties": {
+        "condition": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Condition"
+        },
+        "conf": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Conf",
+          "type": "number"
+        },
+        "epistemic": {
+          "enum": [
+            "observed",
+            "derived",
+            "interpretive",
+            "external_metric"
+          ],
+          "title": "Epistemic",
+          "type": "string"
+        },
+        "source": {
+          "enum": [
+            "recall",
+            "web",
+            "episodes"
+          ],
+          "title": "Source",
+          "type": "string"
+        },
+        "source_ref": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source Ref"
+        },
+        "uncertainty_reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Uncertainty Reason"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "items": {
+                "enum": [
+                  "power_level",
+                  "type_counters",
+                  "rules_exploitation",
+                  "strategy_information",
+                  "emotional_surge",
+                  "sacrifice",
+                  "other"
+                ],
+                "type": "string",
+                "x-vocab": "power_combat.fight_logic"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Value"
+        },
+        "verification": {
+          "enum": [
+            "not_required",
+            "unverified",
+            "web_confirmed",
+            "web_corrected",
+            "derived_from_episodes",
+            "unresolved"
+          ],
+          "title": "Verification",
+          "type": "string"
+        }
+      },
+      "required": [
+        "conf",
+        "source",
+        "verification",
+        "epistemic"
+      ],
+      "title": "FV_power_combat_fight_logic",
       "type": "object"
     },
     "FV_power_combat_fight_medium": {
@@ -3179,6 +6186,305 @@
       "title": "FV_power_combat_gate",
       "type": "object"
     },
+    "FV_power_combat_mc_edge": {
+      "additionalProperties": false,
+      "properties": {
+        "condition": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Condition"
+        },
+        "conf": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Conf",
+          "type": "number"
+        },
+        "epistemic": {
+          "enum": [
+            "observed",
+            "derived",
+            "interpretive",
+            "external_metric"
+          ],
+          "title": "Epistemic",
+          "type": "string"
+        },
+        "source": {
+          "enum": [
+            "recall",
+            "web",
+            "episodes"
+          ],
+          "title": "Source",
+          "type": "string"
+        },
+        "source_ref": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source Ref"
+        },
+        "uncertainty_reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Uncertainty Reason"
+        },
+        "value": {
+          "default": null,
+          "enum": [
+            "biggest_number",
+            "creative_reinterpretation",
+            "partnership_with_power",
+            "unique_cost",
+            "relentless_training",
+            "hidden_advantage",
+            "not_strongest",
+            "other",
+            null
+          ],
+          "title": "Value",
+          "x-vocab": "power_combat.mc_edge"
+        },
+        "verification": {
+          "enum": [
+            "not_required",
+            "unverified",
+            "web_confirmed",
+            "web_corrected",
+            "derived_from_episodes",
+            "unresolved"
+          ],
+          "title": "Verification",
+          "type": "string"
+        }
+      },
+      "required": [
+        "conf",
+        "source",
+        "verification",
+        "epistemic"
+      ],
+      "title": "FV_power_combat_mc_edge",
+      "type": "object"
+    },
+    "FV_power_combat_member_depth": {
+      "additionalProperties": false,
+      "properties": {
+        "condition": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Condition"
+        },
+        "conf": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Conf",
+          "type": "number"
+        },
+        "epistemic": {
+          "enum": [
+            "observed",
+            "derived",
+            "interpretive",
+            "external_metric"
+          ],
+          "title": "Epistemic",
+          "type": "string"
+        },
+        "source": {
+          "enum": [
+            "recall",
+            "web",
+            "episodes"
+          ],
+          "title": "Source",
+          "type": "string"
+        },
+        "source_ref": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source Ref"
+        },
+        "uncertainty_reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Uncertainty Reason"
+        },
+        "value": {
+          "default": null,
+          "enum": [
+            "label_only",
+            "ability_only",
+            "identity_with_history",
+            null
+          ],
+          "title": "Value",
+          "x-vocab": "power_combat.member_depth"
+        },
+        "verification": {
+          "enum": [
+            "not_required",
+            "unverified",
+            "web_confirmed",
+            "web_corrected",
+            "derived_from_episodes",
+            "unresolved"
+          ],
+          "title": "Verification",
+          "type": "string"
+        }
+      },
+      "required": [
+        "conf",
+        "source",
+        "verification",
+        "epistemic"
+      ],
+      "title": "FV_power_combat_member_depth",
+      "type": "object"
+    },
+    "FV_power_combat_power_embodiment": {
+      "additionalProperties": false,
+      "properties": {
+        "condition": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Condition"
+        },
+        "conf": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Conf",
+          "type": "number"
+        },
+        "epistemic": {
+          "enum": [
+            "observed",
+            "derived",
+            "interpretive",
+            "external_metric"
+          ],
+          "title": "Epistemic",
+          "type": "string"
+        },
+        "source": {
+          "enum": [
+            "recall",
+            "web",
+            "episodes"
+          ],
+          "title": "Source",
+          "type": "string"
+        },
+        "source_ref": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source Ref"
+        },
+        "uncertainty_reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Uncertainty Reason"
+        },
+        "value": {
+          "default": null,
+          "enum": [
+            "energy_or_technique",
+            "bound_entity",
+            "object_or_artifact",
+            "system_interface",
+            "body_transformation",
+            "other",
+            null
+          ],
+          "title": "Value",
+          "x-vocab": "power_combat.power_embodiment"
+        },
+        "verification": {
+          "enum": [
+            "not_required",
+            "unverified",
+            "web_confirmed",
+            "web_corrected",
+            "derived_from_episodes",
+            "unresolved"
+          ],
+          "title": "Verification",
+          "type": "string"
+        }
+      },
+      "required": [
+        "conf",
+        "source",
+        "verification",
+        "epistemic"
+      ],
+      "title": "FV_power_combat_power_embodiment",
+      "type": "object"
+    },
     "FV_power_combat_power_source": {
       "additionalProperties": false,
       "properties": {
@@ -3275,6 +6581,215 @@
         "epistemic"
       ],
       "title": "FV_power_combat_power_source",
+      "type": "object"
+    },
+    "FV_power_combat_power_up_cost": {
+      "additionalProperties": false,
+      "properties": {
+        "condition": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Condition"
+        },
+        "conf": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Conf",
+          "type": "number"
+        },
+        "epistemic": {
+          "enum": [
+            "observed",
+            "derived",
+            "interpretive",
+            "external_metric"
+          ],
+          "title": "Epistemic",
+          "type": "string"
+        },
+        "source": {
+          "enum": [
+            "recall",
+            "web",
+            "episodes"
+          ],
+          "title": "Source",
+          "type": "string"
+        },
+        "source_ref": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source Ref"
+        },
+        "uncertainty_reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Uncertainty Reason"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Value"
+        },
+        "verification": {
+          "enum": [
+            "not_required",
+            "unverified",
+            "web_confirmed",
+            "web_corrected",
+            "derived_from_episodes",
+            "unresolved"
+          ],
+          "title": "Verification",
+          "type": "string"
+        }
+      },
+      "required": [
+        "conf",
+        "source",
+        "verification",
+        "epistemic"
+      ],
+      "title": "FV_power_combat_power_up_cost",
+      "type": "object"
+    },
+    "FV_power_combat_power_up_mode": {
+      "additionalProperties": false,
+      "properties": {
+        "condition": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Condition"
+        },
+        "conf": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Conf",
+          "type": "number"
+        },
+        "epistemic": {
+          "enum": [
+            "observed",
+            "derived",
+            "interpretive",
+            "external_metric"
+          ],
+          "title": "Epistemic",
+          "type": "string"
+        },
+        "source": {
+          "enum": [
+            "recall",
+            "web",
+            "episodes"
+          ],
+          "title": "Source",
+          "type": "string"
+        },
+        "source_ref": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source Ref"
+        },
+        "uncertainty_reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Uncertainty Reason"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "items": {
+                "enum": [
+                  "none",
+                  "staged_forms",
+                  "temporary_boost",
+                  "awakening",
+                  "partnership_mode",
+                  "domain",
+                  "other"
+                ],
+                "type": "string",
+                "x-vocab": "power_combat.power_up_mode"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Value"
+        },
+        "verification": {
+          "enum": [
+            "not_required",
+            "unverified",
+            "web_confirmed",
+            "web_corrected",
+            "derived_from_episodes",
+            "unresolved"
+          ],
+          "title": "Verification",
+          "type": "string"
+        }
+      },
+      "required": [
+        "conf",
+        "source",
+        "verification",
+        "epistemic"
+      ],
+      "title": "FV_power_combat_power_up_mode",
       "type": "object"
     },
     "FV_power_combat_progression": {
@@ -3473,6 +6988,306 @@
       "title": "FV_power_combat_ranking_ladder",
       "type": "object"
     },
+    "FV_power_combat_rarity": {
+      "additionalProperties": false,
+      "properties": {
+        "condition": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Condition"
+        },
+        "conf": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Conf",
+          "type": "number"
+        },
+        "epistemic": {
+          "enum": [
+            "observed",
+            "derived",
+            "interpretive",
+            "external_metric"
+          ],
+          "title": "Epistemic",
+          "type": "string"
+        },
+        "source": {
+          "enum": [
+            "recall",
+            "web",
+            "episodes"
+          ],
+          "title": "Source",
+          "type": "string"
+        },
+        "source_ref": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source Ref"
+        },
+        "uncertainty_reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Uncertainty Reason"
+        },
+        "value": {
+          "default": null,
+          "enum": [
+            "universal",
+            "common",
+            "rare",
+            "unique_to_mc",
+            null
+          ],
+          "title": "Value",
+          "x-vocab": "power_combat.rarity"
+        },
+        "verification": {
+          "enum": [
+            "not_required",
+            "unverified",
+            "web_confirmed",
+            "web_corrected",
+            "derived_from_episodes",
+            "unresolved"
+          ],
+          "title": "Verification",
+          "type": "string"
+        }
+      },
+      "required": [
+        "conf",
+        "source",
+        "verification",
+        "epistemic"
+      ],
+      "title": "FV_power_combat_rarity",
+      "type": "object"
+    },
+    "FV_power_combat_set_scaffold": {
+      "additionalProperties": false,
+      "properties": {
+        "condition": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Condition"
+        },
+        "conf": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Conf",
+          "type": "number"
+        },
+        "epistemic": {
+          "enum": [
+            "observed",
+            "derived",
+            "interpretive",
+            "external_metric"
+          ],
+          "title": "Epistemic",
+          "type": "string"
+        },
+        "source": {
+          "enum": [
+            "recall",
+            "web",
+            "episodes"
+          ],
+          "title": "Source",
+          "type": "string"
+        },
+        "source_ref": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source Ref"
+        },
+        "uncertainty_reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Uncertainty Reason"
+        },
+        "value": {
+          "default": null,
+          "enum": [
+            "arbitrary",
+            "cultural_reference",
+            "semantic_domain",
+            "elemental",
+            "none",
+            "other",
+            null
+          ],
+          "title": "Value",
+          "x-vocab": "power_combat.set_scaffold"
+        },
+        "verification": {
+          "enum": [
+            "not_required",
+            "unverified",
+            "web_confirmed",
+            "web_corrected",
+            "derived_from_episodes",
+            "unresolved"
+          ],
+          "title": "Verification",
+          "type": "string"
+        }
+      },
+      "required": [
+        "conf",
+        "source",
+        "verification",
+        "epistemic"
+      ],
+      "title": "FV_power_combat_set_scaffold",
+      "type": "object"
+    },
+    "FV_power_combat_set_structure": {
+      "additionalProperties": false,
+      "properties": {
+        "condition": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Condition"
+        },
+        "conf": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Conf",
+          "type": "number"
+        },
+        "epistemic": {
+          "enum": [
+            "observed",
+            "derived",
+            "interpretive",
+            "external_metric"
+          ],
+          "title": "Epistemic",
+          "type": "string"
+        },
+        "source": {
+          "enum": [
+            "recall",
+            "web",
+            "episodes"
+          ],
+          "title": "Source",
+          "type": "string"
+        },
+        "source_ref": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source Ref"
+        },
+        "uncertainty_reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Uncertainty Reason"
+        },
+        "value": {
+          "default": null,
+          "enum": [
+            "closed_set",
+            "hierarchical",
+            "open_variety",
+            "pantheon",
+            "universal_energy",
+            "unique_to_few",
+            "none",
+            "other",
+            null
+          ],
+          "title": "Value",
+          "x-vocab": "power_combat.set_structure"
+        },
+        "verification": {
+          "enum": [
+            "not_required",
+            "unverified",
+            "web_confirmed",
+            "web_corrected",
+            "derived_from_episodes",
+            "unresolved"
+          ],
+          "title": "Verification",
+          "type": "string"
+        }
+      },
+      "required": [
+        "conf",
+        "source",
+        "verification",
+        "epistemic"
+      ],
+      "title": "FV_power_combat_set_structure",
+      "type": "object"
+    },
     "FV_power_combat_signature_technique": {
       "additionalProperties": false,
       "properties": {
@@ -3571,6 +7386,116 @@
       "title": "FV_power_combat_signature_technique",
       "type": "object"
     },
+    "FV_power_combat_subset_mechanics": {
+      "additionalProperties": false,
+      "properties": {
+        "condition": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Condition"
+        },
+        "conf": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Conf",
+          "type": "number"
+        },
+        "epistemic": {
+          "enum": [
+            "observed",
+            "derived",
+            "interpretive",
+            "external_metric"
+          ],
+          "title": "Epistemic",
+          "type": "string"
+        },
+        "source": {
+          "enum": [
+            "recall",
+            "web",
+            "episodes"
+          ],
+          "title": "Source",
+          "type": "string"
+        },
+        "source_ref": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source Ref"
+        },
+        "uncertainty_reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Uncertainty Reason"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "items": {
+                "enum": [
+                  "specialization",
+                  "combination",
+                  "forbidden_art",
+                  "bloodline",
+                  "legendary_unlock",
+                  "none"
+                ],
+                "type": "string",
+                "x-vocab": "power_combat.subset_mechanics"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Value"
+        },
+        "verification": {
+          "enum": [
+            "not_required",
+            "unverified",
+            "web_confirmed",
+            "web_corrected",
+            "derived_from_episodes",
+            "unresolved"
+          ],
+          "title": "Verification",
+          "type": "string"
+        }
+      },
+      "required": [
+        "conf",
+        "source",
+        "verification",
+        "epistemic"
+      ],
+      "title": "FV_power_combat_subset_mechanics",
+      "type": "object"
+    },
     "FV_power_combat_visible_counter": {
       "additionalProperties": false,
       "properties": {
@@ -3642,6 +7567,7 @@
             "rank_tier",
             "collectible_count",
             "transformation_stage",
+            "gauge",
             "none",
             "other",
             null
@@ -3669,6 +7595,106 @@
         "epistemic"
       ],
       "title": "FV_power_combat_visible_counter",
+      "type": "object"
+    },
+    "FV_power_combat_world_integration": {
+      "additionalProperties": false,
+      "properties": {
+        "condition": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Condition"
+        },
+        "conf": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Conf",
+          "type": "number"
+        },
+        "epistemic": {
+          "enum": [
+            "observed",
+            "derived",
+            "interpretive",
+            "external_metric"
+          ],
+          "title": "Epistemic",
+          "type": "string"
+        },
+        "source": {
+          "enum": [
+            "recall",
+            "web",
+            "episodes"
+          ],
+          "title": "Source",
+          "type": "string"
+        },
+        "source_ref": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source Ref"
+        },
+        "uncertainty_reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Uncertainty Reason"
+        },
+        "value": {
+          "default": null,
+          "enum": [
+            "decorative",
+            "social_structure",
+            "economic",
+            "political_geography",
+            "cosmological",
+            "other",
+            null
+          ],
+          "title": "Value",
+          "x-vocab": "power_combat.world_integration"
+        },
+        "verification": {
+          "enum": [
+            "not_required",
+            "unverified",
+            "web_confirmed",
+            "web_corrected",
+            "derived_from_episodes",
+            "unresolved"
+          ],
+          "title": "Verification",
+          "type": "string"
+        }
+      },
+      "required": [
+        "conf",
+        "source",
+        "verification",
+        "epistemic"
+      ],
+      "title": "FV_power_combat_world_integration",
       "type": "object"
     },
     "FV_relationships_core_bond": {
@@ -5067,11 +9093,140 @@
       "title": "FilmBlock",
       "type": "object"
     },
+    "Group_core_thematic_argument": {
+      "additionalProperties": false,
+      "properties": {
+        "antithesis_villain": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Antithesis Villain"
+        },
+        "resolution": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Resolution"
+        },
+        "thesis_mc": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Thesis Mc"
+        }
+      },
+      "required": [
+        "thesis_mc",
+        "antithesis_villain",
+        "resolution"
+      ],
+      "title": "Group_core_thematic_argument",
+      "type": "object"
+    },
+    "Item_core_anticipation_hooks": {
+      "additionalProperties": false,
+      "properties": {
+        "hook": {
+          "title": "Hook",
+          "type": "string"
+        },
+        "type": {
+          "enum": [
+            "promised_payoff",
+            "countdown",
+            "rematch",
+            "reunion",
+            "long_mystery",
+            "next_form"
+          ],
+          "title": "Type",
+          "type": "string",
+          "x-vocab": "core.anticipation_hook_type"
+        }
+      },
+      "required": [
+        "hook",
+        "type"
+      ],
+      "title": "Item_core_anticipation_hooks",
+      "type": "object"
+    },
+    "Item_core_institutions": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "role": {
+          "title": "Role",
+          "type": "string"
+        },
+        "type": {
+          "enum": [
+            "academy",
+            "military",
+            "guild_or_license",
+            "government",
+            "criminal_org",
+            "religious",
+            "other"
+          ],
+          "title": "Type",
+          "type": "string",
+          "x-vocab": "core.institution_type"
+        }
+      },
+      "required": [
+        "name",
+        "type",
+        "role"
+      ],
+      "title": "Item_core_institutions",
+      "type": "object"
+    },
     "PowerCombatBlock": {
       "additionalProperties": false,
       "properties": {
         "cost_of_power": {
           "$ref": "#/$defs/FV_power_combat_cost_of_power"
+        },
+        "cost_of_power_secondary": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FV_power_combat_cost_of_power_secondary"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "fight_logic": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FV_power_combat_fight_logic"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         },
         "fight_medium": {
           "$ref": "#/$defs/FV_power_combat_fight_medium"
@@ -5079,8 +9234,63 @@
         "gate": {
           "$ref": "#/$defs/FV_power_combat_gate"
         },
+        "mc_edge": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FV_power_combat_mc_edge"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "member_depth": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FV_power_combat_member_depth"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "power_embodiment": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FV_power_combat_power_embodiment"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
         "power_source": {
           "$ref": "#/$defs/FV_power_combat_power_source"
+        },
+        "power_up_cost": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FV_power_combat_power_up_cost"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "power_up_mode": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FV_power_combat_power_up_mode"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         },
         "progression": {
           "$ref": "#/$defs/FV_power_combat_progression"
@@ -5088,11 +9298,66 @@
         "ranking_ladder": {
           "$ref": "#/$defs/FV_power_combat_ranking_ladder"
         },
+        "rarity": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FV_power_combat_rarity"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "set_scaffold": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FV_power_combat_set_scaffold"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "set_structure": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FV_power_combat_set_structure"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
         "signature_technique": {
           "$ref": "#/$defs/FV_power_combat_signature_technique"
         },
+        "subset_mechanics": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FV_power_combat_subset_mechanics"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
         "visible_counter": {
           "$ref": "#/$defs/FV_power_combat_visible_counter"
+        },
+        "world_integration": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FV_power_combat_world_integration"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         }
       },
       "required": [

@@ -68,15 +68,20 @@ def vocab_paths(model: type[StrictModel]) -> list[tuple[tuple[str, ...], str]]:
     return sorted(set(out))
 
 
-def _visit(obj: Any, path: tuple[str, ...], fn: Callable[[dict[str, Any], str, tuple[str, ...]], None],
+def _visit(obj: Any, path: tuple[str, ...], fn: Callable[[Any, Any, tuple[str, ...]], None],
            trail: tuple[str, ...] = ()) -> None:
+    """Call `fn(container, key, trail)` on every value at `path` ("[]" steps into list items; a path
+    ending in "[]" visits each member of the list)."""
     if not path:
         return
     head, rest = path[0], path[1:]
     if head == "[]":
         if isinstance(obj, list):
             for i, item in enumerate(obj):
-                _visit(item, rest, fn, trail + (str(i),))
+                if rest:
+                    _visit(item, rest, fn, trail + (str(i),))
+                else:
+                    fn(obj, i, trail + (str(i),))
         return
     if not isinstance(obj, dict) or head not in obj:
         return
@@ -90,13 +95,35 @@ def _first_words(text: str, n: int) -> str:
     return " ".join(text.split()[:n])
 
 
+def _unmapped(record: dict[str, Any], vocab: Vocab) -> None:
+    """Title fields of the v1.5.0 kinds after enum mapping: an off-vocab member or item that could not
+    become `other` was set to None; drop it (and repeats), and a field left with nothing is unknown."""
+    for f in vocab.lens_fields():
+        fv = (record.get(f.block) or {}).get(f.name)
+        if not isinstance(fv, dict) or fv.get("value") is None or f.kind not in ("enum_multi", "list", "group"):
+            continue
+        value, emptied = fv["value"], False
+        if f.kind == "enum_multi" and isinstance(value, list):
+            kept = list(dict.fromkeys(v for v in value if v is not None))
+            fv["value"], emptied = kept, len(kept) < len(value) and not kept
+        elif f.kind == "list" and isinstance(value, list):
+            enums = [p.name for p in f.parts if p.kind == "enum"]
+            kept = [i for i in value if not (isinstance(i, dict) and any(i.get(n, "") is None for n in enums))]
+            fv["value"], emptied = kept, len(kept) < len(value) and not kept
+        elif f.kind == "group" and isinstance(value, dict):
+            emptied = all(v is None for v in value.values())
+        if emptied:
+            fv.update(value=None, conf=0.0, uncertainty_reason="off-vocab proposal pending review")
+
+
 def normalize_record(
     record_type: str, record: dict[str, Any], vocab: Vocab, run_id: str | None = None
 ) -> tuple[dict[str, Any], list[Proposal]]:
     """Map alternate labels to preferred values; route off-vocab values to proposals.
 
     Enum with `other`: store `other`. P1 field whose enum lacks `other`: store value null,
-    conf 0, and an uncertainty_reason, so no off-vocab value enters canonical data (P-04).
+    conf 0, and an uncertainty_reason, so no off-vocab value enters canonical data (P-04); for a
+    multi-value or list field (vocab 1.5.0) the off-vocab member or item is dropped instead.
     Other records keep the raw value and fail validation (quarantine upstream).
     """
     rt = RECORD_TYPES[record_type]
@@ -108,10 +135,11 @@ def normalize_record(
         record_id = "?"
 
     for path, vocab_field in vocab_paths(rt.model):
-        is_p1_value = record_type == "title" and len(path) == 3 and path[-1] == "value"
+        in_title_value = record_type == "title" and len(path) >= 3 and path[2] == "value"
+        is_p1_value = in_title_value and len(path) == 3
 
-        def fix(container: dict[str, Any], key: str, trail: tuple[str, ...], _vf: str = vocab_field,
-                _p1: bool = is_p1_value) -> None:
+        def fix(container: Any, key: Any, trail: tuple[str, ...], _vf: str = vocab_field,
+                _p1: bool = is_p1_value, _part: bool = in_title_value and not is_p1_value) -> None:
             raw = container[key]
             if raw is None:
                 return
@@ -127,8 +155,12 @@ def normalize_record(
                 container[key] = None
                 container["conf"] = 0.0
                 container["uncertainty_reason"] = _first_words(f"off-vocab proposal: {norm.proposal}", 12)
+            elif _part:
+                container[key] = None  # a member or item part with no `other`: dropped by _unmapped
 
         _visit(out, path, fix)
+    if record_type == "title":
+        _unmapped(out, vocab)
     return out, proposals
 
 

@@ -19,7 +19,7 @@ def base(**over):
 
 def test_hits_carry_no_level_and_non_hits_need_one():
     Outcome.model_validate(base(label="hit", failure_level=None, failure_evidence=None, failure_evidence_ref=None,
-                                failure_level_source=None, failure_reason=None))
+                                failure_level_source=None, failure_reason=None, failure_patterns=[]))
     with pytest.raises(ValidationError, match="hit carries failure_level null"):
         Outcome.model_validate(base(label="hit"))
     with pytest.raises(ValidationError, match="needs failure_level"):

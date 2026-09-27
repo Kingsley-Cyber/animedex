@@ -1,0 +1,32 @@
+# Steering library (v1.8, owner decision 2026-09-27): an example of the format.
+# Copy it to steering/rules.yaml and write your own rules there. steering/ is git-ignored (your own
+# input) and backed up to the private data repo by `make data-push`. A missing file means no rules.
+#
+# Each rule has:
+#   id        rule.nnn
+#   rule      30 words or fewer
+#   strength  hard (an idea that fails it is rejected before scoring) | soft (listed on the card)
+#   examples  one or two
+#   check     optional, for rules code can test on an idea card: a card field, op in | not_in, values
+# Rules without a check are answered yes/no by the judge. Every card lists the rules it satisfies and
+# fails, with this file's version. (IDEATE wires the rules in M5.)
+version: "1.0.0"
+rules:
+  - id: rule.001
+    rule: The MC is legibly the strongest without holding the biggest number.
+    strength: hard
+    examples:
+      - A courier who wins every duel by rerouting the arena's power, never by out-muscling anyone.
+    check: {field: mc.edge, op: not_in, values: [biggest_number, not_strongest]}
+  - id: rule.002
+    rule: Power has a price the audience watches the MC pay.
+    strength: soft
+    examples:
+      - Every rescue costs the lead a memory, and she keeps a list of what she has lost.
+      - A healer ages a year for each life she saves.
+    check: {field: profile.cost_of_power, op: not_in, values: [none]}
+  - id: rule.003
+    rule: The opening hook states the promise the whole story pays off.
+    strength: soft
+    examples:
+      - The first episode ends on the vow the final arc keeps.

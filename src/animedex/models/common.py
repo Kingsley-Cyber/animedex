@@ -4,13 +4,13 @@ from __future__ import annotations
 
 import re
 from datetime import datetime
-from typing import Any, ClassVar, Literal
+from typing import Annotated, Any, ClassVar, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, create_model, field_validator, model_validator
 from pydantic_core import core_schema
 
-from animedex.ontology import get_bridge, get_vocab
-from animedex.textutil import Words15
+from animedex.ontology import LensField, Vocab, get_bridge, get_vocab
+from animedex.textutil import Words15, words
 
 
 # ---------------------------------------------------------------- base
@@ -52,6 +52,21 @@ class VocabEnum:
         return out
 
 
+class VocabTag:
+    """`Annotated[str, VocabTag(name, values)]`: JSON Schema only. Lists a per-vocab enum and names its
+    vocab field (`x-vocab`, so CANONICALIZE normalizes it); membership is checked by the owning model."""
+
+    def __init__(self, field_name: str, values: tuple[str, ...]):
+        self.field_name = field_name
+        self.values = values
+
+    def __get_pydantic_json_schema__(self, schema: Any, handler: Any) -> dict[str, Any]:
+        out = handler(schema)
+        out["enum"] = list(self.values)
+        out["x-vocab"] = self.field_name
+        return out
+
+
 class BridgeConcept:
     """`Annotated[str, BridgeConcept()]`: value must be a concept in ontology/bridge.json."""
 
@@ -78,13 +93,15 @@ ATOM_ID = re.compile(rf"^(?P<title>{TITLE_ID_RE})\.m\.\d{{3}}$")
 TRANSFER_ID = re.compile(rf"^(?P<title>{TITLE_ID_RE})\.t\.\d{{3}}$")
 EPISODE_ID = re.compile(rf"^(?P<title>{TITLE_ID_RE})\.s(?P<season>\d{{2,}})e(?P<episode>\d{{2,}})$")
 LINK_ID = re.compile(rf"^(?P<title>{TITLE_ID_RE})\.l\.\d{{4}}$")
+CHARACTER_ID = re.compile(rf"^(?P<title>{TITLE_ID_RE})\.c\.\d{{2}}$")
 PATTERN_ID = re.compile(r"^pattern\.\d{3}$")
 IDEA_ID = re.compile(r"^idea\.[A-Za-z0-9_-]+\.\d{3}$")
+RULE_ID = re.compile(r"^rule\.\d{3}$")
 
 
 def title_of(record_id: str) -> str | None:
-    """Title id embedded in a moment/atom/transfer/episode/link id."""
-    for pattern in (MOMENT_ID, ATOM_ID, TRANSFER_ID, EPISODE_ID, LINK_ID):
+    """Title id embedded in a moment/atom/transfer/episode/link/character id."""
+    for pattern in (MOMENT_ID, ATOM_ID, TRANSFER_ID, EPISODE_ID, LINK_ID, CHARACTER_ID):
         m = pattern.match(record_id)
         if m:
             return m.group("title")
@@ -173,7 +190,8 @@ Epistemic = Literal["observed", "derived", "interpretive", "external_metric"]
 
 
 class FieldValue(StrictModel):
-    """Shape of every P1 field (04). Subclassed per lens field for enum/phrase rules."""
+    """Shape of every P1 field (04). Subclassed per lens field for its kind's rules (vocab 1.5.0:
+    phrase, enum, enum_multi, list, group); the envelope around `value` is the same for every kind."""
 
     value: str | None = None
     condition: Words15 | None = None
@@ -186,9 +204,12 @@ class FieldValue(StrictModel):
 
     # set on per-field subclasses (dunder names: pydantic leaves them alone)
     __field_path__: ClassVar[str] = ""
+    __kind__: ClassVar[str] = "phrase"
     __enum__: ClassVar[tuple[str, ...] | None] = None
     __conditional__: ClassVar[bool] = False
     __max_words__: ClassVar[int] = 15  # phrase fields; the vocab sets it per field (1.4.0)
+    __max_items__: ClassVar[int] = 0   # list fields
+    __needs_source__: ClassVar[bool] = False
 
     @model_validator(mode="after")
     def _rules(self) -> FieldValue:
@@ -196,13 +217,8 @@ class FieldValue(StrictModel):
         if self.value is None:
             if self.conf != 0.0:
                 raise ValueError("unknown value (null) must carry conf 0")
-        elif cls.__enum__ is not None:
-            if self.value not in cls.__enum__:
-                raise ValueError(f"{self.value!r} is not in vocab for {cls.__field_path__} {list(cls.__enum__)}")
         else:
-            words, cap = len(self.value.split()), cls.__max_words__
-            if not self.value.strip() or words > cap:
-                raise ValueError(f"phrase value must be 1-{cap} words (got {words})")
+            cls._check_value(self.value)
         if self.condition is not None and not cls.__conditional__:
             raise ValueError(f"{cls.__field_path__ or 'field'} does not take a condition")
         if self.verification in ("web_confirmed", "web_corrected"):
@@ -210,26 +226,101 @@ class FieldValue(StrictModel):
                 raise ValueError("web verification needs source='web' and a source_ref (recall is not verification)")
         if self.verification == "derived_from_episodes" and self.source != "episodes":
             raise ValueError("derived_from_episodes needs source='episodes'")
+        if cls.__needs_source__ and self.value is not None and self.verification != "unverified" and not self.source_ref:
+            raise ValueError(f"{cls.__field_path__} needs a cited source (source_ref); without one its value is null")
+        return self
+
+    @classmethod
+    def _check_value(cls, value: Any) -> None:
+        kind, path = cls.__kind__, cls.__field_path__
+        if kind == "enum":
+            if value not in (cls.__enum__ or ()):
+                raise ValueError(f"{value!r} is not in vocab for {path} {list(cls.__enum__ or ())}")
+        elif kind == "enum_multi":
+            unknown = [v for v in value if v not in (cls.__enum__ or ())]
+            if not value or unknown:
+                raise ValueError(f"{path} takes one or more of {list(cls.__enum__ or ())} (got {value!r})")
+            if len(set(value)) != len(value):
+                raise ValueError(f"{path} lists a value twice")
+            if "none" in value and len(value) > 1:
+                raise ValueError(f"{path}: none cannot be combined with other values")
+        elif kind == "list":
+            if len(value) > cls.__max_items__:
+                raise ValueError(f"{path} takes at most {cls.__max_items__} items (got {len(value)})")
+        elif kind == "phrase":
+            words_, cap = len(value.split()), cls.__max_words__
+            if not value.strip() or words_ > cap:
+                raise ValueError(f"phrase value must be 1-{cap} words (got {words_})")
+
+
+class PartsModel(StrictModel):
+    """A `list` item or a `group` value: typed sub-fields (vocab 1.5.0). Enum parts are checked
+    against the vocab the model was built from; a group needs at least one known part."""
+
+    __enums__: ClassVar[dict[str, tuple[str, ...]]] = {}
+    __group__: ClassVar[bool] = False
+
+    @model_validator(mode="after")
+    def _parts(self) -> PartsModel:
+        cls = type(self)
+        for name, allowed in cls.__enums__.items():
+            value = getattr(self, name)
+            if value is not None and value not in allowed:
+                raise ValueError(f"{name}={value!r} is not one of {list(allowed)}")
+        if cls.__group__ and all(getattr(self, n) is None for n in type(self).model_fields):
+            raise ValueError("a group with no known part is written as value null")
         return self
 
 
-def field_value_type(
-    path: str, enum: tuple[str, ...] | None, conditional: bool, vocab_name: str | None = None,
-    max_words: int | None = None,
-) -> type[FieldValue]:
-    """Per-lens-field FieldValue subclass carrying its enum, condition rule and word cap."""
-    name = "FV_" + re.sub(r"[^A-Za-z0-9]", "_", path)
+def _safe(path: str) -> str:
+    return re.sub(r"[^A-Za-z0-9]", "_", path)
+
+
+def parts_model(f: LensField, vocab: Vocab) -> type[PartsModel]:
+    """The item (list) or value (group) model of a lens field. Group parts may be null (unknown);
+    list items need every part."""
+    group = f.kind == "group"
+    fields: dict[str, Any] = {}
+    enums: dict[str, tuple[str, ...]] = {}
+    for part in f.parts:
+        if part.kind == "enum":
+            enums[part.name] = vocab.enum(part.vocab or "")
+            typ: Any = Annotated[str, VocabTag(part.vocab or "", enums[part.name])]
+        else:
+            typ = words(part.max_words or vocab.phrase_max_words)
+        fields[part.name] = (typ | None, ...) if group else (typ, ...)
+    model = create_model(f"{'Group' if group else 'Item'}_{_safe(f.path)}", __base__=PartsModel, **fields)
+    model.__enums__ = enums
+    model.__group__ = group
+    return model
+
+
+def field_value_type(f: LensField, vocab: Vocab) -> type[FieldValue]:
+    """Per-lens-field FieldValue subclass carrying its kind, enum, condition rule, caps and value shape."""
     attrs: dict[str, Any] = {
         "__module__": __name__,
-        "__field_path__": path,
-        "__enum__": enum,
-        "__conditional__": conditional,
+        "__field_path__": f.path,
+        "__kind__": f.kind,
+        "__conditional__": f.conditional,
+        "__needs_source__": f.needs_source,
     }
-    if max_words is not None:
-        attrs["__max_words__"] = max_words
-    if enum is not None:
+    if f.max_words is not None:
+        attrs["__max_words__"] = f.max_words
+    if f.kind == "enum":
+        enum = vocab.enum(f.vocab or "")
+        attrs["__enum__"] = enum
         attrs["__annotations__"] = {"value": Any}
-        attrs["value"] = Field(
-            default=None, json_schema_extra={"enum": [*enum, None], "x-vocab": vocab_name or path}
-        )
-    return type(name, (FieldValue,), attrs)
+        attrs["value"] = Field(default=None, json_schema_extra={"enum": [*enum, None], "x-vocab": f.vocab or f.path})
+    elif f.kind == "enum_multi":
+        enum = vocab.enum(f.vocab or "")
+        attrs["__enum__"] = enum
+        attrs["__annotations__"] = {"value": list[Annotated[str, VocabTag(f.vocab or f.path, enum)]] | None}
+        attrs["value"] = Field(default=None)
+    elif f.kind == "list":
+        attrs["__max_items__"] = f.max_items or 0
+        attrs["__annotations__"] = {"value": list[parts_model(f, vocab)] | None}  # type: ignore[misc]
+        attrs["value"] = Field(default=None)
+    elif f.kind == "group":
+        attrs["__annotations__"] = {"value": parts_model(f, vocab) | None}
+        attrs["value"] = Field(default=None)
+    return type("FV_" + _safe(f.path), (FieldValue,), attrs)

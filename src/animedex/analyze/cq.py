@@ -17,6 +17,7 @@ from typing import Any
 import duckdb
 
 from animedex.config import Settings
+from animedex.models.ideation import BORROWED_SYSTEMS
 from animedex.ontology import CQSet, Vocab
 from animedex.store.atomic import atomic_write_text
 from animedex.textutil import sha256_text, stable_json
@@ -31,6 +32,21 @@ WESTERN = "('western_animation', 'adult_animation', 'live_action', 'film')"
 
 def _pivot(title_col: str, paths: list[str]) -> str:
     return ", ".join(f"MAX(CASE WHEN f.path = '{p}' THEN f.value END) AS \"{p.split('.')[-1]}\"" for p in paths)
+
+
+def _wide(paths: list[str]) -> str:
+    """A CTE body: one row per title with the given fields as columns (named by their last path part)."""
+    return f"SELECT f.title_id, {_pivot('f', paths)} FROM title_fields f GROUP BY 1"
+
+
+def _parts(path: str, parts: list[str], by_item: bool = True) -> str:
+    """A CTE body: list items (or a group) of a v1.5.0 field, one row per item with its parts as columns."""
+    cols = ", ".join(f"MAX(CASE WHEN part = '{p}' THEN value END) AS \"{p}\"" for p in parts)
+    keys = "title_id, idx" if by_item else "title_id"
+    return f"SELECT {keys}, {cols} FROM title_field_parts WHERE path = '{path}' GROUP BY {keys}"
+
+
+NEAR = 0.3  # CQ-I24: content-word overlap at or above this counts as a lexical near-neighbor
 
 
 @dataclass(frozen=True)
@@ -193,16 +209,236 @@ QUERIES: dict[str, Query] = {
     "CQ-E07": Query("SELECT support_status, COUNT(*) AS n FROM mechanisms GROUP BY 1", note="episode-backed from M6"),
     "CQ-E08": Query("SELECT title_id, episode_id, n_decisions FROM episodes WHERE n_decisions > 0",
                     note="data from M6"),
+    # ---------------------------------------------------------------- v1.8: concept, character, abstract layers
+    "CQ-G11": Query(
+        f"WITH {LABEL}, g AS (SELECT unnest(?::VARCHAR[]) AS gate), e AS (SELECT unnest(?::VARCHAR[]) AS mc_edge), "
+        "p AS (SELECT a.value AS gate, b.value AS mc_edge, COUNT(DISTINCT a.title_id) AS n_titles, "
+        "COUNT(DISTINCT a.title_id) FILTER (WHERE l.label = 'hit') AS n_hits FROM v_incidence a JOIN v_incidence b "
+        "ON a.title_id = b.title_id AND a.path = 'power_combat.gate' AND b.path = 'power_combat.mc_edge' "
+        "JOIN label l ON l.title_id = a.title_id GROUP BY 1, 2) "
+        "SELECT g.gate, e.mc_edge, COALESCE(p.n_titles, 0) AS n_titles, COALESCE(p.n_hits, 0) AS n_hits "
+        "FROM g CROSS JOIN e LEFT JOIN p ON p.gate = g.gate AND p.mc_edge = e.mc_edge",
+        ("enum:power_combat.gate", "enum:power_combat.mc_edge"), module="power_combat",
+        note="every gate x mc_edge cell: n_hits > 0 shows the edges hits use; n_titles = 0 is an unused cell"),
+    "CQ-G12": Query(
+        "WITH k AS (SELECT unnest(?::VARCHAR[]) AS power_kind), c AS (SELECT unnest(?::VARCHAR[]) AS creativity_level), "
+        "used AS (SELECT DISTINCT power_kind, creativity_level FROM characters WHERE has_kit "
+        "AND creativity_level IS NOT NULL) SELECT k.power_kind, c.creativity_level FROM k CROSS JOIN c "
+        "WHERE k.power_kind NOT IN ('stat_block', 'none') AND NOT EXISTS (SELECT 1 FROM used u "
+        "WHERE u.power_kind = k.power_kind AND u.creativity_level = c.creativity_level)",
+        ("enum:character.power_kind", "enum:character.creativity_level"), module="power_combat",
+        note="stat_block kits generate drama through drama_source instead (CQ-I18)"),
+    "CQ-G13": Query(
+        "WITH s AS (SELECT unnest(?::VARCHAR[]) AS story_engine), bound AS (SELECT title_id FROM title_fields "
+        "WHERE path = 'power_combat.power_embodiment' AND value = 'bound_entity' UNION "
+        "SELECT title_id FROM characters WHERE power_kind = 'bound_entity'), "
+        "paired AS (SELECT DISTINCT f.value FROM title_fields f JOIN bound USING (title_id) "
+        "WHERE f.path IN ('core.story_engine', 'core.story_engine_secondary') AND f.value IS NOT NULL) "
+        "SELECT s.story_engine, (SELECT COUNT(*) FROM bound) AS n_bound_entity_titles FROM s "
+        "WHERE s.story_engine NOT IN (SELECT value FROM paired)",
+        ("enum:core.story_engine",), module="power_combat",
+        note="bound-entity powers: power_embodiment bound_entity, or a character kit of kind bound_entity"),
+    "CQ-G14": Query(
+        "WITH v AS (SELECT unnest(?::VARCHAR[]) AS villain_type), h AS (SELECT c.villain_type, "
+        "COUNT(DISTINCT c.title_id) AS n FROM characters c JOIN title_fields w ON w.title_id = c.title_id "
+        "AND w.path = 'core.world_visibility' AND w.value = 'hidden' WHERE c.villain_type IS NOT NULL GROUP BY 1) "
+        "SELECT v.villain_type, COALESCE(h.n, 0) AS n_hidden_world_titles FROM v LEFT JOIN h USING (villain_type)",
+        ("enum:character.villain_type",), module="core", note="0 = a villain type no hidden-world title uses"),
+    "CQ-G15": Query(
+        "WITH s AS (SELECT unnest(?::VARCHAR[]) AS setting_type), w AS (SELECT unnest(?::VARCHAR[]) AS world_visibility), "
+        "c AS (SELECT unnest(?::VARCHAR[]) AS conflict_scale), used AS (SELECT a.value AS setting_type, "
+        "b.value AS world_visibility, d.value AS conflict_scale FROM v_incidence a JOIN v_incidence b "
+        "ON b.title_id = a.title_id AND b.path = 'core.world_visibility' JOIN v_incidence d "
+        "ON d.title_id = a.title_id AND d.path = 'core.conflict_scale' WHERE a.path = 'core.setting_type') "
+        "SELECT s.setting_type, w.world_visibility, c.conflict_scale FROM s CROSS JOIN w CROSS JOIN c "
+        "WHERE NOT EXISTS (SELECT 1 FROM used u WHERE u.setting_type = s.setting_type "
+        "AND u.world_visibility = w.world_visibility AND u.conflict_scale = c.conflict_scale)",
+        ("enum:core.setting_type", "enum:core.world_visibility", "enum:core.conflict_scale"), module="core"),
+    "CQ-G16": Query(
+        "WITH v AS (SELECT 'set_structure' AS field, unnest(?::VARCHAR[]) AS value UNION ALL "
+        "SELECT 'story_engine', unnest(?::VARCHAR[]) UNION ALL SELECT 'mc_archetype', unnest(?::VARCHAR[])), "
+        "n AS (SELECT 'set_structure' AS field, set_structure AS value, COUNT(*) AS n FROM census "
+        "WHERE has_power_system AND set_structure IS NOT NULL GROUP BY 1, 2 UNION ALL "
+        "SELECT 'story_engine', story_engine, COUNT(*) FROM census WHERE story_engine IS NOT NULL GROUP BY 1, 2 "
+        "UNION ALL SELECT 'mc_archetype', mc_archetype, COUNT(*) FROM census WHERE mc_archetype IS NOT NULL "
+        "GROUP BY 1, 2) SELECT v.field, v.value, COALESCE(n.n, 0) AS n_census_titles FROM v "
+        "LEFT JOIN n USING (field, value)",
+        ("enum:power_combat.set_structure", "enum:core.story_engine", "enum:core.mc_archetype"),
+        note="census counts only (v1.6): 0 = no catalog title recorded with that value"),
+    "CQ-G17": Query(
+        "WITH s AS (SELECT unnest(?::VARCHAR[]) AS set_structure), m AS (SELECT unnest(?::VARCHAR[]) AS subset_mechanic), "
+        "used AS (SELECT DISTINCT a.value AS set_structure, b.value AS subset_mechanic FROM v_incidence a "
+        "JOIN v_incidence b ON b.title_id = a.title_id AND b.path = 'power_combat.subset_mechanics' "
+        "WHERE a.path = 'power_combat.set_structure') SELECT s.set_structure, m.subset_mechanic FROM s CROSS JOIN m "
+        "WHERE s.set_structure <> 'none' AND m.subset_mechanic <> 'none' AND NOT EXISTS (SELECT 1 FROM used u "
+        "WHERE u.set_structure = s.set_structure AND u.subset_mechanic = m.subset_mechanic)",
+        ("enum:power_combat.set_structure", "enum:power_combat.subset_mechanics"), module="power_combat"),
+    "CQ-I16": Query(
+        f"WITH w AS ({_wide(['power_combat.set_structure', 'power_combat.mc_edge', 'core.mc_start'])}), "
+        "mc AS (SELECT title_id, relationship_to_power, medium, creativity_level, n_creativity_moves FROM characters "
+        "WHERE role = 'protagonist') SELECT w.title_id, w.mc_start, w.mc_edge, mc.relationship_to_power, mc.medium, "
+        "mc.creativity_level, mc.n_creativity_moves FROM w LEFT JOIN mc USING (title_id) "
+        "WHERE w.set_structure = 'open_variety' AND w.mc_start IN ('weakest', 'below_average') "
+        "AND (w.mc_edge = 'creative_reinterpretation' OR mc.relationship_to_power = 'creative_reinterpretation' "
+        "OR mc.creativity_level IN ('inventive', 'transcendent'))",
+        note="a weak start in an open-variety system, won by reinterpreting the medium"),
+    "CQ-I17": Query(
+        f"WITH w AS ({_wide(['power_combat.set_structure', 'power_combat.member_depth', 'power_combat.set_scaffold'])}) "
+        "SELECT set_structure, set_scaffold, title_id FROM w WHERE set_structure IN ('closed_set', 'hierarchical') "
+        "AND member_depth = 'identity_with_history'"),
+    "CQ-I18": Query(
+        f"WITH {LABEL} SELECT c.drama_source, l.label, COUNT(*) AS n_characters, COUNT(DISTINCT c.title_id) AS n_titles "
+        "FROM characters c JOIN label l USING (title_id) WHERE c.power_kind = 'stat_block' GROUP BY 1, 2"),
+    "CQ-I19": Query(
+        f"WITH {LABEL}, lb AS (SELECT title_id, COUNT(*) AS n FROM v_load_bearing GROUP BY 1), "
+        "cites AS (SELECT c.character_id, COUNT(DISTINCT m.atom_id) AS n FROM characters c JOIN v_load_bearing m "
+        "ON m.title_id = c.title_id AND m.evidence_refs LIKE '%\"' || c.character_id || '\"%' GROUP BY 1) "
+        "SELECT c.origin_power_link, COUNT(DISTINCT c.title_id) AS n_hit_titles_with_load_bearing_atoms, "
+        "COUNT(DISTINCT c.character_id) AS n_characters, COALESCE(SUM(ci.n), 0) AS n_atoms_citing_the_character "
+        "FROM characters c JOIN label l USING (title_id) JOIN lb USING (title_id) LEFT JOIN cites ci USING (character_id) "
+        "WHERE l.label = 'hit' AND c.origin_power_link IS NOT NULL GROUP BY 1",
+        note="P2 may cite a character record as evidence (v1.8); title-level counts until it does"),
+    "CQ-I20": Query(
+        f"WITH {LABEL} SELECT cf.value AS core_fantasy, se.value AS story_engine, COUNT(DISTINCT cf.title_id) "
+        "AS n_hit_titles FROM title_field_members cf JOIN title_fields se ON se.title_id = cf.title_id "
+        "AND se.path = 'core.story_engine' AND se.value IS NOT NULL JOIN label l ON l.title_id = cf.title_id "
+        "WHERE cf.path = 'core.core_fantasy' AND l.label = 'hit' GROUP BY 1, 2"),
+    "CQ-I21": Query(
+        f"WITH {LABEL}, w AS ({_wide(['core.audience_promise', 'core.promise_mechanism', 'core.promise_break'])}), "
+        "fp AS (SELECT title_id, array_to_string(list_sort(list(pattern)), ', ') AS failure_patterns, "
+        "bool_or(pattern = 'promise_broken') AS promise_broken FROM outcome_failure_patterns GROUP BY 1) "
+        "SELECT w.title_id, l.label, w.audience_promise, w.promise_mechanism, w.promise_break, fp.failure_patterns "
+        "FROM w JOIN label l USING (title_id) LEFT JOIN fp USING (title_id) WHERE l.label IN ('mixed', 'flop') "
+        "AND (w.promise_break IS NOT NULL OR COALESCE(fp.promise_broken, false))"),
+    "CQ-I22": Query(
+        f"WITH {LABEL} SELECT f.value AS escalation_model, COUNT(DISTINCT f.title_id) AS n_titles_100_plus, "
+        "COUNT(DISTINCT f.title_id) FILTER (WHERE l.label = 'hit') AS n_hits_100_plus FROM title_fields f "
+        "JOIN coverage c USING (title_id) JOIN label l USING (title_id) WHERE f.path = 'core.escalation_model' "
+        "AND f.value IS NOT NULL AND c.eps_in_scope >= 100 GROUP BY 1",
+        note="episodes in scope arrive with M6 (coverage.episodes.in_scope)"),
+    "CQ-I23": Query(
+        "WITH s AS (SELECT unnest(?::VARCHAR[]) AS system), cn AS (SELECT borrowed_system AS system, COUNT(*) AS n "
+        "FROM census WHERE has_power_system GROUP BY 1), k AS (SELECT s.system, COUNT(DISTINCT f.title_id) AS n "
+        "FROM s JOIN title_fields f ON f.path = 'core.real_world_isomorphism' AND f.value IS NOT NULL "
+        "AND lower(f.value) LIKE '%' || split_part(s.system, '_', 1) || '%' GROUP BY 1) "
+        "SELECT s.system, COALESCE(cn.n, 0) AS n_census_powered_titles, COALESCE(k.n, 0) AS n_corpus_mentions "
+        "FROM s LEFT JOIN cn USING (system) LEFT JOIN k USING (system) "
+        "WHERE COALESCE(cn.n, 0) = 0 AND COALESCE(k.n, 0) = 0",
+        ("borrowed_systems",),
+        note="census counts plus a word match on the corpus's real_world_isomorphism phrases; M7 clusters map "
+             "the phrases properly"),
+    "CQ-I24": Query(
+        "WITH p AS (SELECT title_id, list_distinct(list_filter(string_split(lower(regexp_replace(value, '[^A-Za-z ]', "
+        "' ', 'g')), ' '), x -> length(x) > 3)) AS w FROM title_fields WHERE path = 'core.premise_abstraction' "
+        "AND value IS NOT NULL), pairs AS (SELECT a.title_id, len(list_intersect(a.w, b.w)) / "
+        "GREATEST(len(list_distinct(list_concat(a.w, b.w))), 1) AS overlap FROM p a JOIN p b "
+        "ON a.title_id <> b.title_id) SELECT p.title_id, ROUND(COALESCE(MAX(pairs.overlap), 0), 4) AS max_word_overlap "
+        f"FROM p LEFT JOIN pairs USING (title_id) GROUP BY 1 HAVING COALESCE(MAX(pairs.overlap), 0) < {NEAR}",
+        note=f"lexical proxy: content-word overlap (Jaccard) below {NEAR} with every other title; the IDEATE clone "
+             "check (embeddings) is the real near-neighbor test"),
+    "CQ-I25": Query(
+        f"WITH {LABEL} SELECT a.value AS cost_of_power, b.value AS cost_of_power_secondary, "
+        "COUNT(DISTINCT a.title_id) AS n_titles, COUNT(DISTINCT a.title_id) FILTER (WHERE l.label = 'hit') AS n_hits, "
+        "COUNT(DISTINCT a.title_id) FILTER (WHERE l.label IN ('mixed', 'flop')) AS n_mixed_or_flop "
+        "FROM title_fields a JOIN title_fields b ON b.title_id = a.title_id "
+        "AND b.path = 'power_combat.cost_of_power_secondary' AND b.value IS NOT NULL JOIN label l "
+        "ON l.title_id = a.title_id WHERE a.path = 'power_combat.cost_of_power' AND a.value IS NOT NULL GROUP BY 1, 2",
+        note="the grid uses the primary cost only"),
+    "CQ-I26": Query(
+        f"WITH {LABEL}, w AS ({_wide(['power_combat.power_embodiment', 'power_combat.rarity', 'power_combat.world_integration'])}) "
+        "SELECT w.power_embodiment, w.rarity, w.world_integration, l.label, COUNT(*) AS n_titles FROM w "
+        "JOIN label l USING (title_id) WHERE w.power_embodiment IS NOT NULL OR w.rarity IS NOT NULL "
+        "OR w.world_integration IS NOT NULL GROUP BY 1, 2, 3, 4"),
+    "CQ-I27": Query(
+        "SELECT m.value AS power_up_mode, g.value AS fight_logic, COUNT(DISTINCT m.title_id) AS n_titles, "
+        "array_to_string(list_sort(list_distinct(list(c.value) FILTER (WHERE c.value IS NOT NULL))), '; ') "
+        "AS power_up_costs FROM title_field_members m JOIN title_field_members g ON g.title_id = m.title_id "
+        "AND g.path = 'power_combat.fight_logic' LEFT JOIN title_fields c ON c.title_id = m.title_id "
+        "AND c.path = 'power_combat.power_up_cost' WHERE m.path = 'power_combat.power_up_mode' GROUP BY 1, 2"),
+    "CQ-I28": Query(
+        f"WITH {LABEL}, w AS ({_wide(['core.pilot_hook_type', 'core.ending_type'])}) SELECT w.pilot_hook_type, "
+        "w.ending_type, l.label, COUNT(*) AS n_titles FROM w JOIN label l USING (title_id) "
+        "WHERE w.pilot_hook_type IS NOT NULL OR w.ending_type IS NOT NULL GROUP BY 1, 2, 3"),
+    "CQ-I29": Query(
+        f"WITH i AS ({_parts('core.institutions', ['type', 'role'])}) SELECT i.type AS institution_type, "
+        "s.value AS setting_type, COUNT(DISTINCT i.title_id) AS n_titles, "
+        "array_to_string(list_sort(list_distinct(list(i.role))), '; ') AS roles FROM i LEFT JOIN title_fields s "
+        "ON s.title_id = i.title_id AND s.path = 'core.setting_type' GROUP BY 1, 2",
+        note="institution names stay in the title record (they join the name-leak list)"),
+    "CQ-I30": Query(
+        f"WITH {LABEL}, w AS ({_wide(['core.mc_archetype', 'core.mc_start', 'core.mc_goal_type'])}) "
+        "SELECT w.mc_archetype, w.mc_start, w.mc_goal_type, COUNT(*) AS n_hit_titles FROM w JOIN label l "
+        "USING (title_id) WHERE l.label = 'hit' AND w.mc_archetype IS NOT NULL GROUP BY 1, 2, 3"),
+    "CQ-I31": Query(
+        f"WITH {LABEL}, w AS ({_wide(['core.ensemble_size', 'core.rival_type', 'core.threat_structure'])}) "
+        "SELECT w.ensemble_size, w.rival_type, w.threat_structure, l.label, COUNT(*) AS n_titles FROM w "
+        "JOIN label l USING (title_id) WHERE w.ensemble_size IS NOT NULL OR w.rival_type IS NOT NULL "
+        "OR w.threat_structure IS NOT NULL GROUP BY 1, 2, 3, 4"),
+    "CQ-I32": Query(
+        f"WITH {LABEL}, g AS ({_parts('core.thematic_argument', ['thesis_mc', 'antithesis_villain', 'resolution'], by_item=False)}) "
+        "SELECT g.title_id, g.thesis_mc, g.antithesis_villain, g.resolution FROM g JOIN label l USING (title_id) "
+        "WHERE l.label = 'hit'", note="free text; cross-title matching arrives with M7 clusters"),
+    "CQ-I33": Query(
+        f"WITH {LABEL}, h AS ({_parts('core.anticipation_hooks', ['type'])}) SELECT h.type AS hook_type, l.label, "
+        "COUNT(*) AS n_hooks, COUNT(DISTINCT h.title_id) AS n_titles FROM h JOIN label l USING (title_id) "
+        "GROUP BY 1, 2"),
+    "CQ-I34": Query(
+        f"WITH {LABEL} SELECT g.value AS genre_move, l.label, COUNT(DISTINCT g.title_id) AS n_titles, "
+        "array_to_string(list_sort(list_distinct(list(r.value) FILTER (WHERE r.value IS NOT NULL))), '; ') "
+        "AS reacts_against FROM title_fields g JOIN label l USING (title_id) LEFT JOIN title_fields r "
+        "ON r.title_id = g.title_id AND r.path = 'core.reacts_against' WHERE g.path = 'core.genre_move' "
+        "AND g.value IS NOT NULL GROUP BY 1, 2"),
+    "CQ-I35": Query(
+        "SELECT fp.pattern, o.label, o.failure_level, COUNT(DISTINCT fp.title_id) AS n_titles, "
+        "array_to_string(list_sort(list_distinct(list(fp.source_ref))), ' ') AS sources "
+        "FROM outcome_failure_patterns fp JOIN outcomes o USING (title_id) GROUP BY 1, 2, 3"),
+    "CQ-I36": Query(
+        f"WITH {LB} SELECT tb.concept, tr.transfer_id, tr.mechanism, tr.principle, tr.anti_pattern "
+        "FROM transfer_bridge tb JOIN transfers tr USING (transfer_id) JOIN lb USING (transfer_id) "
+        "WHERE tr.principle IS NOT NULL"),
+    "CQ-I37": Query("SELECT p.pattern_id, p.statement, e.title_id AS held_out_title, e.atom_id FROM patterns p "
+                    "JOIN pattern_predictive_evidence e USING (pattern_id) WHERE p.predictive", note="data from M7"),
+    "CQ-I38": Query(
+        "SELECT status, mc_edge, kit_kind, escalation_model, core_fantasy, COUNT(*) AS n_ideas, "
+        "COUNT(*) FILTER (WHERE premise_abstraction IS NOT NULL) AS n_with_premise_abstraction, "
+        "COUNT(*) FILTER (WHERE thesis_mc IS NOT NULL) AS n_with_thematic_argument, "
+        "COUNT(*) FILTER (WHERE audience_promise IS NOT NULL) AS n_with_audience_promise "
+        "FROM idea_concepts GROUP BY 1, 2, 3, 4, 5", note="idea cards gain these fields at M5"),
+    "CQ-I39": Query("SELECT r.rule_id, r.result, i.status, COUNT(*) AS n_ideas FROM idea_rules r "
+                    "JOIN ideas i USING (idea_id) GROUP BY 1, 2, 3", note="steering rules arrive with M5"),
+    "CQ-C01": Query(
+        "SELECT role, arc_type, backstory_reveal, COUNT(*) AS n_characters, "
+        "array_to_string(list_sort(list(want) FILTER (WHERE want IS NOT NULL)), '; ') AS wants, "
+        "array_to_string(list_sort(list(need) FILTER (WHERE need IS NOT NULL)), '; ') AS needs, "
+        "array_to_string(list_sort(list(flaw || ' (when ' || flaw_condition || ')') FILTER (WHERE flaw IS NOT NULL)), "
+        "'; ') AS flaws, array_to_string(list_sort(list(moral_line || ' (unless ' || moral_line_condition || ')') "
+        "FILTER (WHERE moral_line IS NOT NULL)), '; ') AS moral_lines FROM characters GROUP BY 1, 2, 3"),
+    "CQ-C02": Query(
+        "WITH tp AS (SELECT character_id, idx, MAX(CASE WHEN key = 'season' THEN value END) AS season, "
+        "MAX(CASE WHEN key = 'episode' THEN value END) AS episode FROM character_parts WHERE part = 'turning_points' "
+        "GROUP BY 1, 2) SELECT c.role, TRY_CAST(tp.season AS INTEGER) AS season, TRY_CAST(tp.episode AS INTEGER) "
+        "AS episode, COUNT(*) AS n_turning_points FROM tp JOIN characters c USING (character_id) GROUP BY 1, 2, 3"),
+    "CQ-C03": Query(
+        "SELECT c.title_id, c.origin, c.wound, c.origin_power_link, c.relationship_to_power, e.value AS mc_edge, "
+        "c.power_kind, c.medium, c.n_functions, c.n_tools, c.n_limits, c.n_forms, c.evolution FROM characters c "
+        "LEFT JOIN title_fields e ON e.title_id = c.title_id AND e.path = 'power_combat.mc_edge' "
+        "WHERE c.role = 'protagonist'"),
+    "CQ-C04": Query(
+        f"WITH {LABEL} SELECT c.villain_type, c.villain_reveal, c.relation_to_mc, l.label, COUNT(*) AS n_antagonists "
+        "FROM characters c JOIN label l USING (title_id) WHERE c.villain_type IS NOT NULL GROUP BY 1, 2, 3, 4"),
 }
 
 
 def adequacy(con: duckdb.DuckDBPyConnection, settings: Settings, modules: list[str]) -> dict[str, dict[str, Any]]:
+    """Per module: enough titles with it active and good completion? `core` (every title has it; v1.8
+    core-field gaps) counts titles with good completion."""
     cov = settings.coverage
     need, completion = int(cov.get("min_titles_with_module", 5)), float(cov.get("min_field_completion", 0.8))
     out = {}
     for m in modules:
+        pattern = "%" if m == "core" else f'%"{m}"%'
         n = con.execute("SELECT COUNT(*) FROM coverage WHERE modules_active LIKE ? AND field_completion >= ?",
-                        [f'%"{m}"%', completion]).fetchone()[0]
+                        [pattern, completion]).fetchone()[0]
         out[m] = {"n_adequate_titles": int(n), "min_needed": need, "adequate": int(n) >= need}
     return out
 
@@ -216,6 +452,8 @@ def _params(names: tuple[str, ...], vocab: Vocab, settings: Settings) -> list[An
             out.append(list(vocab.module_names))
         elif name == "min_completion":
             out.append(float(settings.coverage.get("min_field_completion", 0.8)))
+        elif name == "borrowed_systems":
+            out.append([s for s in BORROWED_SYSTEMS if s not in ("none", "other")])
     return out
 
 
@@ -228,7 +466,7 @@ def _clean(value: Any) -> Any:
 
 
 def answer_all(con: duckdb.DuckDBPyConnection, vocab: Vocab, cqs: CQSet, settings: Settings) -> dict[str, dict[str, Any]]:
-    adequate = adequacy(con, settings, list(vocab.module_names))
+    adequate = adequacy(con, settings, ["core", *vocab.module_names])
     answers = {}
     for cq in cqs.questions:
         q = QUERIES[cq.id]

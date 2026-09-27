@@ -1,10 +1,11 @@
 """P4 TRANSFER (05): each load-bearing-eligible atom becomes a domain-neutral pattern with
 essential, variable, and failure conditions and at least one bridge concept. Patterns carry no
-titles, character names, or medium words (04 invariant; AC-18)."""
+titles, character names, or medium words (04 invariant; AC-18). v1.8 abstraction ladder: every
+transfer also carries a mechanism, a principle ("when X, do Y, because Z") and an anti-pattern,
+under the same no-names, no-medium-words rule."""
 
 from __future__ import annotations
 
-import re
 from typing import Any
 
 from pydantic import ValidationError
@@ -14,6 +15,7 @@ from animedex.content_guards import GuardConfig, record_problems
 from animedex.eligibility import eligible_atom_ids
 from animedex.integrity import name_leaks, name_list
 from animedex.models import TransferAtom
+from animedex.models.atoms import LADDER
 from animedex.ontology import Vocab, get_bridge
 from animedex.paths import Paths
 from animedex.pipeline.common import (
@@ -27,12 +29,10 @@ from animedex.prompts import RenderedPrompt, read_prompt
 from animedex.providers.client import LLMClient
 from animedex.store.cache import upstream_hash
 from animedex.store.canonical import CanonicalStore
+from animedex.textutil import medium_words
 
-MEDIUM_WORDS = ("anime", "manga", "manhua", "manhwa", "donghua", "cartoon", "cartoons", "episode", "episodes",
-                "season", "seasons", "show", "shows", "film", "films", "movie", "movies", "cour", "cours", "ova",
-                "webtoon", "studio")
-_MEDIUM = re.compile(r"(?<![a-z])(" + "|".join(MEDIUM_WORDS) + r")(?![a-z])", re.I)
 LISTS = ("essential_conditions", "variable_details", "failure_conditions")
+NEUTRAL_TEXTS = ("pattern", *LADDER)   # texts that must stay free of names and medium words
 
 
 def render_prompt(paths: Paths) -> RenderedPrompt:
@@ -50,7 +50,7 @@ def output_schema(atom_ids: list[str], bridge_names: list[str]) -> dict[str, Any
     items = {"type": "array", "items": {"type": "string"}}
     transfer = _obj({"source_atom_id": {"type": "string", "enum": atom_ids}, "pattern": {"type": "string"},
                      "bridge": {"type": "array", "items": {"type": "string", "enum": bridge_names}},
-                     **{k: items for k in LISTS}})
+                     **{k: items for k in LISTS}, **{k: {"type": "string"} for k in LADDER}})
     return _obj({"transfers": {"type": "array", "items": transfer}})
 
 
@@ -71,7 +71,7 @@ def assemble(out: dict[str, Any], atoms: dict[str, dict[str, Any]], prov: dict[s
         records.append({"transfer_id": f"{aid.split('.')[0]}.t.{n:03d}", "source_atom_id": aid,
                         "atom_kind": (atoms.get(aid) or {}).get("atom_kind", "effect"), "pattern": t.get("pattern"),
                         "bridge": list(t.get("bridge") or []), **{k: list(t.get(k) or []) for k in LISTS},
-                        "provenance": prov})
+                        **{k: t.get(k) or None for k in LADDER}, "provenance": prov})
     return records
 
 
@@ -88,13 +88,17 @@ def output_problems(out: dict[str, Any], atoms: dict[str, dict[str, Any]], names
             "vocab_version": vocab.version, "cache_key": None, "created_at": "1970-01-01T00:00:00+00:00"}
     for rec in assemble(out, atoms, prov):
         aid = rec["source_atom_id"]
-        pattern = str(rec.get("pattern") or "")
-        leaks = name_leaks(pattern, *names)
-        if leaks:
-            problems.append(f"{aid}: pattern names {leaks[:3]}; remove titles and names")
-        medium = sorted({m.lower() for m in _MEDIUM.findall(pattern)})
-        if medium:
-            problems.append(f"{aid}: pattern uses medium words {medium}")
+        missing = [k for k in LADDER if not rec.get(k)]
+        if missing:
+            problems.append(f"{aid}: give {', '.join(missing)} (the abstraction ladder)")
+        for key in NEUTRAL_TEXTS:
+            text = str(rec.get(key) or "")
+            leaks = name_leaks(text, *names)
+            if leaks:
+                problems.append(f"{aid}: {key} names {leaks[:3]}; remove titles and names")
+            medium = medium_words(text)
+            if medium:
+                problems.append(f"{aid}: {key} uses medium words {medium}")
         try:
             TransferAtom.model_validate(rec)
         except ValidationError as exc:

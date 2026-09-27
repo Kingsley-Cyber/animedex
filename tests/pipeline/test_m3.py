@@ -137,6 +137,12 @@ def run_through_check(repo, check_rounds, p3=None):
     return rc, mock
 
 
+# v1.8 abstraction ladder: P4 answers carry these on every transfer
+LADDER = {"mechanism": "each use of power spends something the helper cannot get back",
+          "principle": "When power has a personal price, make every use a choice, because the price drives drama",
+          "anti_pattern": "power that costs nothing"}
+
+
 def test_full_m3_flow_reject_revise_recheck_and_transfer(m3):
     first = {"verdicts": [
         verdict(f"{T1}.m.001", "mechanism"), verdict(f"{T1}.m.001", "proof"),
@@ -162,11 +168,11 @@ def test_full_m3_flow_reject_revise_recheck_and_transfer(m3):
     leaky = {"transfers": [
         {"source_atom_id": f"{T1}.m.001", "pattern": "An Ironvale courier trades memory for anime power each episode",
          "bridge": ["cost_of_advancement"], "essential_conditions": ["the cost is personal and cumulative"],
-         "variable_details": ["what is forgotten"], "failure_conditions": ["the cost can be undone"]},
+         "variable_details": ["what is forgotten"], "failure_conditions": ["the cost can be undone"], **LADDER},
         {"source_atom_id": f"{T1}.m.002", "pattern": "Only the lead can read the measure of growth",
          "bridge": ["visible_progress_counter", "information_asymmetry"],
          "essential_conditions": ["the measure stays private"], "variable_details": ["the measure's form"],
-         "failure_conditions": ["others can read the measure"]}]}
+         "failure_conditions": ["others can read the measure"], **LADDER}]}
     clean = json.loads(json.dumps(leaky))
     clean["transfers"][0]["pattern"] = "A helper trades memories for power, and every rescue costs a memory"
     c, mock = client(m3, {("P4", T1): [leaky, clean]}, "run_p4")
@@ -251,7 +257,8 @@ def test_orchestrator_runs_m3_stages_with_mocks(m3):
     transfers = {"transfers": [
         {"source_atom_id": f"{T1}.m.00{i}", "pattern": "A helper pays for power with memory, one rescue at a time",
          "bridge": ["cost_of_advancement"], "essential_conditions": ["the cost is personal"],
-         "variable_details": ["the setting"], "failure_conditions": ["the cost is reversible"]} for i in (1, 2)]}
+         "variable_details": ["the setting"], "failure_conditions": ["the cost is reversible"], **LADDER}
+        for i in (1, 2)]}
     responses = {("P2", T1): [p2_out()], ("P3", T1): [p3_out(m3)], ("CHECK", T1): [accept], ("P4", T1): [transfers]}
 
     def clients(key, runlog):

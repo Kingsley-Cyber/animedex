@@ -6,8 +6,10 @@ from typing import Annotated, Literal
 
 from pydantic import Field, field_validator, model_validator
 
+from animedex.models.characters import KitTool, tool_problems
 from animedex.models.common import (
     IDEA_ID,
+    RULE_ID,
     TITLE_ID,
     BridgeConcept,
     Provenance,
@@ -15,7 +17,16 @@ from animedex.models.common import (
     VocabEnum,
     check_id,
 )
-from animedex.textutil import Words25, Words30, Words40, Words120
+from animedex.textutil import (
+    Words6,
+    Words15,
+    Words20,
+    Words25,
+    Words30,
+    Words40,
+    Words120,
+    medium_words,
+)
 
 TasteCriterion = Literal["T1", "T2", "T3", "T4", "T5"]
 
@@ -128,6 +139,59 @@ class HumanRating(StrictModel):
     criteria: list[TasteCriterion] = Field(default_factory=list)
 
 
+class IdeaMC(StrictModel):
+    """v1.8: the protagonist's edge, origin, wound, and how the origin ties to the power."""
+
+    edge: Annotated[str, VocabEnum("power_combat.mc_edge")]
+    origin: Words25
+    wound: Words15
+    origin_power_link: Annotated[str, VocabEnum("character.origin_power_link")]
+
+
+class IdeaPowerKit(StrictModel):
+    """v1.8: the protagonist's power kit (kind, medium, core functions, signature tools, limits, and
+    the path by which the use grows beyond the power's obvious design)."""
+
+    kind: Annotated[str, VocabEnum("character.power_kind")]
+    medium: Words6
+    functions: list[Words15] = Field(min_length=3, max_length=6)
+    tools: list[KitTool] = Field(default_factory=list, max_length=3)
+    limits: list[Words15] = Field(min_length=1, max_length=5)
+    creativity_path: Words20
+
+    @model_validator(mode="after")
+    def _tools(self) -> IdeaPowerKit:
+        problems = tool_problems(self.functions, self.tools)
+        if problems:
+            raise ValueError("; ".join(problems))
+        return self
+
+
+class IdeaThematicArgument(StrictModel):
+    """v1.8: the argument the story makes (the MC's thesis, the villain's antithesis, the ending)."""
+
+    thesis_mc: Words15
+    antithesis_villain: Words15
+    resolution: Words20
+
+
+class IdeaRules(StrictModel):
+    """v1.8: the steering rules (steering/rules.yaml, `version`) this card satisfies and fails."""
+
+    version: str = Field(min_length=1)
+    satisfied: list[str] = Field(default_factory=list)
+    failed: list[str] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def _ids(self) -> IdeaRules:
+        for rid in [*self.satisfied, *self.failed]:
+            check_id(RULE_ID, rid, "rule id")
+        both = sorted(set(self.satisfied) & set(self.failed))
+        if both or len(set(self.satisfied)) != len(self.satisfied) or len(set(self.failed)) != len(self.failed):
+            raise ValueError(f"each rule is listed once, as satisfied or failed{f' (both: {both})' if both else ''}")
+        return self
+
+
 class IdeaCard(StrictModel):
     idea_id: str
     target_domain: str = Field(min_length=1)
@@ -157,6 +221,15 @@ class IdeaCard(StrictModel):
     parent_ids: list[str] = Field(default_factory=list)
     human_rating: HumanRating | None = None
     provenance: Provenance
+    # v1.8 concept layer: optional, so cards made before it stay valid
+    mc: IdeaMC | None = None
+    power_kit: IdeaPowerKit | None = None
+    thematic_argument: IdeaThematicArgument | None = None
+    audience_promise: Words15 | None = None
+    escalation_model: Annotated[str, VocabEnum("core.escalation_model")] | None = None
+    core_fantasy: list[Annotated[str, VocabEnum("core.core_fantasy")]] = Field(default_factory=list)
+    premise_abstraction: Words20 | None = None   # the clone check's text: no names or medium words
+    rules: IdeaRules | None = None
 
     @field_validator("idea_id")
     @classmethod
@@ -167,6 +240,14 @@ class IdeaCard(StrictModel):
     @classmethod
     def _closest(cls, value: str) -> str:
         return check_id(TITLE_ID, value, "closest_existing")
+
+    @model_validator(mode="after")
+    def _concept(self) -> IdeaCard:
+        if len(set(self.core_fantasy)) != len(self.core_fantasy):
+            raise ValueError("core_fantasy lists a value twice")
+        if self.premise_abstraction and (found := medium_words(self.premise_abstraction)):
+            raise ValueError(f"premise_abstraction uses medium words {found}")
+        return self
 
 
 class ArchiveRecord(StrictModel):
@@ -259,6 +340,10 @@ class CensusEntry(StrictModel):
     fight_medium: Annotated[str, VocabEnum("power_combat.fight_medium")] | None = None
     power_is: Annotated[str, VocabEnum("relationships.power_is")] | None = None
     borrowed_system: Literal[BORROWED_SYSTEMS] | None = None  # type: ignore[valid-type]
+    # v1.8: so gap counts cover them (set_structure only for titles with a power system)
+    set_structure: Annotated[str, VocabEnum("power_combat.set_structure")] | None = None
+    story_engine: Annotated[str, VocabEnum("core.story_engine")] | None = None
+    mc_archetype: Annotated[str, VocabEnum("core.mc_archetype")] | None = None
     trust: Literal["recall"] = "recall"
     batch_id: str = Field(min_length=1)
     provenance: Provenance

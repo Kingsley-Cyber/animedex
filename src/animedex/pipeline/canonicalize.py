@@ -1,8 +1,8 @@
 """CANONICALIZE (05): data/candidates/<record_type>/*.jsonl -> data/canonical/<file>.jsonl.
 
 Per-title transactions (owner ruling 2026-09-27): every title-scoped candidate file is named after its
-title, so a title's records (profile, moments, outcome, atoms, proofs, checks, transfers, episodes,
-links) are validated together and land together or not at all. A title with an invalid record, or
+title, so a title's records (profile, moments, characters, outcome, atoms, proofs, checks, transfers,
+episodes, links) are validated together and land together or not at all. A title with an invalid record, or
 one whose records break referential integrity, is held: its bad records are quarantined with reasons,
 its candidate files stay pending (a fix plus a rerun applies them), and every other title is written.
 Global record types (patterns, ideas, archive, prior art, census) keep one transaction per type.
@@ -27,7 +27,7 @@ from animedex.store.canonical import CanonicalError, CanonicalStore
 from animedex.store.jsonl import JsonlError, read_jsonl
 from animedex.store.quarantine import quarantine
 
-ORDER = ["title", "moment", "outcome", "coverage", "mechanism", "proof", "check", "transfer",
+ORDER = ["title", "moment", "character", "outcome", "coverage", "mechanism", "proof", "check", "transfer",
          "episode", "link", "pattern", "idea", "archive", "prior_art", "census"]
 GLOBAL_TYPES = ("pattern", "idea", "archive", "prior_art", "census")  # not scoped to one title
 HELD_UNTIL_CHECKED = ("mechanism", "proof")

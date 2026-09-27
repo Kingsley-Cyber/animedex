@@ -19,6 +19,26 @@
       "title": "Counterexample",
       "type": "object"
     },
+    "PredictiveEvidence": {
+      "additionalProperties": false,
+      "description": "A load-bearing atom in a held-out title (one the principle was not extracted from) that the\ncard's principle explains (v1.8 M7 principle test).",
+      "properties": {
+        "atom_id": {
+          "title": "Atom Id",
+          "type": "string"
+        },
+        "title_id": {
+          "title": "Title Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "title_id",
+        "atom_id"
+      ],
+      "title": "PredictiveEvidence",
+      "type": "object"
+    },
     "Provenance": {
       "additionalProperties": false,
       "properties": {
@@ -108,7 +128,7 @@
     }
   },
   "additionalProperties": false,
-  "description": "Pattern card (M7). 04 requires a recorded counterexample search; see AC-40.",
+  "description": "Pattern card (M7). 04 requires a recorded counterexample search; see AC-40. v1.8: a card is\n`predictive` only with evidence from a held-out title; only predictive principles feed ideation.",
   "properties": {
     "alternative_explanations": {
       "items": {
@@ -134,6 +154,18 @@
     "pattern_id": {
       "title": "Pattern Id",
       "type": "string"
+    },
+    "predictive": {
+      "default": false,
+      "title": "Predictive",
+      "type": "boolean"
+    },
+    "predictive_evidence": {
+      "items": {
+        "$ref": "#/$defs/PredictiveEvidence"
+      },
+      "title": "Predictive Evidence",
+      "type": "array"
     },
     "provenance": {
       "$ref": "#/$defs/Provenance"

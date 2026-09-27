@@ -63,14 +63,36 @@ def field_value(value: Any, **over: Any) -> dict[str, Any]:
     return base
 
 
+def lens_value(f: Any) -> Any:
+    """A valid synthetic value for a lens field of any kind (vocab 1.5.0). A secondary takes the second
+    listed value so it differs from its primary; an outcome-bound field (promise_break) stays unknown,
+    since synthetic titles carry the first outcome (hit)."""
+    vocab = get_vocab()
+
+    def part(p: Any) -> str:
+        return vocab.enum(p.vocab)[0] if p.kind == "enum" else f"synthetic {p.name.replace('_', ' ')} phrase"
+
+    if f.outcome_in:
+        return None
+    if f.kind == "enum":
+        return vocab.enum(f.vocab)[1 if f.differs_from else 0]
+    if f.kind == "enum_multi":
+        return [vocab.enum(f.vocab)[0]]
+    if f.kind == "list":
+        return [{p.name: part(p) for p in f.parts}]
+    if f.kind == "group":
+        return {p.name: part(p) for p in f.parts}
+    return f"synthetic {f.name.replace('_', ' ')} phrase"
+
+
 def _block(block: str) -> dict[str, Any]:
     vocab = get_vocab()
     out = {}
     for f in vocab.block_fields(block):
-        if f.kind == "enum":
-            fv = field_value(vocab.enum(f.vocab)[0], epistemic="observed")
-        else:
-            fv = field_value(f"synthetic {f.name.replace('_', ' ')} phrase")
+        value = lens_value(f)
+        fv = field_value(value, epistemic="observed" if f.kind in ("enum", "enum_multi") else "interpretive")
+        if value is None:
+            fv["uncertainty_reason"] = "no reliable recall"
         if f.conditional:
             fv["condition"] = "shows when the ledger is audited"
         out[f.name] = fv
@@ -100,6 +122,36 @@ def make_moment(title_id: str = "ironvale_circuit_2021", n: int = 1, **over: Any
            "locator": {"season": 1, "episode": 4, "timestamp": None, "episode_id": None},
            "moment_type": "reversal", "why_it_hit": "A private skill becomes a public sacrifice.",
            "conf": 0.7, "verification": "unverified", "source_ref": None, "provenance": prov("P1")}
+    rec.update(over)
+    return rec
+
+
+def make_character(title_id: str = "ironvale_circuit_2021", n: int = 1, role: str = "protagonist",
+                   **over: Any) -> dict[str, Any]:
+    """A cast member (v1.8). The protagonist carries a power kit; a main antagonist carries villain fields."""
+    rec: dict[str, Any] = {
+        "character_id": f"{title_id}.c.{n:02d}", "title_id": title_id, "name": "Wren Halloway", "role": role,
+        "origin": "a courier raised in the grid's maintenance tunnels", "wound": "lost her crew in a blackout",
+        "want": "keep every district lit", "need": "let others carry the load",
+        "flaw": {"value": "refuses help", "condition": "when a district goes dark"},
+        "moral_line": {"value": "never cuts a district off", "condition": "unless the whole grid would fail"},
+        "relationship_to_power": "creative_reinterpretation", "origin_power_link": "origin_shapes_use",
+        "arc_type": "positive_change", "backstory_reveal": "gradual",
+        "turning_points": [{"event": "reroutes the grid to save a rival crew", "locator": {"season": 1, "episode": 4}}],
+        "power_kit": {"power_kind": "medium", "medium": "city power grid",
+                      "functions": ["reroute current", "read load", "store charge"],
+                      "tools": [{"tool": "blackout feint", "function": "reroute current"}],
+                      "limits": ["needs a live line nearby"],
+                      "forms": [{"name": "Overload", "trigger": "a district fails", "cost": "burns her memory"}],
+                      "creativity_level": "inventive",
+                      "creativity_moves": [{"move": "turns a streetlamp grid into a cage",
+                                            "source_ref": "https://example.org/wiki/grid"}],
+                      "drama_source": None, "evolution": "from single lines to the whole city"},
+        "villain": None, "source_refs": ["https://example.org/wiki/cast"], "provenance": prov("P1")}
+    if role == "main_antagonist":
+        rec.update(name="Sable Morrow", power_kit=None, relationship_to_power="biggest_number",
+                   villain={"villain_type": "ideological", "villain_reveal": "gradual",
+                            "relation_to_mc": "opposing_ideology"})
     rec.update(over)
     return rec
 
@@ -205,12 +257,16 @@ def synthetic_state() -> dict[str, list[dict[str, Any]]]:
                "failure_reason": "Execution problems buried a clear premise.",
                "failure_level": "execution", "failure_evidence": "Reviews blame pacing and production, not the premise.",
                "failure_evidence_ref": "https://example.org/review", "failure_level_source": "verify",
+               "failure_patterns": [{"pattern": "pacing_collapse", "source_ref": "https://example.org/review",
+                                     "note": "reviews say the second act drags"}],
                "provenance": prov("VERIFY")}
     idea = make_idea()
     archive = {"cell_key": idea["grid_cell"], "idea_id": idea["idea_id"], "fitness": [1.0, 1.0, 0.0, -0.3],
                "replaced_idea_id": None, "generation": 1, "provenance": prov("IDEATE")}
-    return {"title": [t1, t2, t3], "moment": [make_moment()], "outcome": [outcome], "mechanism": [atom1, atom2],
-            "proof": [proof1, proof2], "check": [check1], "transfer": [transfer], "idea": [idea], "archive": [archive]}
+    characters = [make_character(), make_character(n=2, role="main_antagonist")]
+    return {"title": [t1, t2, t3], "moment": [make_moment()], "character": characters, "outcome": [outcome],
+            "mechanism": [atom1, atom2], "proof": [proof1, proof2], "check": [check1], "transfer": [transfer],
+            "idea": [idea], "archive": [archive]}
 
 
 def write_state(paths: Paths, state: dict[str, list[dict[str, Any]]]) -> None:

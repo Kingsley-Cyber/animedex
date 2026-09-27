@@ -32,6 +32,45 @@
       "title": "Confounders",
       "type": "object"
     },
+    "FailurePattern": {
+      "additionalProperties": false,
+      "description": "v1.8: how a mixed/flop title failed, with the page that says so. Pre-mortems and graveyard\nwarnings cite these.",
+      "properties": {
+        "note": {
+          "title": "Note",
+          "type": "string"
+        },
+        "pattern": {
+          "enum": [
+            "promise_broken",
+            "power_scaling_collapse",
+            "villain_deflation",
+            "cast_bloat",
+            "pacing_collapse",
+            "adaptation_compression",
+            "tone_whiplash",
+            "protagonist_passivity",
+            "ending_failure",
+            "production_quality",
+            "other"
+          ],
+          "title": "Pattern",
+          "type": "string",
+          "x-vocab": "outcome.failure_pattern"
+        },
+        "source_ref": {
+          "title": "Source Ref",
+          "type": "string"
+        }
+      },
+      "required": [
+        "pattern",
+        "source_ref",
+        "note"
+      ],
+      "title": "FailurePattern",
+      "type": "object"
+    },
     "Provenance": {
       "additionalProperties": false,
       "properties": {
@@ -212,6 +251,13 @@
       ],
       "default": null,
       "title": "Failure Level Source"
+    },
+    "failure_patterns": {
+      "items": {
+        "$ref": "#/$defs/FailurePattern"
+      },
+      "title": "Failure Patterns",
+      "type": "array"
     },
     "failure_reason": {
       "anyOf": [

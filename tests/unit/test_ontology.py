@@ -7,7 +7,7 @@ import json
 
 import pytest
 
-from animedex.models import record_paths
+from animedex.models import CQ_RECORD_FIELDS, record_paths
 from animedex.ontology import (
     CQSet,
     OntologyError,
@@ -41,12 +41,12 @@ def test_normalize_enum_without_other_returns_none_and_proposal():
 
 
 def test_real_ontology_has_no_orphans():
-    report = coverage_report(get_vocab(), get_bridge(), get_cqs(), record_paths())
+    report = coverage_report(get_vocab(), get_bridge(), get_cqs(), record_paths(), CQ_RECORD_FIELDS)
     assert report.errors == []
     assert report.orphans == []
     kinds = {r.kind for r in report.rows}
-    assert kinds == {"lens_field", "module", "vocab_field", "bridge_concept"}
-    assert len([r for r in report.rows if r.kind == "lens_field"]) == 50
+    assert kinds == {"lens_field", "module", "vocab_field", "bridge_concept", "record_field"}  # v1.8: record fields
+    assert len([r for r in report.rows if r.kind == "lens_field"]) == 87  # 50 + 37 (v1.8, vocab 1.5.0)
 
 
 def test_lens_matches_spec_v1_2():
@@ -87,14 +87,19 @@ def test_unknown_requires_and_unknown_cq_refs_are_errors():
 TWO_PART = {"core.logline_hook", "core.core_question", "core.premise_engine", "core.want_vs_need",
             "core.opposition_logic", "core.stakes_clock", "core.world_rules", "core.broken_rule",
             "core.central_mystery", "core.knowledge_gap", "series_engine.episode_template"}
+# v1.8 fields whose cap the request states (owner decision: they keep it; other new phrases default to 15)
+V18_20 = {"core.promise_mechanism", "core.promise_break", "core.premise_abstraction"}
+V18_12 = {"core.real_world_isomorphism", "core.reacts_against"}
 
 
 def test_word_caps_are_the_approved_ones():
     vocab = get_vocab()
     caps = {f.path: f.max_words for f in vocab.lens_fields()}
-    assert {p for p, c in caps.items() if c == 20} == TWO_PART  # owner-approved 2026-09-27
-    assert {c for p, c in caps.items() if p not in TWO_PART and vocab.lens_field(p).kind == "phrase"} == {15}
-    assert all(c is None for p, c in caps.items() if vocab.lens_field(p).kind == "enum")
+    assert {p for p, c in caps.items() if c == 20} == TWO_PART | V18_20  # owner-approved 2026-09-27
+    assert {p for p, c in caps.items() if c == 12} == V18_12
+    assert {c for p, c in caps.items()
+            if p not in TWO_PART | V18_20 | V18_12 and vocab.lens_field(p).kind == "phrase"} == {15}
+    assert all(c is None for p, c in caps.items() if vocab.lens_field(p).kind != "phrase")
 
 
 @pytest.mark.parametrize("spec", [{"kind": "enum", "vocab": "feeling", "max_words": 5},

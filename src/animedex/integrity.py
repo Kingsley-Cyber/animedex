@@ -9,6 +9,14 @@ import re
 from typing import Any
 
 from animedex.activation import violations as activation_violations
+from animedex.eligibility import eligible_atom_ids
+from animedex.models.characters import (
+    ANTAGONIST_ROLES,
+    MAX_CHARACTERS,
+    MAX_POWER_KITS,
+    ROLE_LIMITS,
+    SHARED_SLOT,
+)
 from animedex.ontology import Vocab
 
 State = dict[str, list[dict[str, Any]]]
@@ -26,35 +34,67 @@ def _index(state: State, record_type: str, key: str) -> dict[str, dict[str, Any]
 
 
 def _phrases(record: dict[str, Any], vocab: Vocab) -> list[str]:
+    """A title's phrase values, with the phrase parts of list and group values (vocab 1.5.0)."""
     out = []
     for f in vocab.lens_fields():
-        if f.kind != "phrase":
+        value = ((record.get(f.block) or {}).get(f.name) or {}).get("value")
+        if not value:
             continue
-        block = record.get(f.block) or {}
-        value = (block.get(f.name) or {}).get("value")
-        if value:
+        if f.kind == "phrase":
             out.append(value)
+            continue
+        objs = value if f.kind == "list" and isinstance(value, list) else [value] if f.kind == "group" else []
+        for obj in objs:
+            for p in f.parts:
+                text = obj.get(p.name) if isinstance(obj, dict) else None
+                if p.kind == "phrase" and isinstance(text, str) and text:
+                    out.append(text)
     return out
 
 
+def _character_texts(c: dict[str, Any]) -> list[str]:
+    kit = c.get("power_kit") or {}
+    texts = [c.get(k) or "" for k in ("origin", "wound", "want", "need")]
+    texts += [(c.get(k) or {}).get(sub) or "" for k in ("flaw", "moral_line") for sub in ("value", "condition")]
+    texts += [t.get("event", "") for t in c.get("turning_points") or []]
+    texts += [kit.get("medium") or "", kit.get("evolution") or "", *(kit.get("functions") or []),
+              *(kit.get("limits") or []), *(t.get("tool", "") for t in kit.get("tools") or []),
+              *(m.get("move", "") for m in kit.get("creativity_moves") or [])]
+    texts += [f.get(k, "") for f in kit.get("forms") or [] for k in ("name", "trigger", "cost")]
+    return texts
+
+
+def proper_nouns(text: str) -> list[str]:
+    """Capitalized words after the first word of a sentence: the name-leak tokenization of one text."""
+    out = []
+    for sentence in _SENTENCE_SPLIT.split(text):
+        out += [w for w in _WORD.findall(sentence)[1:] if w[0].isupper() and len(w) >= 3 and w not in _STOP]
+    return sorted(set(out))
+
+
+def _name_tokens(name: str) -> set[str]:
+    """Every capitalized word of a character's name (its first word too), so a first name alone is caught."""
+    return {w for w in _WORD.findall(name) if w[0].isupper() and len(w) >= 3 and w not in _STOP}
+
+
 def name_list(state: State, vocab: Vocab) -> tuple[set[str], set[str]]:
-    """(full titles lowercased, capitalized mid-sentence tokens) from canonical titles, moments,
-    and episodes: the 04 name-leak list for P4 patterns."""
+    """(full titles lowercased, capitalized tokens) from canonical titles, moments, episodes, and (v1.8)
+    characters: the 04 name-leak list for P4 transfers, pattern cards and idea cards. Every word of a
+    character's name joins it; other texts give their capitalized mid-sentence words."""
     titles = {str(t["title"]).lower() for t in state.get("title", [])}
     texts: list[str] = []
+    tokens: set[str] = set()
     for t in state.get("title", []):
         texts.extend(_phrases(t, vocab))
     for m in state.get("moment", []):
         texts.extend([m.get("description", ""), m.get("why_it_hit", "")])
     for e in state.get("episode", []):
         texts.append(e.get("summary", ""))
-    tokens: set[str] = set()
+    for c in state.get("character", []):
+        tokens |= _name_tokens(str(c.get("name") or ""))
+        texts.extend(_character_texts(c))
     for text in texts:
-        for sentence in _SENTENCE_SPLIT.split(text):
-            words = _WORD.findall(sentence)
-            for w in words[1:]:
-                if w[0].isupper() and len(w) >= 3 and w not in _STOP:
-                    tokens.add(w)
+        tokens.update(proper_nouns(text))
     return titles, tokens
 
 
@@ -85,6 +125,8 @@ def integrity_errors(state: State, vocab: Vocab) -> list[str]:
             errors.append(f"title {tid}: {problem}")
     for r in state.get("moment", []):
         need(r["title_id"] in titles, f"moment {r['moment_id']}: unknown title {r['title_id']}")
+    characters = _index(state, "character", "character_id")
+    errors.extend(character_errors(state, titles))
     for r in state.get("outcome", []):
         need(r["title_id"] in titles, f"outcome: unknown title {r['title_id']}")
     for r in state.get("coverage", []):
@@ -92,9 +134,9 @@ def integrity_errors(state: State, vocab: Vocab) -> list[str]:
     for r in state.get("mechanism", []):
         aid = r["atom_id"]
         need(r["title_id"] in titles, f"mechanism {aid}: unknown title {r['title_id']}")
-        for ref in r.get("evidence_refs", []):
-            need(ref in lens_paths or ref in moments or ref in episodes,
-                 f"mechanism {aid}: evidence_ref {ref!r} is not a field path, moment, or episode")
+        for ref in r.get("evidence_refs", []):  # v1.8: P2 may cite a character record
+            need(ref in lens_paths or ref in moments or ref in episodes or ref in characters,
+                 f"mechanism {aid}: evidence_ref {ref!r} is not a field path, moment, episode, or character")
         eref = (r.get("effect") or {}).get("element_ref") or {}
         if eref.get("moment_id"):
             need(eref["moment_id"] in moments, f"mechanism {aid}: unknown element_ref moment")
@@ -143,11 +185,16 @@ def integrity_errors(state: State, vocab: Vocab) -> list[str]:
         need(r["title_id"] in titles, f"link {r['link_id']}: unknown title")
         need(r["from_id"] in linkable, f"link {r['link_id']}: unknown from_id {r['from_id']}")
         need(r["to_id"] in linkable, f"link {r['link_id']}: unknown to_id {r['to_id']}")
+    eligible = eligible_atom_ids(state) if any(r.get("predictive_evidence") for r in state.get("pattern", [])) else set()
     for r in state.get("pattern", []):
         pid = r["pattern_id"]
         need(all(t in transfers for t in r.get("transfer_ids", [])), f"pattern {pid}: unknown transfer")
         need(all(t in titles for t in r.get("supporting_titles", [])), f"pattern {pid}: unknown supporting title")
         need(all(c["title_id"] in titles for c in r.get("counterexamples", [])), f"pattern {pid}: unknown counterexample title")
+        for ev in r.get("predictive_evidence", []):  # v1.8 M7: a held-out load-bearing atom the principle explains
+            need(ev["title_id"] in titles, f"pattern {pid}: unknown predictive-evidence title {ev['title_id']}")
+            need(ev["atom_id"] in eligible, f"pattern {pid}: predictive evidence {ev['atom_id']} is not a "
+                                            "load-bearing-eligible atom")
     for r in state.get("idea", []):
         iid = r["idea_id"]
         used = set(r.get("atoms_used", [])) | set(r.get("transformation", {}).get("source_transfer_ids", []))
@@ -160,9 +207,62 @@ def integrity_errors(state: State, vocab: Vocab) -> list[str]:
         if r.get("replaced_idea_id"):
             need(r["replaced_idea_id"] in ideas, f"archive {r['cell_key']}: unknown replaced idea")
 
-    if state.get("transfer"):
+    abstract = [f for f in vocab.lens_fields() if f.abstract]
+    if state.get("transfer") or state.get("pattern") or (abstract and state.get("title")):
         full_titles, tokens = name_list(state, vocab)
-        for r in state["transfer"]:
-            leaks = name_leaks(r.get("pattern", ""), full_titles, tokens)
-            need(not leaks, f"transfer {r['transfer_id']}: pattern contains names {leaks}")
+        for r in state.get("transfer", []):
+            for key in ("pattern", "mechanism", "principle", "anti_pattern"):
+                leaks = name_leaks(r.get(key) or "", full_titles, tokens)
+                need(not leaks, f"transfer {r['transfer_id']}: {key} contains names {leaks}")
+        for r in state.get("pattern", []):
+            leaks = name_leaks(r.get("statement", ""), full_titles, tokens)
+            need(not leaks, f"pattern {r['pattern_id']}: statement contains names {leaks}")
+        for tid, t in titles.items():  # the clone check's text (vocab 1.5.0): no names
+            for f in abstract:
+                text = ((t.get(f.block) or {}).get(f.name) or {}).get("value") or ""
+                leaks = name_leaks(text, full_titles, tokens)
+                need(not leaks, f"title {tid}: {f.path} contains names {leaks}")
+    return errors
+
+
+def character_errors(state: State, titles: dict[str, dict[str, Any]]) -> list[str]:
+    """v1.8 characters: a known title; per title at most 4, one per role (mentor or deuteragonist share
+    a slot), exactly one protagonist; at most 3 power kits, the protagonist's first; villain fields
+    only on antagonists; turning points at in-scope episodes (films need none)."""
+    errors: list[str] = []
+    by_title: dict[str, list[dict[str, Any]]] = {}
+    for c in state.get("character", []):
+        by_title.setdefault(c["title_id"], []).append(c)
+    for tid, cast in sorted(by_title.items()):
+        title = titles.get(tid)
+        if title is None:
+            errors.append(f"characters of {tid}: unknown title")
+            continue
+        roles = [c["role"] for c in cast]
+        if len(cast) > MAX_CHARACTERS:
+            errors.append(f"characters of {tid}: {len(cast)} records; at most {MAX_CHARACTERS}")
+        for role, limit in ROLE_LIMITS.items():
+            if roles.count(role) > limit:
+                errors.append(f"characters of {tid}: {roles.count(role)} {role} records; at most {limit}")
+        if sum(roles.count(r) for r in SHARED_SLOT) > 1:
+            errors.append(f"characters of {tid}: one {' or '.join(SHARED_SLOT)} at most")
+        if roles.count("protagonist") != 1:
+            errors.append(f"characters of {tid}: a cast needs its protagonist")
+        kits = [c for c in cast if c.get("power_kit")]
+        if len(kits) > MAX_POWER_KITS:
+            errors.append(f"characters of {tid}: {len(kits)} power kits; at most {MAX_POWER_KITS}")
+        if kits and not any(c["role"] == "protagonist" for c in kits):
+            errors.append(f"characters of {tid}: power kits start with the protagonist's")
+        seasons = (title.get("scope") or {}).get("seasons") or []
+        film = title.get("format") == "film"
+        for c in cast:
+            cid = c["character_id"]
+            if c.get("villain") and c["role"] not in ANTAGONIST_ROLES:
+                errors.append(f"character {cid}: villain fields on a {c['role']}")
+            for tp in c.get("turning_points") or []:
+                loc = tp.get("locator") or {}
+                if not film and loc.get("episode") is None:
+                    errors.append(f"character {cid}: a turning point needs its episode")
+                if loc.get("season") is not None and loc["season"] not in seasons:
+                    errors.append(f"character {cid}: a turning point's season is outside the title's scope")
     return errors

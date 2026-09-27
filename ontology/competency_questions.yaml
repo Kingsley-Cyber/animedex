@@ -1,7 +1,7 @@
 # Competency questions (01, spec v1.2). `requires:` lists the fields each question
 # reads: P1 lens paths (core.*, <module>.*) or record paths (<record>.<field>).
 # Every lens field, module, vocab field, and bridge concept must trace to >= 1 CQ.
-version: 1.6.0
+version: 1.8.0
 questions:
   # Gap analysis
   - id: CQ-G01
@@ -105,3 +105,111 @@ questions:
   - id: CQ-E08
     text: Which decision shapes (options, rejected alternative, expected vs. actual outcome) recur in hits' key episodes? (M6)
     requires: [episode.decisions.options, episode.decisions.rejected, episode.decisions.expected, episode.decisions.actual, core.outcome]
+  # v1.8: concept, character and abstract layers (vocab 1.5.0). The first thirteen are the owner's
+  # examples; the rest make sure every new lens field and every new record field has a question.
+  - id: CQ-G11
+    text: Which mc_edge types appear in hits, and which gate x mc_edge combinations are unused?
+    requires: [power_combat.mc_edge, power_combat.gate, core.outcome, outcome.label, coverage.field_completion]
+  - id: CQ-I16
+    text: Which open_variety systems give the MC a weak medium that gets reinterpreted?
+    requires: [power_combat.set_structure, power_combat.mc_edge, core.mc_start, character.role, character.relationship_to_power, character.power_kit.medium, character.power_kit.creativity_level, character.power_kit.creativity_moves]
+  - id: CQ-I17
+    text: Which closed or hierarchical sets have identity_with_history members, and on what scaffold?
+    requires: [power_combat.set_structure, power_combat.member_depth, power_combat.set_scaffold]
+  - id: CQ-G12
+    text: Which power_kind x creativity_level combinations are unused?
+    requires: [character.power_kit.power_kind, character.power_kit.creativity_level]
+  - id: CQ-I18
+    text: How do stat_block heroes generate drama in hits vs. flops?
+    requires: [character.power_kit.power_kind, character.power_kit.drama_source, core.outcome, outcome.label]
+  - id: CQ-I19
+    text: Which origin-power links recur in hits' load-bearing atoms?
+    requires: [character.origin_power_link, mechanism.evidence_refs, proof.ablation.verdict, core.outcome, outcome.label]
+  - id: CQ-G13
+    text: Which story engines have never been paired with bound-entity powers?
+    requires: [core.story_engine, core.story_engine_secondary, power_combat.power_embodiment, character.power_kit.power_kind]
+  - id: CQ-G14
+    text: Which villain types appear with hidden worlds, and which are unused there?
+    requires: [character.villain.villain_type, core.world_visibility]
+  - id: CQ-I20
+    text: Which core fantasies pair with which story engines in hits?
+    requires: [core.core_fantasy, core.story_engine, core.outcome, outcome.label]
+  - id: CQ-I21
+    text: Which flops broke the promise their premise made, and how?
+    requires: [core.audience_promise, core.promise_mechanism, core.promise_break, outcome.failure_patterns, outcome.label]
+  - id: CQ-I22
+    text: Which escalation models survive 100+ episodes?
+    requires: [core.escalation_model, coverage.episodes.in_scope, core.outcome]
+  - id: CQ-I23
+    text: Which real-world systems have never been used as power systems?
+    requires: [core.real_world_isomorphism, census.borrowed_system, census.has_power_system]
+  - id: CQ-I24
+    text: Which premise abstractions have zero near-neighbors?
+    requires: [core.premise_abstraction]
+  - id: CQ-G15
+    text: Which setting x world-visibility x conflict-scale combinations are unused?
+    requires: [core.setting_type, core.world_visibility, core.conflict_scale]
+  - id: CQ-G16
+    text: Which set structures, story engines, and MC archetypes are empty across the census (catalog-wide)?
+    requires: [census.set_structure, census.story_engine, census.mc_archetype, census.has_power_system]
+  - id: CQ-G17
+    text: Which set structures have never used a given subset mechanic?
+    requires: [power_combat.set_structure, power_combat.subset_mechanics]
+  - id: CQ-I25
+    text: Which primary x secondary costs of power occur together, and in hits or flops?
+    requires: [power_combat.cost_of_power, power_combat.cost_of_power_secondary, core.outcome]
+  - id: CQ-I26
+    text: How is power embodied, how rare is it, and how deeply is it built into the world, in hits vs. flops?
+    requires: [power_combat.power_embodiment, power_combat.rarity, power_combat.world_integration, core.outcome]
+  - id: CQ-I27
+    text: Which power-up modes, and what they cost, pair with which fight logics?
+    requires: [power_combat.power_up_mode, power_combat.power_up_cost, power_combat.fight_logic]
+  - id: CQ-I28
+    text: Which pilot hooks and ending types appear in hits vs. flops?
+    requires: [core.pilot_hook_type, core.ending_type, core.outcome]
+  - id: CQ-I29
+    text: Which institutions (by type and role in the story) drive stories, and in which settings?
+    requires: [core.institutions, core.setting_type]
+  - id: CQ-I30
+    text: Which MC archetype x starting strength x goal combinations appear in hits?
+    requires: [core.mc_archetype, core.mc_start, core.mc_goal_type, core.outcome]
+  - id: CQ-I31
+    text: How do ensemble size, rival type, and threat structure pair in hits vs. flops?
+    requires: [core.ensemble_size, core.rival_type, core.threat_structure, core.outcome]
+  - id: CQ-I32
+    text: What thematic arguments (the MC's thesis, the villain's antithesis, the ending's resolution) do hits make?
+    requires: [core.thematic_argument, core.outcome]
+  - id: CQ-I33
+    text: Which anticipation-hook types keep hits going?
+    requires: [core.anticipation_hooks, core.outcome]
+  - id: CQ-I34
+    text: Which genre moves, reacting against what, appear in hits vs. flops?
+    requires: [core.genre_move, core.reacts_against, core.outcome]
+  - id: CQ-I35
+    text: Which failure patterns recur among mixed and flop titles, and what sources back them?
+    requires: [outcome.failure_patterns, outcome.label, outcome.failure_level]
+  - id: CQ-I36
+    text: Which mechanisms, principles, and anti-patterns do load-bearing transfers carry, by bridge concept?
+    requires: [transfer.mechanism, transfer.principle, transfer.anti_pattern, transfer.bridge, proof.ablation.verdict]
+  - id: CQ-I37
+    text: Which pattern-card principles are predictive, and on which held-out titles? (M7)
+    requires: [pattern.predictive, pattern.predictive_evidence, pattern.supporting_titles]
+  - id: CQ-I38
+    text: Which MC edges, power kits, escalation models, and core fantasies do idea cards use, and how many carry a thematic argument, audience promise, and premise abstraction?
+    requires: [idea.mc, idea.power_kit, idea.thematic_argument, idea.audience_promise, idea.escalation_model, idea.core_fantasy, idea.premise_abstraction, idea.status]
+  - id: CQ-I39
+    text: Which steering rules do idea cards satisfy or fail, by status?
+    requires: [idea.rules, idea.status]
+  # Characters (v1.8)
+  - id: CQ-C01
+    text: What wants, needs, flaws, moral lines, and arc types does each cast role carry, and when is its backstory revealed?
+    requires: [character.role, character.want, character.need, character.flaw, character.moral_line, character.arc_type, character.backstory_reveal]
+  - id: CQ-C02
+    text: Where do each role's turning points fall across the run?
+    requires: [character.turning_points, character.role]
+  - id: CQ-C03
+    text: How do protagonists' origins and wounds tie to their power kits (functions, signature tools, limits, forms), and how do the kits grow?
+    requires: [character.origin, character.wound, character.origin_power_link, character.relationship_to_power, character.power_kit.functions, character.power_kit.tools, character.power_kit.limits, character.power_kit.forms, character.power_kit.evolution, power_combat.mc_edge]
+  - id: CQ-C04
+    text: Which villain reveals and relations to the MC pair with which villain types, in hits vs. flops?
+    requires: [character.villain.villain_type, character.villain.villain_reveal, character.villain.relation_to_mc, core.outcome]

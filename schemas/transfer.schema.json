@@ -90,6 +90,18 @@
   },
   "additionalProperties": false,
   "properties": {
+    "anti_pattern": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Anti Pattern"
+    },
     "atom_kind": {
       "enum": [
         "effect",
@@ -134,9 +146,33 @@
       "title": "Failure Conditions",
       "type": "array"
     },
+    "mechanism": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Mechanism"
+    },
     "pattern": {
       "title": "Pattern",
       "type": "string"
+    },
+    "principle": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Principle"
     },
     "provenance": {
       "$ref": "#/$defs/Provenance"

@@ -202,6 +202,119 @@
       "title": "IdeaEngine",
       "type": "object"
     },
+    "IdeaMC": {
+      "additionalProperties": false,
+      "description": "v1.8: the protagonist's edge, origin, wound, and how the origin ties to the power.",
+      "properties": {
+        "edge": {
+          "enum": [
+            "biggest_number",
+            "creative_reinterpretation",
+            "partnership_with_power",
+            "unique_cost",
+            "relentless_training",
+            "hidden_advantage",
+            "not_strongest",
+            "other"
+          ],
+          "title": "Edge",
+          "type": "string",
+          "x-vocab": "power_combat.mc_edge"
+        },
+        "origin": {
+          "title": "Origin",
+          "type": "string"
+        },
+        "origin_power_link": {
+          "enum": [
+            "origin_creates_power",
+            "origin_shapes_use",
+            "origin_sets_cost",
+            "unrelated",
+            "other"
+          ],
+          "title": "Origin Power Link",
+          "type": "string",
+          "x-vocab": "character.origin_power_link"
+        },
+        "wound": {
+          "title": "Wound",
+          "type": "string"
+        }
+      },
+      "required": [
+        "edge",
+        "origin",
+        "wound",
+        "origin_power_link"
+      ],
+      "title": "IdeaMC",
+      "type": "object"
+    },
+    "IdeaPowerKit": {
+      "additionalProperties": false,
+      "description": "v1.8: the protagonist's power kit (kind, medium, core functions, signature tools, limits, and\nthe path by which the use grows beyond the power's obvious design).",
+      "properties": {
+        "creativity_path": {
+          "title": "Creativity Path",
+          "type": "string"
+        },
+        "functions": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 6,
+          "minItems": 3,
+          "title": "Functions",
+          "type": "array"
+        },
+        "kind": {
+          "enum": [
+            "medium",
+            "stat_block",
+            "technique_system",
+            "bound_entity",
+            "object",
+            "system_interface",
+            "skill_or_trait",
+            "none"
+          ],
+          "title": "Kind",
+          "type": "string",
+          "x-vocab": "character.power_kind"
+        },
+        "limits": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 5,
+          "minItems": 1,
+          "title": "Limits",
+          "type": "array"
+        },
+        "medium": {
+          "title": "Medium",
+          "type": "string"
+        },
+        "tools": {
+          "items": {
+            "$ref": "#/$defs/KitTool"
+          },
+          "maxItems": 3,
+          "title": "Tools",
+          "type": "array"
+        }
+      },
+      "required": [
+        "kind",
+        "medium",
+        "functions",
+        "limits",
+        "creativity_path"
+      ],
+      "title": "IdeaPowerKit",
+      "type": "object"
+    },
     "IdeaProfile": {
       "additionalProperties": false,
       "description": "Same enums as title profiles so overlap is computable.",
@@ -215,6 +328,8 @@
             "relationships",
             "resource",
             "moral",
+            "self_imposed_restriction",
+            "imposed_penalty",
             "none",
             "other"
           ],
@@ -279,6 +394,7 @@
             "rank_tier",
             "collectible_count",
             "transformation_stage",
+            "gauge",
             "none",
             "other"
           ],
@@ -296,6 +412,81 @@
         "power_is"
       ],
       "title": "IdeaProfile",
+      "type": "object"
+    },
+    "IdeaRules": {
+      "additionalProperties": false,
+      "description": "v1.8: the steering rules (steering/rules.yaml, `version`) this card satisfies and fails.",
+      "properties": {
+        "failed": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Failed",
+          "type": "array"
+        },
+        "satisfied": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Satisfied",
+          "type": "array"
+        },
+        "version": {
+          "minLength": 1,
+          "title": "Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "version"
+      ],
+      "title": "IdeaRules",
+      "type": "object"
+    },
+    "IdeaThematicArgument": {
+      "additionalProperties": false,
+      "description": "v1.8: the argument the story makes (the MC's thesis, the villain's antithesis, the ending).",
+      "properties": {
+        "antithesis_villain": {
+          "title": "Antithesis Villain",
+          "type": "string"
+        },
+        "resolution": {
+          "title": "Resolution",
+          "type": "string"
+        },
+        "thesis_mc": {
+          "title": "Thesis Mc",
+          "type": "string"
+        }
+      },
+      "required": [
+        "thesis_mc",
+        "antithesis_villain",
+        "resolution"
+      ],
+      "title": "IdeaThematicArgument",
+      "type": "object"
+    },
+    "KitTool": {
+      "additionalProperties": false,
+      "description": "A signature application of a power, naming the kit function it exploits.",
+      "properties": {
+        "function": {
+          "title": "Function",
+          "type": "string"
+        },
+        "tool": {
+          "title": "Tool",
+          "type": "string"
+        }
+      },
+      "required": [
+        "tool",
+        "function"
+      ],
+      "title": "KitTool",
       "type": "object"
     },
     "PremortemItem": {
@@ -550,6 +741,18 @@
       "title": "Atoms Used",
       "type": "array"
     },
+    "audience_promise": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Audience Promise"
+    },
     "borrowed_from": {
       "items": {
         "type": "string"
@@ -587,8 +790,51 @@
     "consequences": {
       "$ref": "#/$defs/Consequences"
     },
+    "core_fantasy": {
+      "items": {
+        "enum": [
+          "secret_strength",
+          "underestimated_then_vindicated",
+          "mastery",
+          "found_family",
+          "revenge",
+          "transgression",
+          "being_chosen",
+          "protection",
+          "freedom",
+          "competence",
+          "other"
+        ],
+        "type": "string",
+        "x-vocab": "core.core_fantasy"
+      },
+      "title": "Core Fantasy",
+      "type": "array"
+    },
     "engine": {
       "$ref": "#/$defs/IdeaEngine"
+    },
+    "escalation_model": {
+      "anyOf": [
+        {
+          "enum": [
+            "vertical_power",
+            "horizontal_tools",
+            "stakes_over_power",
+            "structural_reset",
+            "cost_scaled",
+            "none",
+            "other"
+          ],
+          "type": "string",
+          "x-vocab": "core.escalation_model"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Escalation Model"
     },
     "gates": {
       "$ref": "#/$defs/Gates"
@@ -622,6 +868,17 @@
       "title": "Logline",
       "type": "string"
     },
+    "mc": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/IdeaMC"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
     "parent_ids": {
       "items": {
         "type": "string"
@@ -629,9 +886,32 @@
       "title": "Parent Ids",
       "type": "array"
     },
+    "power_kit": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/IdeaPowerKit"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
     "premise": {
       "title": "Premise",
       "type": "string"
+    },
+    "premise_abstraction": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Premise Abstraction"
     },
     "premortem": {
       "items": {
@@ -650,6 +930,17 @@
       "anyOf": [
         {
           "$ref": "#/$defs/RevivalRef"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "rules": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/IdeaRules"
         },
         {
           "type": "null"
@@ -684,6 +975,17 @@
     },
     "taste": {
       "$ref": "#/$defs/Taste"
+    },
+    "thematic_argument": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/IdeaThematicArgument"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
     },
     "theme_root": {
       "minLength": 1,
