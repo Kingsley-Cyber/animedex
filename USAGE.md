@@ -22,7 +22,7 @@ ANIMEDEX turns a list of shows into cards for new anime ideas. You add titles, t
 
 3. Open `build/reports/backfill.md`. It shows which version it picked for each line. If a pick is wrong, add the year to that line and run again, or fix the title in `corpus/titles.yaml`.
 
-- **Batches:** each run fully studies up to 4 titles. That takes about 50 minutes and stays inside the 40-call cap. Run the same command again for the next batch; it continues where it stopped.
+- **Batches:** each run fully studies up to 4 titles at once (the v1.10 fast path: one profile call per title, the critic on 3 titles per call, 4 titles in parallel) and stays inside the 40-call cap; gold titles take the slower full path. Measured times are in `docs/implementation/reports/SPEED_PASS.md`. Run the same command again for the next batch; it continues where it stopped.
 - **Pauses:** if a run says "Paused", a plan limit or the call cap was reached. Run the same command later. Finished work is kept.
 - **Mix:** add a few flops and some non-anime shows. The report suggests some when your list is all hits or all anime.
 

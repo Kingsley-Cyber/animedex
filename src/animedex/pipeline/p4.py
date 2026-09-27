@@ -114,7 +114,8 @@ def output_problems(out: dict[str, Any], atoms: dict[str, dict[str, Any]], names
 
 
 def run_p4(paths: Paths, title_ids: list[str], client: LLMClient, vocab: Vocab, settings: Settings, *, run_id: str,
-           guards: GuardConfig | None = None, created_at: str | None = None) -> StageResult:
+           guards: GuardConfig | None = None, created_at: str | None = None,
+              params: dict[str, Any] | None = None) -> StageResult:
     guards = guards or GuardConfig.from_settings(settings)
     prompt = render_prompt(paths)
     client.prompt_version = prompt.version
@@ -139,7 +140,7 @@ def run_p4(paths: Paths, title_ids: list[str], client: LLMClient, vocab: Vocab, 
 
         call = guarded_call(result, paths, "P4", "transfer", tid, client, prompt.system, render_user(atoms),
                             output_schema(sorted(atoms), bridge_names), upstream=upstream_hash(list(atoms.values())),
-                            validate=check)
+                            params=params, validate=check)
         if call.stop:
             break
         if call.completion is None:

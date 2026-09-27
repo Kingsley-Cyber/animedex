@@ -169,6 +169,54 @@ def gather(title: str = TitleOpt, all_: bool = AllOpt) -> None:
 
 
 @app.command()
+def profile(title: str = TitleOpt, all_: bool = AllOpt,
+            agreement: bool = typer.Option(False, "--agreement", help="Second run for AC-12 -> eval/agreement/interpret/<run>/")
+            ) -> None:
+    """PROFILE (v1.10 speed pass): gather + interpret in ONE call for non-gold titles -> candidates (then verify)."""
+    from animedex.catalog.anilist import AniList
+    from animedex.catalog.reception import ReceptionClient, reception_for
+    from animedex.catalog.resolve import adaptation_for
+    from animedex.ontology import get_vocab
+    from animedex.pipeline.profile import run_profile
+    from animedex.providers.factory import build_client
+    from animedex.store.runlog import RunLog, new_run_id
+
+    paths = _paths()
+    settings, vocab = load_settings(paths), get_vocab(paths)
+    entries = _entries(paths, title, all_)
+    env = environment(paths)
+    run_id = new_run_id()
+    runlog = RunLog(paths.raw_runs, run_id)
+    client = build_client("profile", paths=paths, settings=settings, env=env, runlog=runlog, prompt_version="unset")
+    anilist = AniList(cache_dir=paths.cache / "anilist")
+    rec_client = ReceptionClient.from_env(paths, env)
+
+    def reception(entry):  # API numbers for deep-indexed titles only (owner rule A2)
+        rec_client.notes.clear()
+        return reception_for(entry, anilist=anilist, client=rec_client), list(rec_client.notes)
+
+    speed = (settings.model_extra or {}).get("speed") or {}
+    params = {"effort": speed.get("effort", "medium")}
+    out_dir = None
+    if agreement:
+        out_dir, params = paths.root / "eval" / "agreement" / "interpret" / run_id, {**params, "rerun": 2}
+    result = run_profile(paths, entries, client, vocab, settings, run_id=run_id, reception=reception,
+                         adaptation=lambda e: adaptation_for(e, anilist), params=params, out_dir=out_dir)
+    runlog.write_ledger()
+    for rec in result.titles:
+        tid = rec["title_id"]
+        typer.echo(f"{tid}: {result.sourced.get(tid, 0)} field(s) sourced from gathered facts; "
+                   f"outcome {'recorded' if tid in result.outcomes else 'left for VERIFY'}; "
+                   f"cast {result.characters.get(tid, 0)}")
+    if out_dir is not None and result.titles:
+        typer.echo(f"written to {out_dir.relative_to(paths.root)}")
+    for tid, why in result.skipped + result.quarantined + result.failed:
+        typer.echo(f"  not written {tid}: {why[:200]}", err=True)
+    if result.stopped:
+        typer.echo(f"  stopped: {result.stopped}", err=True)
+
+
+@app.command()
 def interpret(title: str = TitleOpt, all_: bool = AllOpt,
               agreement: bool = typer.Option(False, "--agreement", help="Second run for AC-12 -> eval/agreement/interpret/<run>/"),
               effort: str = typer.Option(None, "--effort", help="Effort A/B: run at this effort -> eval/effort_ab/<effort>/<run>/")

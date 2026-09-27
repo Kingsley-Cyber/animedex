@@ -78,3 +78,9 @@ Tests check each function against hand-computed values (`tests/unit/test_stats.p
 
 ## Print media (v1.9)
 `tests/unit/test_print_media.py`: vocab and scope rules, chapter/volume locators, the adaptation signal on the outcome, animation-only modules off for print, print resolution with a fake catalog (hint, fallback, medium by country/format/links), partner selection, `top_print` items, CQ-P01 on a synthetic census. Live proof: Jagaaan and Choujin X through the full pipeline.
+
+## Speed pass (v1.10)
+- `tests/pipeline/test_profile.py`: the merged call writes facts (with ids), profile, verify list (moments only when reception settled the outcome) and cast from one call; gold titles are refused; an agreement rerun writes to `eval/agreement/interpret/<run>/` only.
+- `tests/pipeline/test_speed_pass.py`: non-gold titles take PROFILE while gold titles keep GATHER in the same batch; P2/P3 run two titles at once, CHECK sees both in one call, every call carries effort medium, and each title's checks are written separately; the budget's counters hold under four threads; the fast verify list.
+- `tests/pipeline/test_verify.py`: non-gold titles get their moments located (sensory stays gold-only); INTERPRET's reception-backed outcome and its adaptation signal survive a VERIFY that finds nothing better.
+- Agreement: `animedex profile --agreement --title <id>` on the first fast batch; grid-field kappa is compared with the 14-title INTERPRET numbers in `reports/SPEED_PASS.md`.

@@ -13,7 +13,7 @@ ask nothing else:
 
 | Owner says | Do |
 |---|---|
-| "add <show>", "index <show>" | `make backfill LIST=<file, one title per line>` or MCP `add_titles`; a year in parentheses picks the version; the picks are in `build/reports/backfill.md`; rerun the same command until it reports 0 waiting (4 titles per run, about 50 minutes) |
+| "add <show>", "index <show>" | `make backfill LIST=<file, one title per line>` or MCP `add_titles`; a year in parentheses picks the version; the picks are in `build/reports/backfill.md`; rerun the same command until it reports 0 waiting (4 titles per run, in parallel since v1.10; times in `docs/implementation/reports/SPEED_PASS.md`) |
 | "ideas", "more cards", "ideate" | `make ideas` or MCP `run_ideas`: 60 calls, about 40 minutes, one more generation; cards in `build/reports/ideas.md` |
 | "check this concept: …" | `make diagnose TEXT="…"` or MCP `check_concept`; the verdicts are in the output (MCP: `job_status`) |
 | "status", "is it done" | `make status NAME=<batch>` or MCP `job_status` |

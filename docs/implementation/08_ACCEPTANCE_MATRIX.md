@@ -61,3 +61,7 @@
 | AC-59 | A print title's moments and turning points carry a chapter or volume inside the scope's range; a screen title's still carry season and episode (v1.9) | Unit + integrity test | M5+ |
 | AC-60 | `resolve("Jagaaan")` yields the print original with a chapter/volume scope; `resolve("Berserk (1997)")` still yields the anime; a `(manga)` hint forces the print version (v1.9) | Unit test with a fake catalog | M5+ |
 | AC-61 | A print outcome and print census rows carry `adaptation` from the catalog; CQ-P01 answers from the census and survives a clean rebuild (v1.9) | Unit test + determinism | M5+ |
+| AC-62 | A non-gold title goes PROFILE → VERIFY → P2 → P3 → CHECK → P4 and every call carries `effort: medium`; a gold title in the same batch still takes GATHER → INTERPRET (v1.10) | Pipeline test | M5+ |
+| AC-63 | CHECK with `batch_titles: 3` sends several titles in one call (`=== title <id>` sections) and writes each title's checks separately (v1.10) | Pipeline test | M5+ |
+| AC-64 | The fast path runs titles in parallel under one budget whose counters are locked, so the run cap holds across workers (v1.10) | Pipeline test | M5+ |
+| AC-65 | `reports/SPEED_PASS.md` shows time per stage before and after on the first fast batch and the grid-field agreement (raw and kappa) of a PROFILE rerun against the INTERPRET numbers (v1.10) | Report | M5+ |
