@@ -127,7 +127,7 @@ animedex/
 │   ├── cli.py
 │   ├── config.py
 │   ├── models/                    # pydantic models = data contracts
-│   ├── providers/                 # base, openai_compatible, anthropic, mock
+│   ├── providers/                 # base, claude_cli, codex_cli, openai_compatible, anthropic, mock
 │   ├── embeddings/                # base + local adapter
 │   ├── search/                    # web verification + episode summary adapter
 │   ├── pipeline/                  # p1, verify, p2, p3, check, p4, canonicalize, ep, rollup
@@ -143,7 +143,16 @@ animedex/
 
 ## Providers (local-first, no lock-in)
 - One interface: `complete(system, user, json_schema, params) -> (json, usage)`.
-- Adapters: `openai_compatible` (covers OpenRouter, Ollama, vLLM, LM Studio, and hosted OpenAI-compatible APIs), `anthropic`, and `mock` (fixtures, for tests).
+- Adapters: `claude_cli` and `codex_cli` (subscription CLIs in headless mode), `openai_compatible` (covers OpenRouter, Ollama, vLLM, LM Studio, and hosted OpenAI-compatible APIs), `anthropic`, and `mock` (fixtures, for tests).
+- Billing (G1a, v1.2.1): no model API keys. Every pass calls a model through Kingsley's subscriptions: `claude -p` on his Claude login for the Claude slots, `codex exec` on his ChatGPT login for CHECK and the judge. Ollama (through `openai_compatible` on localhost) serves embeddings and any pass later proven to work on a local model.
+- CLI isolation, on every call:
+  - The subprocess environment is an allowlist (HOME, PATH, locale, proxy/CA). It never carries `ANTHROPIC_*`, `OPENAI_*`, `CLAUDE*` or `CODEX_*` variables. An API key there would bill the API instead of the plan.
+  - The call runs from a fresh, empty scratch directory with tools off and the pass prompt as the system prompt.
+  - `claude` runs with `--safe-mode` (no CLAUDE.md, skills, plugins, hooks, MCP servers, memory), `--setting-sources project` (no user settings), `--strict-mcp-config`, and no session persistence. It never uses `--bare` (API-key only) or `--fallback-model`.
+  - `codex` runs `--ephemeral` in a read-only sandbox with `--ignore-user-config` and `--ignore-rules`. Its shell, browser, apps, plugins and multi-agent features are off.
+  - The init metadata of each call is logged and checked. Anything that still loads from user-level config is reported. For `codex`, that is `~/.codex/AGENTS.md` and the installed-skills list.
+  - A login that uses an API key is refused.
+- Provenance and cache keys use the provider identity (`claude_cli@<cli version>`) plus the model that actually served the call.
 - Model per pass is configuration, not code. Cheap models for P1/P4/EP; strongest model for P2/P3/CHECK.
 - CHECK and the ideation judge should use a different model family from the one that produced the work, when available.
 - All pass calls are single-turn. If a future step uses multi-turn tool calls with a thinking model, the adapter must preserve reasoning content across turns; some OpenAI-compatible clients strip it and the provider rejects the follow-up.

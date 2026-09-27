@@ -4,6 +4,22 @@
 # `uv run animedex smoke` lists exactly what is still missing.
 
 providers:
+  # G1a 2026-09-26: every model call goes through Kingsley's subscriptions via the official CLIs in
+  # headless mode (no model API keys). Each call runs from an empty scratch dir with an allowlisted
+  # environment (no ANTHROPIC_*/OPENAI_*/CLAUDE*/CODEX_* variables), tools off, the pass prompt as
+  # the system prompt. `uv run animedex smoke --providers` makes one tiny call per CLI and reports
+  # the login method and anything user-level that still loads.
+  claude_cli:
+    type: claude_cli
+    binary: claude
+    send_params: [effort]
+    timeout_s: 900
+  codex_cli:                    # the non-Claude family for CHECK and the ideation judge
+    type: codex_cli
+    binary: codex
+    send_params: [effort]
+    timeout_s: 900
+  # API-billed profiles below are kept for reference; no model slot uses them.
   openai_compatible:            # any OpenAI-compatible API: OpenRouter, vLLM, LM Studio, hosted
     type: openai_compatible
     base_url_env: OPENAI_COMPATIBLE_BASE_URL
@@ -23,20 +39,22 @@ providers:
   mock:
     type: mock
 
-models:   # G1a, approved 2026-09-26. `strict_model`: a response served by any other model is refused.
-  p1:              {provider: anthropic, model: claude-sonnet-5, params: {effort: high}}
-  verify:          {provider: anthropic, model: claude-sonnet-5, params: {effort: high}}
-  p2:              {provider: anthropic, model: claude-opus-5-5, params: {effort: high}}
-  p3:              {provider: anthropic, model: claude-opus-5-5, params: {effort: high}}
-  check:           {provider: openai_compatible, model: "<openrouter-model>", strict_model: true}   # chosen before M3
-  p4:              {provider: anthropic, model: claude-haiku-4-5-20251001}
-  ep:              {provider: anthropic, model: claude-haiku-4-5-20251001}
-  rollup_match:    {provider: anthropic, model: claude-haiku-4-5-20251001}
-  ideate_generate: {provider: anthropic, model: claude-opus-5-5, params: {effort: high}}
-  ideate_judge:    {provider: openai_compatible, model: "<openrouter-model>", strict_model: true}   # chosen before M3
-  embeddings:      {provider: local, model: "<embedding-model>"}                                  # needed at M5
-  eval_match:      {provider: openai_compatible, model: "<cheap-model>"}                          # needed at M3 (AC-17)
-# USD per 1M tokens for every "<provider>/<model>" used live (local models: 0).
+models:   # G1a, approved 2026-09-26; routed to subscription CLIs 2026-09-26. Concrete ids, not aliases,
+          # so a moved alias cannot change the model. `strict_model`: any other served model is refused.
+  p1:              {provider: claude_cli, model: claude-sonnet-5, params: {effort: high}}
+  verify:          {provider: claude_cli, model: claude-sonnet-5, params: {effort: high}}
+  p2:              {provider: claude_cli, model: claude-opus-5-5, params: {effort: high}}
+  p3:              {provider: claude_cli, model: claude-opus-5-5, params: {effort: high}}
+  check:           {provider: codex_cli, model: gpt-6-astra, params: {effort: high}, strict_model: true}
+  p4:              {provider: claude_cli, model: claude-haiku-4-5-20251001}
+  ep:              {provider: claude_cli, model: claude-haiku-4-5-20251001}
+  rollup_match:    {provider: claude_cli, model: claude-haiku-4-5-20251001}
+  ideate_generate: {provider: claude_cli, model: claude-opus-5-5, params: {effort: high}}
+  ideate_judge:    {provider: codex_cli, model: gpt-6-astra, params: {effort: high}, strict_model: true}
+  embeddings:      {provider: local, model: "<embedding-model>"}              # Ollama; pull a model before M5
+  eval_match:      {provider: claude_cli, model: claude-haiku-4-5-20251001}   # PROPOSED (not in the G1a list); AC-17, M3
+# USD per 1M tokens for API-billed "<provider>/<model>" pairs (local models: 0). Subscription CLI
+# calls are not priced here: each call's own reported cost is logged as a shadow cost.
 pricing:
   "anthropic/claude-opus-5-5":           {input_per_mtok: 4.0, output_per_mtok: 20.0}
   "anthropic/claude-sonnet-5":           {input_per_mtok: 2.0, output_per_mtok: 10.0}
@@ -45,6 +63,12 @@ pricing:
 search: {backend: brave, api_key_env: SEARCH_API_KEY}
 
 budget:   # G1a, approved 2026-09-26
+  # Subscription CLIs: call caps (the plan limits your coding sessions share). A rate/usage-limit
+  # error stops the run cleanly; finished calls stay cached and the rerun resumes from the cache.
+  calls_per_run: 40             # PROPOSED, confirm before partner runs
+  calls_per_title: 6            # PROPOSED: M2 needs 2 per title (P1 + VERIFY), 4 with repairs
+  min_seconds_between_calls: 5
+  # API-billed providers only (none in use):
   run_cap_usd: 25
   per_title_cap_usd: 3
   per_episode_cap_usd: 0.25

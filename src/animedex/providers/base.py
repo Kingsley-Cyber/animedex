@@ -10,8 +10,19 @@ future multi-turn step must preserve it (03 Providers).
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+import re
+from dataclasses import dataclass, field
 from typing import Any, Protocol
+
+_DATE_STAMP = re.compile(r"-(\d{8}|\d{4}-\d{2}-\d{2})$")
+
+
+def same_model(requested: str, served: str) -> bool:
+    """Equal, or the same id with a date-stamp suffix (-YYYYMMDD / -YYYY-MM-DD) on one side.
+
+    Version suffixes do NOT count: claude-opus-5 is not claude-opus-5-5.
+    """
+    return _DATE_STAMP.sub("", requested) == _DATE_STAMP.sub("", served)
 
 
 @dataclass(frozen=True)
@@ -34,9 +45,10 @@ class Usage:
 class ProviderResponse:
     text: str
     usage: Usage
-    model: str
+    model: str                     # the model that actually served the call
     stop_reason: str | None = None
     request_id: str | None = None
+    meta: dict[str, Any] = field(default_factory=dict)  # CLI providers: cli, cli_version, shadow_cost_usd, init
 
 
 class ProviderError(RuntimeError):

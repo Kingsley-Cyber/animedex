@@ -27,6 +27,7 @@ from animedex.ontology import Vocab
 from animedex.paths import Paths
 from animedex.prompts import RenderedPrompt, read_prompt
 from animedex.providers.base import ProviderError
+from animedex.providers.cli_common import CliAuthError, RateLimited
 from animedex.providers.client import CallContext, InvalidOutput, LLMClient
 from animedex.search.base import SearchBackend, SearchCapReached
 from animedex.search.web import SearchBudget
@@ -331,13 +332,13 @@ def run_verify(paths: Paths, entries: list[CorpusEntry], client: LLMClient, sear
             except LiveRunRefused as exc:
                 result.skipped.append((tid, str(exc)))
                 continue
-            except BudgetExceeded as exc:
+            except (BudgetExceeded, RateLimited, CliAuthError) as exc:  # stop the run; finished titles stay cached
                 result.stopped = str(exc)
                 break
             except ProviderError as exc:
                 result.skipped.append((tid, str(exc)))
                 continue
-        prov = {"run_id": run_id, "pass": "VERIFY", "model": completion.model if completion else None,
+        prov = {"run_id": run_id, "pass": "VERIFY", "model": completion.provenance_model if completion else None,
                 "prompt_version": prompt.version, "schema_version": SCHEMA_VERSION, "vocab_version": vocab.version,
                 "cache_key": completion.cache_key if completion else None,
                 "created_at": created_at or datetime.now(UTC).isoformat()}

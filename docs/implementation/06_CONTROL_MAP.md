@@ -49,7 +49,9 @@
 | IDEATE | Failure-condition check | Preventive | Idea triggers an atom's failure condition | Rework once → reject |
 | IDEATE | Coherence gate | Preventive | Theme ↔ mechanic; dilemma follows from cost | Reject |
 | IDEATE | Diversity alarm | Detective | >40% of champions in 10% of cells | Target empty cells; vary operators |
-| ALL | Budget cap | Budget | Per-run, per-title, per-episode caps | Stop cleanly after current unit; report |
+| ALL | Budget cap | Budget | Subscription CLIs: calls per run and per title. API-billed: per-run, per-title, per-episode dollar caps | Stop cleanly after current unit; report |
+| ALL (live) | Plan usage limit | Budget | CLI reports a usage/rate limit | Stop the run cleanly, no retries; finished calls stay cached; resume later |
+| ALL (live) | CLI isolation | Preventive | Allowlisted env (no `ANTHROPIC_*`/`OPENAI_*`/`CLAUDE*`/`CODEX_*`), empty scratch dir, tools off, no user settings/skills/MCP/memory | Refuse an API-key login; log each call's init metadata; report user-level leaks |
 | ALL (live) | Gold blind guard | Preventive | Live run on a gold title needs filled, committed `eval/gold/<title_id>/` annotations | Refuse to start |
 | ALL | Raw-log redaction | Preventive | Fetched web text never written to logs | Replace with URL + sha256 + length |
 

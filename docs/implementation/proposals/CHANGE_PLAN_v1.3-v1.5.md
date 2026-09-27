@@ -9,6 +9,14 @@
   - `FieldValue` (`models/common.py`): 29 files.
   - VERIFY stage (`pipeline/verify.py`): 8 files.
 
+## Landed separately: v1.2.1, G1a providers (owner decision, inside M2)
+Kingsley ruled that the switch to subscription CLIs is a G1a decision and can land inside M2. It changes providers, config and budget wording, not data contracts. See CHANGELOG v1.2.1.
+- **Interaction with this plan:**
+  - v1.4 request A (MCP): the MCP server never calls a model, so it is unaffected.
+  - v1.5 Studio: EPGEN/EPCHECK model slots use the same CLI providers and call caps.
+  - EPCHECK should sit on `codex_cli` so the checker family differs from the generator family, as CHECK does now.
+- Numbering is unchanged: v1.3, v1.4, v1.5 still follow v1.2.1.
+
 ## 1. Impact map
 
 ### v1.3 — outcome failure_level (premise | execution | external | unknown)

@@ -26,6 +26,7 @@ from animedex.ontology import Vocab
 from animedex.paths import Paths
 from animedex.prompts import RenderedPrompt, read_prompt
 from animedex.providers.base import ProviderError
+from animedex.providers.cli_common import CliAuthError, RateLimited
 from animedex.providers.client import CallContext, Completion, InvalidOutput, LLMClient
 from animedex.store.atomic import atomic_write_text
 from animedex.store.cache import upstream_hash
@@ -184,7 +185,7 @@ def assemble(draft: dict[str, Any], entry: CorpusEntry, vocab: Vocab, settings: 
              prompt_version: str, completion: Completion, created_at: str | None = None
              ) -> tuple[dict[str, Any], list[dict[str, Any]], list[str]]:
     created_at = created_at or datetime.now(UTC).isoformat()
-    prov = {"run_id": run_id, "pass": "P1", "model": completion.model, "prompt_version": prompt_version,
+    prov = {"run_id": run_id, "pass": "P1", "model": completion.provenance_model, "prompt_version": prompt_version,
             "schema_version": SCHEMA_VERSION, "vocab_version": vocab.version, "cache_key": completion.cache_key,
             "created_at": created_at}
     active = list(draft["modules_active"])
@@ -264,7 +265,7 @@ def run_p1(paths: Paths, entries: list[CorpusEntry], client: LLMClient, vocab: V
         except LiveRunRefused as exc:
             result.refused.append((tid, str(exc)))
             continue
-        except BudgetExceeded as exc:
+        except (BudgetExceeded, RateLimited, CliAuthError) as exc:  # stop the run; finished titles stay cached
             result.stopped = str(exc)
             break
         except ProviderError as exc:

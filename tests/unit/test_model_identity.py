@@ -9,6 +9,7 @@ from types import SimpleNamespace
 
 import httpx
 import pytest
+import yaml
 from typer.testing import CliRunner
 
 from animedex.budget import Budget, Price
@@ -107,9 +108,13 @@ def test_openai_compatible_resolve_model_lists_models():
 def test_smoke_m2_blocks_only_on_m2_needs(repo, monkeypatch):
     for key in ("ANTHROPIC_API_KEY", "OPENAI_COMPATIBLE_API_KEY", "OPENAI_COMPATIBLE_BASE_URL", "SEARCH_API_KEY"):
         monkeypatch.delenv(key, raising=False)
+    data = yaml.safe_load(repo.config_file.read_text(encoding="utf-8"))
+    data["models"]["check"]["model"] = "<codex-model>"  # an unfilled slot that only M3 needs
+    repo.config_file.write_text(yaml.safe_dump(data, sort_keys=False), encoding="utf-8")
     result = CliRunner().invoke(app, ["smoke", "--stage", "m2"])
     assert result.exit_code == 1
-    assert "ANTHROPIC_API_KEY" in result.output
+    assert "SEARCH_API_KEY" in result.output
+    assert "API_KEY" not in result.output.replace("SEARCH_API_KEY", "")  # CLI slots never need a model key (G1a)
     assert "models.check" not in result.output and "embeddings" not in result.output
     result = CliRunner().invoke(app, ["smoke", "--stage", "m3"])
     assert "models.check.model" in result.output

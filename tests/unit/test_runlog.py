@@ -48,4 +48,5 @@ def test_ledger_totals(tmp_path):
 
     ledger = json.loads(log.write_ledger().read_text())
     assert ledger["total_cost_usd"] == 0.75
-    assert ledger["by_pass_record"]["P1:t_2020"] == {"input": 200, "output": 100, "calls": 2, "cost_usd": 0.75}
+    assert ledger["by_pass_record"]["P1:t_2020"] == {"input": 200, "output": 100, "calls": 2, "cost_usd": 0.75,
+                                                     "shadow_cost_usd": 0.0}

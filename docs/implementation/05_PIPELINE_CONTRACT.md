@@ -161,28 +161,35 @@ Deterministic except steps 3 and 5, which call a model.
 - VERIFY runs only on flagged and mandatory fields.
 - P3 batches all of a title's atoms into one call.
 - EP sends a compact atom list (ID + gist), not full atoms; one episode per call.
-- Every call logs tokens and cost to `data/raw/runs/`.
+- Every call logs tokens and cost to `data/raw/runs/`. Subscription CLI calls log the CLI's own cost estimate as a shadow cost, kept apart from charged cost.
 
 ## Config (`config/settings.yaml`) — placeholders to fill before M2
 ```yaml
-models:
-  p1:     {provider: openai_compatible, model: "<cheap-model>"}
-  verify: {provider: openai_compatible, model: "<cheap-model>"}
-  p2:     {provider: anthropic, model: "<strong-model>"}
-  p3:     {provider: anthropic, model: "<strong-model>"}
-  check:  {provider: openai_compatible, model: "<strong-model-different-family>"}
-  p4:     {provider: openai_compatible, model: "<cheap-model>"}
-  ep:     {provider: openai_compatible, model: "<cheap-model>"}
-  rollup_match: {provider: openai_compatible, model: "<cheap-model>"}
-  ideate_generate: {provider: anthropic, model: "<strong-model>"}
-  ideate_judge:    {provider: openai_compatible, model: "<strong-model-different-family>"}
+providers:        # G1a v1.2.1: subscription CLIs; no model API keys
+  claude_cli: {type: claude_cli, binary: claude, send_params: [effort]}
+  codex_cli:  {type: codex_cli,  binary: codex,  send_params: [effort]}
+  local:      {type: openai_compatible, base_url: http://localhost:11434/v1}   # Ollama
+models:           # concrete model ids, not aliases; strict_model refuses any other served model
+  p1:     {provider: claude_cli, model: "<sonnet-id>"}
+  verify: {provider: claude_cli, model: "<sonnet-id>"}
+  p2:     {provider: claude_cli, model: "<opus-id>"}
+  p3:     {provider: claude_cli, model: "<opus-id>"}
+  check:  {provider: codex_cli,  model: "<codex-model>", strict_model: true}
+  p4:     {provider: claude_cli, model: "<haiku-id>"}
+  ep:     {provider: claude_cli, model: "<haiku-id>"}
+  rollup_match: {provider: claude_cli, model: "<haiku-id>"}
+  ideate_generate: {provider: claude_cli, model: "<opus-id>"}
+  ideate_judge:    {provider: codex_cli,  model: "<codex-model>", strict_model: true}
   embeddings:      {provider: local, model: "<embedding-model>"}
-  eval_match:      {provider: openai_compatible, model: "<cheap-model>"}
-pricing:          # USD per 1M tokens, per provider/model used above
+  eval_match:      {provider: claude_cli, model: "<haiku-id>"}
+pricing:          # API-billed provider/model pairs only; CLI calls log their reported cost as a shadow cost
   "<provider/model>": {input_per_mtok: "<set>", output_per_mtok: "<set>"}
 search: {backend: "<search-backend>"}
 budget:
-  run_cap_usd: "<set>"
+  calls_per_run: "<set>"        # subscription CLIs: call caps, not dollars
+  calls_per_title: "<set>"
+  min_seconds_between_calls: 5
+  run_cap_usd: "<set>"          # API-billed providers only
   per_title_cap_usd: "<set>"
   per_episode_cap_usd: "<set>"
 verify:

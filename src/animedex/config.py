@@ -13,6 +13,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from animedex.paths import Paths
 
 PLACEHOLDER = re.compile(r"^<[^>]*>$")
+CLI_TYPES = ("claude_cli", "codex_cli")
 
 
 def is_placeholder(value: Any) -> bool:
@@ -23,7 +24,8 @@ class ProviderProfile(BaseModel):
     """An adapter plus its endpoint. `models.<pass>.provider` names one of these."""
 
     model_config = ConfigDict(extra="forbid")
-    type: Literal["openai_compatible", "anthropic", "mock"]
+    type: Literal["openai_compatible", "anthropic", "mock", "claude_cli", "codex_cli"]
+    binary: str | None = None  # CLI providers: executable name or path
     base_url: str | None = None
     base_url_env: str | None = None
     api_key_env: str | None = None
@@ -112,6 +114,7 @@ def live_problems(settings: Settings, env: dict[str, str], model_keys: list[str]
     """Everything that blocks a live call for the given model slots (default: all)."""
     problems: list[str] = []
     keys = model_keys or sorted(settings.models)
+    uses_cli = uses_api = False
     for key in keys:
         spec = settings.models.get(key)
         if spec is None:
@@ -125,6 +128,10 @@ def live_problems(settings: Settings, env: dict[str, str], model_keys: list[str]
             continue
         if profile.type == "mock":
             continue
+        if profile.type in CLI_TYPES:
+            uses_cli = True
+            continue  # subscription login, no key or pricing; checked by `animedex smoke`
+        uses_api = True
         if profile.api_key_env and not env.get(profile.api_key_env):
             problems.append(f"providers.{spec.provider}: set {profile.api_key_env} in .env")
         if profile.type == "openai_compatible" and not resolve_base_url(profile, env):
@@ -133,11 +140,17 @@ def live_problems(settings: Settings, env: dict[str, str], model_keys: list[str]
             price = settings.pricing.get(f"{spec.provider}/{spec.model}")
             if not price or any(is_placeholder(v) for v in price.values()):
                 problems.append(f'pricing."{spec.provider}/{spec.model}": set input_per_mtok and output_per_mtok')
-    for cap in ("run_cap_usd", "per_title_cap_usd", "per_episode_cap_usd"):
+    caps = (["run_cap_usd", "per_title_cap_usd", "per_episode_cap_usd"] if uses_api else []) + (
+        ["calls_per_run", "calls_per_title"] if uses_cli else [])
+    for cap in caps:
         value = settings.budget.get(cap)
         if value is None or is_placeholder(value):
-            problems.append(f"budget.{cap}: set a USD cap")
+            problems.append(f"budget.{cap}: set a cap")
     backend = settings.search.get("backend")
     if backend is None or is_placeholder(backend):
         problems.append("search.backend: choose a search backend")
+    elif backend == "brave" and not env.get(str(settings.search.get("api_key_env", "SEARCH_API_KEY"))):
+        problems.append("search: set SEARCH_API_KEY in .env (Brave)")
+    elif backend == "searxng" and not settings.search.get("base_url"):
+        problems.append("search.base_url: set the SearXNG URL")
     return sorted(set(problems))

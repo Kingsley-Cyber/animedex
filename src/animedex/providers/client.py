@@ -3,17 +3,23 @@
 complete(system, user, json_schema, params) -> (json, usage)   (03 provider interface)
 
 Order of operations:
-1. cache lookup (key per 05); a hit spends nothing;
-2. live calls only: title guard (corpus scope + gold blind guard), then budget check;
+1. cache lookup (key per 05, model part = provider identity, e.g. `claude_cli@2.1.251/<model>`);
+   a hit spends nothing;
+2. live calls only: title guard (corpus scope + gold blind guard), then the budget: dollar caps for
+   API-billed providers, call caps for subscription CLIs (G1a);
 3. provider call; JSON parse + validation; on failure, ONE repair call with the error (11),
    then InvalidOutput (the stage quarantines);
-4. every attempt is logged with fetched web text redacted, and charged to the budget.
+4. every attempt is logged with fetched web text redacted. API calls are charged; subscription
+   calls are counted and their reported cost is logged as a shadow cost.
+A response served by a different model than requested is recorded but never cached; strict slots
+refuse it outright.
 """
 
 from __future__ import annotations
 
 import json
 import re
+import time
 from collections.abc import Callable
 from dataclasses import asdict, dataclass, field
 from typing import Any
@@ -22,7 +28,7 @@ from pydantic import ValidationError
 
 from animedex.budget import Budget, Price
 from animedex.config import ModelSpec
-from animedex.providers.base import Provider, ProviderError, Usage
+from animedex.providers.base import Provider, ProviderError, Usage, same_model
 from animedex.store.cache import ResponseCache, cache_key
 from animedex.store.runlog import RunLog, TransientText
 
@@ -39,17 +45,6 @@ class ClientConfigError(RuntimeError):
 
 class ModelSubstituted(ProviderError):
     """A strict slot (CHECK, judge) was answered by a different model; the output is refused."""
-
-
-_DATE_STAMP = re.compile(r"-(\d{8}|\d{4}-\d{2}-\d{2})$")
-
-
-def same_model(requested: str, served: str) -> bool:
-    """Equal, or the same id with a date-stamp suffix (-YYYYMMDD / -YYYY-MM-DD) on one side.
-
-    Version suffixes do NOT count: claude-opus-5 is not claude-opus-5-5.
-    """
-    return _DATE_STAMP.sub("", requested) == _DATE_STAMP.sub("", served)
 
 
 class InvalidOutput(RuntimeError):
@@ -89,10 +84,16 @@ class CallContext:
 class Completion:
     data: dict[str, Any]
     usage: Usage
-    model: str          # the model that actually served the call (recorded in provenance)
+    model: str          # the model that actually served the call
     cache_key: str
     cache_hit: bool
-    substituted: bool = False  # served by a fallback model; never cached
+    substituted: bool = False  # served by a different model than requested; never cached
+    identity: str = ""         # provider identity, e.g. claude_cli@2.1.251
+
+    @property
+    def provenance_model(self) -> str:
+        """What goes in provenance.model: provider identity (CLI name + version) + served model."""
+        return f"{self.identity}/{self.model}" if self.identity else self.model
 
 
 class LLMClient:
@@ -110,13 +111,19 @@ class LLMClient:
         price: Price | None = None,
         budget: Budget | None = None,
         title_guard: Callable[[str], None] | None = None,
+        min_interval_s: float = 0.0,
+        sleep: Callable[[float], None] = time.sleep,
     ):
-        if provider.live and (price is None or budget is None or title_guard is None):
-            raise ClientConfigError(
-                f"live provider {provider_name}/{spec.model} needs pricing, budget caps, and the title guard"
-            )
+        self.billing = getattr(provider, "billing", "api")
+        if provider.live:
+            missing = [n for n, v in (("budget", budget), ("title guard", title_guard)) if v is None]
+            if self.billing == "api" and price is None:
+                missing.append("pricing")
+            if missing:
+                raise ClientConfigError(f"live provider {provider_name}/{spec.model} needs {', '.join(missing)}")
         self.provider = provider
         self.provider_name = provider_name
+        self.identity = str(getattr(provider, "identity", provider_name))
         self.spec = spec
         self.prompt_version = prompt_version
         self.schema_version = schema_version
@@ -126,6 +133,9 @@ class LLMClient:
         self.price = price
         self.budget = budget
         self.title_guard = title_guard
+        self.min_interval_s = min_interval_s
+        self._sleep = sleep
+        self._last_call: float | None = None
 
     def key_for(self, ctx: CallContext, params: dict[str, Any] | None = None) -> str:
         merged = {**self.spec.params, **(params or {})}
@@ -135,7 +145,7 @@ class LLMClient:
             prompt_version=self.prompt_version,
             schema_version=self.schema_version,
             vocab_version=self.vocab_version,
-            model=f"{self.provider_name}/{self.spec.model}",
+            model=f"{self.identity}/{self.spec.model}",
             params=merged,
             upstream=ctx.upstream,
         )
@@ -153,6 +163,21 @@ class LLMClient:
         result = self.complete_ex(system, user, json_schema, params, ctx=ctx, validate=validate)
         return result.data, result.usage
 
+    def _pace(self) -> None:
+        if self.min_interval_s and self._last_call is not None:
+            wait = self.min_interval_s - (time.monotonic() - self._last_call)
+            if wait > 0:
+                self._sleep(wait)
+        self._last_call = time.monotonic()
+
+    def _check_budget(self, ctx: CallContext) -> None:
+        if not self.provider.live or self.budget is None:
+            return
+        if self.billing == "subscription":
+            self.budget.check_calls(ctx.title_id)
+        else:
+            self.budget.check(ctx.title_id, ctx.episode_id)
+
     def complete_ex(
         self,
         system: str,
@@ -164,50 +189,59 @@ class LLMClient:
         validate: Callable[[dict[str, Any]], Any] | None = None,
     ) -> Completion:
         key = self.key_for(ctx, params)
-        log_common = {"pass_": ctx.pass_, "record_id": ctx.record_id, "provider": self.provider_name,
-                      "cache_key": key, "system": system, "transients": ctx.transients}
+        log_common = {"pass_": ctx.pass_, "record_id": ctx.record_id, "provider": self.identity,
+                      "cache_key": key, "system": system, "transients": ctx.transients, "billing": self.billing}
 
         hit = self.cache.get(ctx.pass_, key)
         if hit is not None:
             self.runlog.log_call(**log_common, model=hit.get("model", ""), cache_hit=True, attempt=0,
                                  input_tokens=0, output_tokens=0, cost_usd=0.0, user=user,
                                  response=json.dumps(hit["json"], sort_keys=True))
-            return Completion(hit["json"], Usage(), hit.get("model", ""), key, True)
+            return Completion(hit["json"], Usage(), hit.get("model", ""), key, True, False,
+                              hit.get("identity", self.identity))
 
-        if self.provider.live:
-            if ctx.title_id:
-                self.title_guard(ctx.title_id)  # type: ignore[misc]
-            self.budget.check(ctx.title_id, ctx.episode_id)  # type: ignore[union-attr]
+        if self.provider.live and ctx.title_id:
+            self.title_guard(ctx.title_id)  # type: ignore[misc]
 
         call_params = {**self.spec.params, **(params or {}), "model": self.spec.model}
         total = Usage()
         errors: list[str] = []
         attempt_user = user
         for attempt in (0, 1):
+            self._check_budget(ctx)
             sent = dict(call_params)
             if not self.provider.live:
                 sent["_meta"] = {"pass": ctx.pass_, "record_id": ctx.record_id, "attempt": attempt}
+            self._pace()
             try:
                 resp = self.provider.generate(system, attempt_user, json_schema, sent)
             except ProviderError as exc:
+                if self.provider.live and self.billing == "subscription" and self.budget is not None:
+                    self.budget.count_call(ctx.title_id)
                 self.runlog.log_call(**log_common, model=self.spec.model, cache_hit=False, attempt=attempt,
                                      input_tokens=0, output_tokens=0, cost_usd=0.0, user=attempt_user,
                                      response=None, error=str(exc))
                 raise
-            cost = self.price.cost(resp.usage.input_tokens, resp.usage.output_tokens) if self.price else 0.0
-            if self.provider.live and self.budget is not None:
-                self.budget.charge(cost, ctx.title_id, ctx.episode_id)
+            if self.billing == "subscription":
+                cost = float(resp.meta.get("shadow_cost_usd") or 0.0)  # logged, never charged
+                if self.provider.live and self.budget is not None:
+                    self.budget.count_call(ctx.title_id)
+            else:
+                cost = self.price.cost(resp.usage.input_tokens, resp.usage.output_tokens) if self.price else 0.0
+                if self.provider.live and self.budget is not None:
+                    self.budget.charge(cost, ctx.title_id, ctx.episode_id)
             total = total + resp.usage
             substituted = self.provider.live and not same_model(self.spec.model, resp.model)
+            cli_meta = {k: resp.meta[k] for k in ("cli", "cli_version", "init") if k in resp.meta} or None
             if substituted and self.spec.strict_model:
                 self.runlog.log_call(**log_common, model=resp.model, cache_hit=False, attempt=attempt,
                                      input_tokens=resp.usage.input_tokens, output_tokens=resp.usage.output_tokens,
-                                     cost_usd=cost, user=attempt_user, response=None,
+                                     cost_usd=cost, user=attempt_user, response=None, meta=cli_meta,
                                      error=f"refused: strict slot answered by {resp.model}, not {self.spec.model}")
                 raise ModelSubstituted(f"{self.spec.model} was substituted by {resp.model}; strict slot refuses it")
             self.runlog.log_call(**log_common, model=resp.model, cache_hit=False, attempt=attempt,
                                  input_tokens=resp.usage.input_tokens, output_tokens=resp.usage.output_tokens,
-                                 cost_usd=cost, user=attempt_user, response=resp.text,
+                                 cost_usd=cost, user=attempt_user, response=resp.text, meta=cli_meta,
                                  error=f"substituted: served by {resp.model}" if substituted else None)
             try:
                 data = parse_json(resp.text)
@@ -221,6 +255,6 @@ class LLMClient:
                 raise InvalidOutput(errors, resp.text) from exc
             if not substituted:  # a fallback answer is never cached: reruns retry the requested model
                 self.cache.put(ctx.pass_, key, {"json": data, "model": resp.model, "usage": asdict(total),
-                                                "provider": self.provider_name})
-            return Completion(data, total, resp.model, key, False, substituted)
+                                                "provider": self.provider_name, "identity": self.identity})
+            return Completion(data, total, resp.model, key, False, substituted, self.identity)
         raise AssertionError("unreachable")  # pragma: no cover

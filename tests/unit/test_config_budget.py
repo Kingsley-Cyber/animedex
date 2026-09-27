@@ -21,11 +21,16 @@ def test_placeholders():
     assert not is_placeholder("claude-model") and not is_placeholder(3)
 
 
+TEMPLATE_PROVIDERS = {"check": "openai_compatible", "ideate_judge": "openai_compatible",
+                      "eval_match": "openai_compatible", "embeddings": "local"}  # every other slot: anthropic
+
+
 def placeholder_settings(repo):
-    """Settings in their pre-G1a template state (placeholders), independent of the live config."""
+    """Settings in their pre-G1a template state (placeholders, API providers), independent of the live config."""
     s = load_settings(repo)
-    for spec in s.models.values():
+    for key, spec in s.models.items():
         spec.model = "<cheap-model>"
+        spec.provider = TEMPLATE_PROVIDERS.get(key, "anthropic")
     s.budget = {"run_cap_usd": "<set>", "per_title_cap_usd": "<set>", "per_episode_cap_usd": "<set>"}
     s.search = {"backend": "<search-backend>"}
     return s
@@ -43,9 +48,11 @@ def test_filled_settings_have_no_problems(repo):
     for spec in s.models.values():
         spec.model = "real-model"
     s.pricing = {f"{p}/real-model": {"input_per_mtok": 1, "output_per_mtok": 2} for p in s.providers}
-    s.budget = {"run_cap_usd": 5, "per_title_cap_usd": 1, "per_episode_cap_usd": 0.2}
+    s.budget = {"run_cap_usd": 5, "per_title_cap_usd": 1, "per_episode_cap_usd": 0.2,
+                "calls_per_run": 10, "calls_per_title": 3}
     s.search = {"backend": "brave"}
-    env = {"OPENAI_COMPATIBLE_BASE_URL": "https://x", "OPENAI_COMPATIBLE_API_KEY": "k", "ANTHROPIC_API_KEY": "k"}
+    env = {"OPENAI_COMPATIBLE_BASE_URL": "https://x", "OPENAI_COMPATIBLE_API_KEY": "k", "ANTHROPIC_API_KEY": "k",
+           "SEARCH_API_KEY": "k"}
     assert live_problems(s, env) == []
     assert price_for(s, "anthropic", "real-model").cost(1_000_000, 500_000) == pytest.approx(2.0)
 

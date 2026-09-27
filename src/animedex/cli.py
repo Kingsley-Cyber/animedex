@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from typing import Any
 
 import typer
@@ -321,7 +322,9 @@ def _eval_verify_rates(paths: Any, vocab: Any) -> None:
 
 @app.command()
 def smoke(title: str = typer.Option(None, "--title"),
-          stage: str = typer.Option("m2", "--stage", help="Milestone whose model slots must be live: m2|m3|m5|m6")) -> None:
+          stage: str = typer.Option("m2", "--stage", help="Milestone whose model slots must be live: m2|m3|m5|m6"),
+          providers: bool = typer.Option(False, "--providers",
+                                         help="One tiny call per subscription CLI provider, then stop (G1a).")) -> None:
     """Live readiness for a milestone: what blocks it; model ids resolve; one tiny call per model."""
     from animedex.config import STAGE_SLOTS
 
@@ -332,6 +335,10 @@ def smoke(title: str = typer.Option(None, "--title"),
     paths = _paths()
     settings = load_settings(paths)
     env = environment(paths)
+    if providers:
+        if not _ping_cli_providers(paths, settings, env):
+            raise typer.Exit(1)
+        return
     problems = live_problems(settings, env, slots)
     if title:
         from animedex.guards import LiveRunRefused, check_live_title
@@ -389,13 +396,76 @@ def _ping_models(paths: Any, settings: Any, env: dict[str, str], slots: list[str
         seen.add((spec.provider, spec.model))
         client = build_client(key, paths=paths, settings=settings, env=env, runlog=runlog,
                               prompt_version="smoke-1", budget=budget)
-        ctx = CallContext(pass_="SMOKE", record_id=f"{spec.provider}.{spec.model}", upstream="none")
+        ctx = CallContext(pass_="SMOKE", record_id=f"{spec.provider}.{spec.model}", upstream=runlog.run_id)
         done = client.complete_ex("Reply with JSON only.", 'Return {"ok": true}.', schema, ctx=ctx)
         served = f" (served by {done.model})" if done.substituted else ""
         typer.echo(f"{spec.provider}/{spec.model}: ok={done.data.get('ok')} "
                    f"tokens={done.usage.input_tokens}+{done.usage.output_tokens}{served}")
     runlog.write_ledger()
     typer.echo(f"smoke spend: ${budget.spent_run:.4f}")
+
+
+def _ping_cli_providers(paths: Any, settings: Any, env: dict[str, str]) -> bool:
+    """G1a first live step: one tiny call per subscription CLI provider, reporting what billed it
+    (login method, apiKeySource), what the CLI loaded, and the shadow cost. Nothing else runs."""
+    from animedex.budget import Budget
+    from animedex.config import CLI_TYPES, is_placeholder
+    from animedex.providers.base import ProviderError
+    from animedex.providers.cli_common import stripped_names, unexpected_loads
+    from animedex.providers.client import CallContext
+    from animedex.providers.factory import build_client, build_provider
+    from animedex.store.runlog import RunLog, new_run_id
+
+    schema = {"type": "object", "properties": {"ok": {"type": "boolean"}}, "required": ["ok"],
+              "additionalProperties": False}
+    picked: dict[str, str] = {}  # provider profile -> first model slot that uses it (config order)
+    for key, spec in settings.models.items():
+        profile = settings.providers.get(spec.provider)
+        if profile and profile.type in CLI_TYPES and spec.provider not in picked and not is_placeholder(spec.model):
+            picked[spec.provider] = key
+    if not picked:
+        typer.echo("no model slot uses a subscription CLI provider", err=True)
+        return False
+    typer.echo("stripped from every CLI call (names only): " + (", ".join(stripped_names()) or "none"))
+    runlog = RunLog(paths.raw_runs, new_run_id())
+    budget = Budget.from_settings(settings)
+    ok = True
+    for provider_name, key in picked.items():
+        spec = settings.models[key]
+        try:
+            provider = build_provider(spec.provider, settings, env)
+        except ProviderError as exc:
+            typer.echo(f"{provider_name}: CLI unavailable: {exc}", err=True)
+            ok = False
+            continue
+        login = provider.login_status()
+        typer.echo(f"{provider_name} ({provider.identity}): logged_in={login['logged_in']} method={login['method']}")
+        if not login["logged_in"] or login["api_key"]:
+            why = "an API-key login would bill the API, not your plan" if login["api_key"] else "not logged in"
+            typer.echo(f"  SKIPPED: {why}; no call made", err=True)
+            ok = False
+            continue
+        client = build_client(key, paths=paths, settings=settings, env=env, runlog=runlog, prompt_version="smoke-1",
+                              budget=budget, provider=provider)
+        ctx = CallContext(pass_="SMOKE", record_id=f"{provider_name}.{spec.model}", upstream=runlog.run_id)
+        try:
+            done = client.complete_ex("Reply with JSON only.", 'Return {"ok": true}.', schema, ctx=ctx)
+        except ProviderError as exc:
+            typer.echo(f"  FAILED: {exc}", err=True)
+            ok = False
+            continue
+        init = dict(getattr(provider, "last_init", {}) or {})
+        shadow = runlog.shadow_cost.get(f"SMOKE:{ctx.record_id}", 0.0)
+        typer.echo(f"  slot={key} requested={spec.model} served={done.model} ok={done.data.get('ok')} "
+                   f"tokens={done.usage.input_tokens}+{done.usage.output_tokens} shadow_cost=${shadow:.4f}")
+        typer.echo("  loaded: " + json.dumps({k: (v if isinstance(v, (str, int, bool)) or v is None else len(v))
+                                              for k, v in init.items() if k != "cwd"}, sort_keys=True))
+        for item in unexpected_loads(init) + [f"user-level: {x}" for x in init.get("user_level_leaks", [])]:
+            typer.echo(f"  REPORT: {item}")
+    runlog.write_ledger()
+    typer.echo(f"calls made: {budget.calls_run}; run log: {runlog.dir}")
+    typer.echo("Stop here: check your Claude and ChatGPT usage pages before any partner run.")
+    return ok
 
 
 @gold_app.command("init")

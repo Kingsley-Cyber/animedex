@@ -7,7 +7,10 @@
 | Malformed JSON from model | Parse error | One repair call with the error; then quarantine | Native JSON-schema mode; length caps |
 | Schema violation | Validation | Same as above | Schema in prompt |
 | Off-vocab value | Enum check | Store `other`; write proposal | Enum lists in prompt |
-| Provider 429 / 5xx | HTTP status | Exponential backoff (max 5); resume from cache | Rate-limit config |
+| Provider 429 / 5xx (API adapters) | HTTP status | Exponential backoff (max 5); resume from cache | Rate-limit config |
+| Subscription usage or rate limit (CLI) | CLI error text: usage limit, 429, overloaded | Stop the run cleanly, no retries; finished calls stay cached; resume later from cache | Call caps per run and per title; pacing; keep headroom for Kingsley's coding sessions |
+| CLI not logged in or session expired | CLI auth error; `animedex smoke --providers` preflight | Stop; Kingsley runs `claude auth login` or `codex login` (subscription, not API key) | Preflight before every live run |
+| CLI loads user-level config | Init metadata / `codex debug prompt-input` | Report it; strip it if a flag exists | Isolation flags; allowlisted env |
 | Timeout | Client timeout | Retry once; split P3 batch | Smaller batches |
 | Budget cap hit | Cost ledger | Stop after current title/episode; report | Cheap models for P1/P4/EP |
 | Web verification inconclusive | No credible source | Mark `unresolved`; block P2 only if a gold title's outcome is unresolved | Better query templates |

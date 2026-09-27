@@ -1,5 +1,27 @@
 # Changelog — docs/implementation
 
+## v1.2.1 — 2026-09-26
+G1a provider change, decided by Kingsley. It lands inside M2 because it changes providers, config and budget wording, not data contracts. Noted in `proposals/CHANGE_PLAN_v1.3-v1.5.md`.
+
+**Providers (03)**
+- No model API keys. Every model call goes through Kingsley's subscriptions, using the official CLIs in headless mode:
+  - `claude_cli` (`claude -p`, Claude login): Sonnet for P1/VERIFY; Opus for P2/P3/ideate_generate; Haiku for P4/EP/rollup_match.
+  - `codex_cli` (`codex exec`, ChatGPT login): CHECK and the ideation judge.
+  - Ollama (local): embeddings.
+- **Isolation on every CLI call:**
+  - The subprocess gets an allowlisted environment, with no `ANTHROPIC_*`/`OPENAI_*`/`CLAUDE*`/`CODEX_*` variables.
+  - It runs from an empty scratch directory.
+  - Tools are off, and the pass prompt is the system prompt.
+  - No user settings, skills, plugins, hooks, MCP servers or memory load.
+  - The init metadata is checked and user-level leaks are reported.
+  - Logins that use an API key are refused.
+- Provenance and cache keys use `<cli>@<version>/<served model>`.
+
+**Budget and controls (05, 06, 11)**
+- CLI providers use call caps (`budget.calls_per_run`, `budget.calls_per_title`) and `min_seconds_between_calls` instead of dollar caps. Each call's reported cost is logged as a shadow cost. Dollar caps stay for API-billed providers.
+- A plan usage/rate limit stops the run cleanly, with no retries. Finished calls stay cached, and the rerun resumes from the cache.
+- `animedex smoke --providers` makes one tiny call per CLI provider and reports the login method, what loaded, and the shadow cost.
+
 ## v1.2 — 2026-09-26
 G0 decisions, approved by Kingsley (recorded in `reports/M0_REPORT.md`).
 

@@ -96,3 +96,22 @@ Typo fixes and clarifications can be applied directly. Any change that touches a
 - **Keys** live only in `.env`, pasted by Kingsley. OpenRouter is the OpenAI-compatible endpoint. Search: Brave. Caps: $25/run, $3/title, $0.25/episode.
 - **Partner runs** start as soon as G1a closes. Report only cost, errors, and verify stats; never show partner or gold profiles before the gold annotations are committed.
 - **Gold annotations** come from Kingsley's own viewing, in his own words, without AI help (`eval/gold/README.md`).
+
+## Owner ruling (G1a providers, 2026-09-26): subscriptions, no model API keys
+Supersedes the provider, key and dollar-cap lines of the G1 rulings. The model choices stay the same. This is a G1a decision, so it lands inside M2. It changes providers, config and budget wording, not data contracts (CHANGELOG v1.2.1).
+- **Providers:**
+  - `claude_cli`: `claude -p` on Kingsley's Claude subscription login. Never `--bare`, which is API-key only.
+  - `codex_cli`: `codex exec`, ephemeral, read-only sandbox, on his ChatGPT plan login. This is the non-Claude family for CHECK and the judge.
+  - Ollama: embeddings, and any pass later proven to work on a local model.
+- **Slots:**
+  - p1, verify: Sonnet.
+  - p2, p3, ideate_generate: Opus.
+  - p4, ep, rollup_match: Haiku.
+  - check, ideate_judge: codex.
+  - embeddings: Ollama. Pull a local embedding model before M5.
+- **Isolation:** strip `ANTHROPIC_API_KEY` and `OPENAI_API_KEY` from every CLI subprocess, since either one switches billing to the API. Run each call from an empty scratch directory, with tools off and the pass prompt as the system prompt. Check the init metadata and report anything from user-level config that still gets in.
+- **Provenance and cache keys** record the CLI name, CLI version and served model.
+- **Budget:** CLI providers use call caps per run and per title instead of dollar caps. Each call's reported cost is logged as a shadow cost. On a rate-limit error, stop cleanly and resume from cache later. A pipeline run must not exhaust the limits Kingsley's coding sessions need.
+- **First live step:** one tiny test call per provider, then stop. Kingsley checks his usage dashboards to confirm the calls counted against the subscriptions, not API billing, before any partner run.
+- **.env:** `ANTHROPIC_API_KEY` and `OPENAI_API_KEY` stay empty.
+

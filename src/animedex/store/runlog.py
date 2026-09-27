@@ -1,5 +1,9 @@
 """Run logs (03 raw tier): every request/response + token/cost ledger, under data/raw/runs/<run_id>/.
 
+Subscription CLI calls (G1a) are billed to the plan, not per token: their reported cost is kept as
+a shadow cost, apart from the charged cost, and each entry records the CLI name/version and what
+the CLI loaded (its init summary).
+
 Fetched web text is transient (03, 10 §9/§19, P-08, G0 D1): before anything is written, each
 fetched text is replaced by `[[web url=... sha256:... chars=N]]`. If a fetched text still
 appears after redaction, the write is refused.
@@ -12,6 +16,7 @@ from collections import defaultdict
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any
 
 from animedex.store.atomic import atomic_write_text
 from animedex.textutil import sha256_text, stable_json
@@ -57,6 +62,7 @@ class RunLog:
         self.dir = root / run_id
         self.tokens: dict[str, dict[str, int]] = defaultdict(lambda: {"input": 0, "output": 0, "calls": 0})
         self.cost: dict[str, float] = defaultdict(float)
+        self.shadow_cost: dict[str, float] = defaultdict(float)
 
     def log_call(
         self,
@@ -76,7 +82,10 @@ class RunLog:
         response: str | None,
         transients: tuple[TransientText, ...] | list[TransientText] = (),
         error: str | None = None,
+        billing: str = "api",
+        meta: dict[str, Any] | None = None,
     ) -> None:
+        shadow = billing == "subscription"
         self.dir.mkdir(parents=True, exist_ok=True)
         system_sha = sha256_text(system)
         prompt_file = self.dir / "prompts" / f"{system_sha.split(':')[1]}.txt"
@@ -92,7 +101,10 @@ class RunLog:
             "cache_hit": cache_hit,
             "attempt": attempt,
             "usage": {"input_tokens": input_tokens, "output_tokens": output_tokens},
-            "cost_usd": round(cost_usd, 6),
+            "billing": billing,
+            "cost_usd": 0.0 if shadow else round(cost_usd, 6),
+            "shadow_cost_usd": round(cost_usd, 6) if shadow else None,
+            "cli": meta,
             "request": {"system_sha256": system_sha, "user": redact(user, transients)},
             "response": None if response is None else redact(response, transients),
             "error": error,
@@ -103,13 +115,19 @@ class RunLog:
         self.tokens[bucket]["input"] += input_tokens
         self.tokens[bucket]["output"] += output_tokens
         self.tokens[bucket]["calls"] += 0 if cache_hit else 1
-        self.cost[bucket] += cost_usd
+        if shadow:
+            self.shadow_cost[bucket] += cost_usd
+        else:
+            self.cost[bucket] += cost_usd
 
     def write_ledger(self) -> Path:
         ledger = {
             "run_id": self.run_id,
-            "by_pass_record": {k: {**self.tokens[k], "cost_usd": round(self.cost[k], 6)} for k in sorted(self.tokens)},
+            "by_pass_record": {k: {**self.tokens[k], "cost_usd": round(self.cost[k], 6),
+                                   "shadow_cost_usd": round(self.shadow_cost[k], 6)} for k in sorted(self.tokens)},
             "total_cost_usd": round(sum(self.cost.values()), 6),
+            "total_shadow_cost_usd": round(sum(self.shadow_cost.values()), 6),
+            "calls": sum(v["calls"] for v in self.tokens.values()),
         }
         path = self.dir / "ledger.json"
         atomic_write_text(path, json.dumps(ledger, indent=2, sort_keys=True) + "\n")
