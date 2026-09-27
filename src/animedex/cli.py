@@ -166,6 +166,43 @@ def gather(title: str = TitleOpt, all_: bool = AllOpt) -> None:
 
 
 @app.command()
+def interpret(title: str = TitleOpt, all_: bool = AllOpt,
+              agreement: bool = typer.Option(False, "--agreement", help="Second run for AC-12 -> eval/agreement/interpret/<run>/"),
+              effort: str = typer.Option(None, "--effort", help="Effort A/B: run at this effort -> eval/effort_ab/<effort>/<run>/")
+              ) -> None:
+    """INTERPRET (v1.7): the full profile from GATHER's facts (no web) -> candidates (then verify, canonicalize)."""
+    from animedex.ontology import get_vocab
+    from animedex.pipeline.interpret import run_interpret
+    from animedex.providers.factory import build_client
+    from animedex.store.runlog import RunLog, new_run_id
+
+    paths = _paths()
+    settings, vocab = load_settings(paths), get_vocab(paths)
+    entries = _entries(paths, title, all_)
+    run_id = new_run_id()
+    runlog = RunLog(paths.raw_runs, run_id)
+    client = build_client("interpret", paths=paths, settings=settings, env=environment(paths), runlog=runlog,
+                          prompt_version="unset")
+    out_dir, params = None, None
+    if agreement:
+        out_dir, params = paths.root / "eval" / "agreement" / "interpret" / run_id, {"rerun": 2}
+    elif effort:
+        out_dir, params = paths.root / "eval" / "effort_ab" / effort / run_id, {"effort": effort}
+    result = run_interpret(paths, entries, client, vocab, settings, run_id=run_id, params=params, out_dir=out_dir)
+    runlog.write_ledger()
+    for rec in result.titles:
+        tid = rec["title_id"]
+        typer.echo(f"{tid}: {result.sourced.get(tid, 0)} field(s) sourced from gathered facts; "
+                   f"outcome {'recorded' if tid in result.outcomes else 'left for VERIFY'}")
+    if out_dir is not None and result.titles:
+        typer.echo(f"written to {out_dir.relative_to(paths.root)}")
+    for tid, why in result.skipped + result.quarantined + result.failed:
+        typer.echo(f"  not written {tid}: {why[:200]}", err=True)
+    if result.stopped:
+        typer.echo(f"  stopped: {result.stopped}", err=True)
+
+
+@app.command()
 def verify(title: str = TitleOpt, all_: bool = AllOpt, dry_run: bool = DryOpt,
            outcome_only: bool = typer.Option(False, "--outcome-only",
                                              help="v1.3: re-check only canonical mixed/flop outcomes for failure_level")

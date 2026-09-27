@@ -167,7 +167,8 @@ RoleTag = Literal["gold", "hit", "mixed", "flop", "contrast"]
 # ---------------------------------------------------------------- P1 field value
 Source = Literal["recall", "web", "episodes"]
 Verification = Literal[
-    "not_required", "unverified", "web_confirmed", "web_corrected", "derived_from_episodes", "unresolved"
+    "not_required", "unverified", "web_confirmed", "web_corrected", "derived_from_episodes", "unresolved",
+    "gathered",  # v1.7: sourced at extraction from a GATHER fact (its URL is the source_ref)
 ]
 Epistemic = Literal["observed", "derived", "interpretive", "external_metric"]
 
@@ -205,7 +206,7 @@ class FieldValue(StrictModel):
                 raise ValueError(f"phrase value must be 1-{cap} words (got {words})")
         if self.condition is not None and not cls.__conditional__:
             raise ValueError(f"{cls.__field_path__ or 'field'} does not take a condition")
-        if self.verification in ("web_confirmed", "web_corrected"):
+        if self.verification in ("web_confirmed", "web_corrected", "gathered"):
             if self.source != "web" or not self.source_ref:
                 raise ValueError("web verification needs source='web' and a source_ref (recall is not verification)")
         if self.verification == "derived_from_episodes" and self.source != "episodes":

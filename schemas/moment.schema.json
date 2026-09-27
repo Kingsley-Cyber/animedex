@@ -204,7 +204,8 @@
         "web_confirmed",
         "web_corrected",
         "derived_from_episodes",
-        "unresolved"
+        "unresolved",
+        "gathered"
       ],
       "title": "Verification",
       "type": "string"

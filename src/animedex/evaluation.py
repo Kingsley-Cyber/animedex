@@ -8,7 +8,7 @@ from typing import Any
 
 from animedex.ontology import Vocab
 
-VERIFIED = ("web_confirmed", "web_corrected")
+VERIFIED = ("web_confirmed", "web_corrected", "gathered")  # gathered: sourced at extraction (v1.7)
 
 
 def active_paths(record: dict[str, Any], vocab: Vocab) -> list[str]:
