@@ -21,8 +21,18 @@ def test_placeholders():
     assert not is_placeholder("claude-model") and not is_placeholder(3)
 
 
+def placeholder_settings(repo):
+    """Settings in their pre-G1a template state (placeholders), independent of the live config."""
+    s = load_settings(repo)
+    for spec in s.models.values():
+        spec.model = "<cheap-model>"
+    s.budget = {"run_cap_usd": "<set>", "per_title_cap_usd": "<set>", "per_episode_cap_usd": "<set>"}
+    s.search = {"backend": "<search-backend>"}
+    return s
+
+
 def test_template_blocks_live_runs_with_a_concrete_list(repo):
-    problems = live_problems(load_settings(repo), {})
+    problems = live_problems(placeholder_settings(repo), {})
     joined = "\n".join(problems)
     for needle in ("models.p1.model", "ANTHROPIC_API_KEY", "budget.run_cap_usd", "search.backend"):
         assert needle in joined
@@ -42,7 +52,7 @@ def test_filled_settings_have_no_problems(repo):
 
 def test_budget_requires_numeric_caps_and_stops_after_cap(repo):
     with pytest.raises(BudgetConfigError):
-        Budget.from_settings(load_settings(repo))
+        Budget.from_settings(placeholder_settings(repo))
     b = Budget(run_cap=1.0, per_title_cap=0.5, per_episode_cap=0.1)
     b.check("t_2020")
     b.charge(0.6, "t_2020")

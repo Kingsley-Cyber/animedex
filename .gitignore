@@ -21,3 +21,6 @@ __pycache__/
 .pytest_cache/
 .ruff_cache/
 graft/
+
+# External-engine indexes (URCP: derived, never committed)
+.codegraph/

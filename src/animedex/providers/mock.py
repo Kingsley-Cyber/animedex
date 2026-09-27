@@ -37,6 +37,9 @@ class MockProvider:
         self.default = default
         self.calls: list[dict[str, Any]] = []
 
+    def resolve_model(self, model_id: str) -> str:
+        return model_id
+
     def _fixture(self, pass_: str, record_id: str, attempt: int) -> Any:
         if self.fixtures_dir is None:
             return None

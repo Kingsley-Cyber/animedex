@@ -39,6 +39,17 @@ class ModelSpec(BaseModel):
     provider: str
     model: str
     params: dict[str, Any] = Field(default_factory=dict)
+    strict_model: bool = False  # refuse any response served by a different model (CHECK, judge)
+
+
+# Model slots each milestone needs live (smoke readiness checks only these).
+STAGE_SLOTS: dict[str, list[str]] = {
+    "m2": ["p1", "verify"],
+    "m3": ["p1", "verify", "p2", "p3", "check", "p4", "eval_match"],
+    "m5": ["p1", "verify", "p2", "p3", "check", "p4", "eval_match", "ideate_generate", "ideate_judge", "embeddings"],
+    "m6": ["p1", "verify", "p2", "p3", "check", "p4", "eval_match", "ideate_generate", "ideate_judge", "embeddings",
+           "ep", "rollup_match"],
+}
 
 
 class Settings(BaseModel):

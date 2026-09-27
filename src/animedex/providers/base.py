@@ -59,6 +59,10 @@ class Provider(Protocol):
         """`params` carries `model` plus any forwarded generation params."""
         ...
 
+    def resolve_model(self, model_id: str) -> str:
+        """Confirm the model id exists at the provider; raise ProviderError if not."""
+        ...
+
 
 def schema_instruction(json_schema: dict[str, Any]) -> str:
     """Appended to the system prompt when the endpoint lacks native JSON-schema mode."""

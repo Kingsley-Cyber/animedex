@@ -229,6 +229,7 @@ class P1Result:
     quarantined: list[tuple[str, str]] = field(default_factory=list)
     refused: list[tuple[str, str]] = field(default_factory=list)
     failed: list[tuple[str, str]] = field(default_factory=list)
+    substituted: list[tuple[str, str]] = field(default_factory=list)
     stopped: str | None = None
 
 
@@ -269,6 +270,8 @@ def run_p1(paths: Paths, entries: list[CorpusEntry], client: LLMClient, vocab: V
         except ProviderError as exc:
             result.failed.append((tid, str(exc)))
             continue
+        if completion.substituted:
+            result.substituted.append((tid, completion.model))
         record, moments, to_verify = assemble(completion.data, entry, vocab, settings, run_id=run_id,
                                               prompt_version=prompt.version, completion=completion,
                                               created_at=created_at)

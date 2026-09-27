@@ -93,6 +93,8 @@ def p1(title: str = TitleOpt, all_: bool = AllOpt, dry_run: bool = DryOpt,
         typer.echo(f"  not written {tid}: {why[:200]}", err=True)
     for tid, why in result.refused:
         typer.echo(f"  refused {tid}: {why[:200]}", err=True)
+    for tid, served in result.substituted:
+        typer.echo(f"  fallback served {tid}: {served} (recorded in provenance; not cached)", err=True)
     if result.stopped:
         typer.echo(f"  stopped: {result.stopped}", err=True)
     if result.titles:
@@ -318,12 +320,19 @@ def _eval_verify_rates(paths: Any, vocab: Any) -> None:
 
 
 @app.command()
-def smoke(title: str = typer.Option(None, "--title")) -> None:
-    """Live readiness: list what blocks live runs; when ready, one tiny call per configured model."""
+def smoke(title: str = typer.Option(None, "--title"),
+          stage: str = typer.Option("m2", "--stage", help="Milestone whose model slots must be live: m2|m3|m5|m6")) -> None:
+    """Live readiness for a milestone: what blocks it; model ids resolve; one tiny call per model."""
+    from animedex.config import STAGE_SLOTS
+
+    if stage not in STAGE_SLOTS:
+        typer.echo(f"unknown stage {stage!r}; use one of {sorted(STAGE_SLOTS)}", err=True)
+        raise typer.Exit(2)
+    slots = STAGE_SLOTS[stage]
     paths = _paths()
     settings = load_settings(paths)
     env = environment(paths)
-    problems = live_problems(settings, env)
+    problems = live_problems(settings, env, slots)
     if title:
         from animedex.guards import LiveRunRefused, check_live_title
         from animedex.ontology import get_vocab
@@ -334,14 +343,35 @@ def smoke(title: str = typer.Option(None, "--title")) -> None:
         except LiveRunRefused as exc:
             problems.append(str(exc))
     if problems:
-        typer.echo("Live runs are blocked until these are filled (G1a):")
+        typer.echo(f"Live runs for {stage} are blocked until these are filled (G1a):")
         for p in problems:
             typer.echo(f"  - {p}")
         raise typer.Exit(1)
-    _ping_models(paths, settings, env)
+    if not _resolve_models(settings, env, slots):
+        raise typer.Exit(1)
+    _ping_models(paths, settings, env, slots)
 
 
-def _ping_models(paths: Any, settings: Any, env: dict[str, str]) -> None:
+def _resolve_models(settings: Any, env: dict[str, str], slots: list[str]) -> bool:
+    """G1a: every configured model id must resolve at its provider before the first live run."""
+    from animedex.providers.base import ProviderError
+    from animedex.providers.factory import build_provider
+
+    ok = True
+    for key in slots:
+        spec = settings.models[key]
+        if key == "embeddings":
+            continue
+        try:
+            name = build_provider(spec.provider, settings, env).resolve_model(spec.model)
+            typer.echo(f"model ok: {key} -> {spec.provider}/{spec.model} ({name})")
+        except ProviderError as exc:
+            typer.echo(f"MODEL CHECK FAILED: {key}: {exc}", err=True)
+            ok = False
+    return ok
+
+
+def _ping_models(paths: Any, settings: Any, env: dict[str, str], slots: list[str]) -> None:
     from animedex.budget import Budget
     from animedex.providers.client import CallContext
     from animedex.providers.factory import build_client
@@ -352,15 +382,18 @@ def _ping_models(paths: Any, settings: Any, env: dict[str, str]) -> None:
     runlog = RunLog(paths.raw_runs, new_run_id())
     budget = Budget.from_settings(settings)
     seen: set[tuple[str, str]] = set()
-    for key, spec in sorted(settings.models.items()):
+    for key in slots:
+        spec = settings.models[key]
         if key == "embeddings" or (spec.provider, spec.model) in seen:
             continue
         seen.add((spec.provider, spec.model))
         client = build_client(key, paths=paths, settings=settings, env=env, runlog=runlog,
                               prompt_version="smoke-1", budget=budget)
         ctx = CallContext(pass_="SMOKE", record_id=f"{spec.provider}.{spec.model}", upstream="none")
-        data, usage = client.complete("Reply with JSON only.", 'Return {"ok": true}.', schema, ctx=ctx)
-        typer.echo(f"{spec.provider}/{spec.model}: ok={data.get('ok')} tokens={usage.input_tokens}+{usage.output_tokens}")
+        done = client.complete_ex("Reply with JSON only.", 'Return {"ok": true}.', schema, ctx=ctx)
+        served = f" (served by {done.model})" if done.substituted else ""
+        typer.echo(f"{spec.provider}/{spec.model}: ok={done.data.get('ok')} "
+                   f"tokens={done.usage.input_tokens}+{done.usage.output_tokens}{served}")
     runlog.write_ledger()
     typer.echo(f"smoke spend: ${budget.spent_run:.4f}")
 

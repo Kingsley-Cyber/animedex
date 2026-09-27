@@ -52,6 +52,18 @@ class OpenAICompatibleProvider:
             base_url=base_url.rstrip("/"), headers=headers, timeout=timeout_s, transport=transport
         )
 
+    def resolve_model(self, model_id: str) -> str:
+        """Confirm the endpoint lists `model_id` (GET /models, as OpenRouter and most gateways serve it)."""
+        try:
+            resp = self._client.get("/models")
+            resp.raise_for_status()
+            ids = {m.get("id") for m in resp.json().get("data", [])}
+        except (httpx.HTTPError, ValueError) as exc:
+            raise ProviderError(f"{self.name}: could not list models: {exc}") from exc
+        if model_id not in ids:
+            raise ProviderError(f"{self.name}: model {model_id!r} is not listed by the endpoint")
+        return model_id
+
     def _body(self, system: str, user: str, json_schema: dict[str, Any], params: dict[str, Any]) -> dict[str, Any]:
         if self.structured_output != "json_schema":
             system = system + schema_instruction(json_schema)

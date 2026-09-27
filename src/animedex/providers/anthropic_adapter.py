@@ -48,6 +48,16 @@ class AnthropicProvider:
         self.send_params = list(send_params or [])
         self._client = client or anthropic.Anthropic(api_key=api_key, max_retries=max_retries, timeout=timeout_s)
 
+    def resolve_model(self, model_id: str) -> str:
+        """Models API lookup: confirms the id resolves before any live run (G1a). Returns the display name."""
+        try:
+            info = self._client.models.retrieve(model_id)
+        except anthropic.NotFoundError as exc:
+            raise ProviderError(f"{self.name}: model {model_id!r} does not resolve") from exc
+        except anthropic.APIError as exc:
+            raise ProviderError(f"{self.name}: could not check model {model_id!r}: {exc}") from exc
+        return str(getattr(info, "display_name", None) or getattr(info, "id", model_id))
+
     def _kwargs(self, system: str, user: str, json_schema: dict[str, Any], params: dict[str, Any]) -> dict[str, Any]:
         output_config: dict[str, Any] = {"format": {"type": "json_schema", "schema": json_schema}}
         if "effort" in self.send_params and params.get("effort"):

@@ -37,6 +37,21 @@ class ClientConfigError(RuntimeError):
     pass
 
 
+class ModelSubstituted(ProviderError):
+    """A strict slot (CHECK, judge) was answered by a different model; the output is refused."""
+
+
+_DATE_STAMP = re.compile(r"-(\d{8}|\d{4}-\d{2}-\d{2})$")
+
+
+def same_model(requested: str, served: str) -> bool:
+    """Equal, or the same id with a date-stamp suffix (-YYYYMMDD / -YYYY-MM-DD) on one side.
+
+    Version suffixes do NOT count: claude-opus-5 is not claude-opus-5-5.
+    """
+    return _DATE_STAMP.sub("", requested) == _DATE_STAMP.sub("", served)
+
+
 class InvalidOutput(RuntimeError):
     def __init__(self, errors: list[str], raw: str):
         self.errors = errors
@@ -74,9 +89,10 @@ class CallContext:
 class Completion:
     data: dict[str, Any]
     usage: Usage
-    model: str
+    model: str          # the model that actually served the call (recorded in provenance)
     cache_key: str
     cache_hit: bool
+    substituted: bool = False  # served by a fallback model; never cached
 
 
 class LLMClient:
@@ -182,9 +198,17 @@ class LLMClient:
             if self.provider.live and self.budget is not None:
                 self.budget.charge(cost, ctx.title_id, ctx.episode_id)
             total = total + resp.usage
+            substituted = self.provider.live and not same_model(self.spec.model, resp.model)
+            if substituted and self.spec.strict_model:
+                self.runlog.log_call(**log_common, model=resp.model, cache_hit=False, attempt=attempt,
+                                     input_tokens=resp.usage.input_tokens, output_tokens=resp.usage.output_tokens,
+                                     cost_usd=cost, user=attempt_user, response=None,
+                                     error=f"refused: strict slot answered by {resp.model}, not {self.spec.model}")
+                raise ModelSubstituted(f"{self.spec.model} was substituted by {resp.model}; strict slot refuses it")
             self.runlog.log_call(**log_common, model=resp.model, cache_hit=False, attempt=attempt,
                                  input_tokens=resp.usage.input_tokens, output_tokens=resp.usage.output_tokens,
-                                 cost_usd=cost, user=attempt_user, response=resp.text)
+                                 cost_usd=cost, user=attempt_user, response=resp.text,
+                                 error=f"substituted: served by {resp.model}" if substituted else None)
             try:
                 data = parse_json(resp.text)
                 if validate is not None:
@@ -195,7 +219,8 @@ class LLMClient:
                     attempt_user = user + REPAIR_SUFFIX.format(error=str(exc)[:800])
                     continue
                 raise InvalidOutput(errors, resp.text) from exc
-            self.cache.put(ctx.pass_, key, {"json": data, "model": resp.model, "usage": asdict(total),
-                                            "provider": self.provider_name})
-            return Completion(data, total, resp.model, key, False)
+            if not substituted:  # a fallback answer is never cached: reruns retry the requested model
+                self.cache.put(ctx.pass_, key, {"json": data, "model": resp.model, "usage": asdict(total),
+                                                "provider": self.provider_name})
+            return Completion(data, total, resp.model, key, False, substituted)
         raise AssertionError("unreachable")  # pragma: no cover
