@@ -76,13 +76,13 @@ def render_user(entry: CorpusEntry) -> str:
 # ---------------------------------------------------------------- output schema (for the model)
 def _field_schema(conditional: bool) -> dict[str, Any]:
     props: dict[str, Any] = {
-        "value": {"type": ["string", "null"]},
+        "value": {"type": ["string", "null"], "description": "a listed enum value, or a phrase of 12 words or fewer"},
         "conf": {"type": "number"},
-        "uncertainty_reason": {"type": ["string", "null"]},
+        "uncertainty_reason": {"type": ["string", "null"], "description": "12 words or fewer"},
         "epistemic": {"type": "string", "enum": EPISTEMIC},
     }
     if conditional:
-        props["condition"] = {"type": ["string", "null"]}
+        props["condition"] = {"type": ["string", "null"], "description": "12 words or fewer"}
     return {"type": "object", "properties": props, "required": list(props), "additionalProperties": False}
 
 
@@ -204,7 +204,7 @@ def draft_problems(draft: dict[str, Any], entry: CorpusEntry, vocab: Vocab, thre
                 if f.kind == "enum" and not _enum_ok(vocab, f.vocab or f.path, value):
                     problems.append(f"{f.path}={value!r}: use a listed value or other:<phrase>")
                 if f.kind == "phrase" and word_count(value) > 12:
-                    problems.append(f"{f.path}: 12 words max")
+                    problems.append(f"{f.path}: has {word_count(value)} words; rewrite it in 12 or fewer")
                 problems += [f"{f.path}: {p}" for p in quote_problems(value, guards.min_quote_words)]
                 if f.block == "sensory":
                     problems += [f"{f.path}: {p}" for p in framing_problems(value, guards.framing_terms)]
@@ -214,7 +214,7 @@ def draft_problems(draft: dict[str, Any], entry: CorpusEntry, vocab: Vocab, thre
                 problems.append(f"{f.path}: conf < {threshold} needs an uncertainty_reason")
             for key in ("uncertainty_reason", "condition"):
                 if isinstance(fv.get(key), str) and word_count(fv[key]) > 12:
-                    problems.append(f"{f.path}.{key}: 12 words max")
+                    problems.append(f"{f.path}.{key}: has {word_count(fv[key])} words; rewrite it in 12 or fewer")
     moments = draft.get("moments") or []
     if not MOMENTS[0] <= len(moments) <= MOMENTS[1]:
         problems.append(f"give {MOMENTS[0]}-{MOMENTS[1]} moments (got {len(moments)})")

@@ -116,6 +116,15 @@ def run_batch(paths: Paths, title_ids: list[str], settings: Settings, env: dict[
     todo = [t for t in ids if t not in done["P1"]]
     ok = stage("P1", lambda client, run_id: run_p1(paths, [corpus[t] for t in todo], client, vocab, settings,
                                                      run_id=run_id), todo, "p1")
+    retry = [t for t, _ in report.stages.get("P1", {}).get("quarantined", [])]
+    if ok and retry:  # one fresh run for quarantined titles (a new run, not a second repair)
+        first = report.stages.pop("P1")
+        ok = stage("P1", lambda client, run_id: run_p1(paths, [corpus[t] for t in retry], client, vocab, settings,
+                                                         run_id=run_id, params={"attempt_run": 2}), retry, "p1")
+        again = report.stages.get("P1", {})
+        report.stages["P1"] = {**first, "done": first["done"] + again.get("done", []),
+                               "quarantined": again.get("quarantined", []),
+                               "counts": {**first.get("counts", {}), "retried": len(retry)}}
     if ok and "VERIFY" in stages:
         pending = [t for t in todo if (paths.candidates / "verify" / f"{t}.json").is_file()]
         engine = build_search(settings, env) if search == "auto" else search

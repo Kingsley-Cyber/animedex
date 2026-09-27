@@ -49,3 +49,18 @@ def test_migration_defaults_old_non_hit_outcomes_to_unknown(repo):
     [row] = [json.loads(line) for line in (repo.canonical / "outcomes.jsonl").read_text().splitlines()]
     assert (row["failure_level"], row["failure_level_source"]) == ("unknown", "migration")
     assert migrate_1_3_0(repo, "run_m2") == []  # idempotent
+
+
+def test_migration_also_fixes_waiting_candidates(repo):
+    import json
+
+    from animedex.migrations import migrate_1_3_0
+
+    old = {k: v for k, v in synthetic_state()["outcome"][0].items() if not k.startswith("failure_level")
+           and k not in ("failure_evidence", "failure_evidence_ref")}
+    (repo.candidates / "outcome").mkdir(parents=True, exist_ok=True)
+    (repo.candidates / "outcome" / "glass_meridian_2016.jsonl").write_text(json.dumps(old) + "\n")
+    assert migrate_1_3_0(repo, "run_m") == ["glass_meridian_2016"]
+    [row] = [json.loads(x) for x in (repo.candidates / "outcome" / "glass_meridian_2016.jsonl").read_text().splitlines()]
+    assert row["failure_level"] == "unknown" and row["failure_level_source"] == "migration"
+
