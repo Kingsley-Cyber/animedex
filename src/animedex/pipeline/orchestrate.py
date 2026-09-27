@@ -1,6 +1,7 @@
 """Run titles through the whole pipeline, stage by stage, skipping work that is already canonical.
 
-P1 -> VERIFY -> CANONICALIZE -> P2 -> P3 -> CHECK -> CANONICALIZE -> P4 -> CANONICALIZE
+GATHER -> INTERPRET -> VERIFY -> CANONICALIZE -> P2 -> P3 -> CHECK -> CANONICALIZE -> P4 -> CANONICALIZE
+(gather-first since v1.7, D-042: the recall-first P1 path is no longer run)
 
 A batch moves one stage at a time across all its titles, so partners are canonical before P3
 needs them. A usage limit, an expired login, or a budget cap stops the batch cleanly: finished
@@ -22,7 +23,8 @@ from animedex.pipeline.canonicalize import canonicalize
 from animedex.store.canonical import CanonicalStore
 from animedex.store.runlog import RunLog, new_run_id
 
-STAGES = ("P1", "VERIFY", "P2", "P3", "CHECK", "P4")
+STAGES = ("GATHER", "INTERPRET", "VERIFY", "P2", "P3", "CHECK", "P4")
+PASS_STAGE = {"P1": "INTERPRET"}   # coverage records the profile pass as P1; INTERPRET writes that record
 
 
 @dataclass
@@ -57,10 +59,16 @@ def _state_done(paths: Paths) -> dict[str, set[str]]:
     done: dict[str, set[str]] = {s: set() for s in STAGES}
     for c in state.get("coverage", []):
         for p in c.get("passes_done", []):
+            p = PASS_STAGE.get(p, p)
             if p in done:
                 done[p].add(c["title_id"])
-    for t in state.get("title", []):
-        done["P1"].add(t["title_id"])
+    for t in state.get("title", []):  # a canonical profile is past GATHER, INTERPRET and VERIFY
+        for stage in ("GATHER", "INTERPRET", "VERIFY"):
+            done[stage].add(t["title_id"])
+    for f in (paths.candidates / "gathered").glob("*.json"):
+        done["GATHER"].add(f.stem)
+    for f in (paths.candidates / "title").glob("*.jsonl"):
+        done["INTERPRET"].add(f.stem)
     return done
 
 
@@ -78,12 +86,29 @@ def _summ(result: Any) -> dict[str, Any]:
         "quarantined", "failed", "refused", "skipped", "flags")} | {"counts": dict(getattr(result, "counts", {}) or {})}
 
 
+def cli_reception(paths: Paths, env: dict[str, str]) -> Callable[[Any], tuple[Any, list[str]]]:
+    """The API reception source the `gather` command uses (AniList + the reception APIs; owner rule A2)."""
+    from animedex.catalog.anilist import AniList
+    from animedex.catalog.reception import ReceptionClient, reception_for
+
+    anilist = AniList(cache_dir=paths.cache / "anilist")
+    rec_client = ReceptionClient.from_env(paths, env)
+
+    def reception(entry: Any) -> tuple[Any, list[str]]:
+        rec_client.notes.clear()
+        return reception_for(entry, anilist=anilist, client=rec_client), list(rec_client.notes)
+    return reception
+
+
 def run_batch(paths: Paths, title_ids: list[str], settings: Settings, env: dict[str, str], vocab: Vocab, *,
               stages: tuple[str, ...] = STAGES, clients: Callable[[str, RunLog], Any] | None = None,
-              search: Any = "auto", echo: Callable[[str], None] = lambda s: None) -> BatchReport:
-    """`clients(model_key, runlog)` builds an LLMClient (tests pass mocks); `search` defaults to config."""
+              search: Any = "auto", reception: Any = "auto", echo: Callable[[str], None] = lambda s: None
+              ) -> BatchReport:
+    """`clients(model_key, runlog)` builds an LLMClient (tests pass mocks); `search` and `reception` default
+    to the config and the API sources (tests pass None)."""
     from animedex.pipeline.check import run_check
-    from animedex.pipeline.p1 import run_p1
+    from animedex.pipeline.gather import run_gather
+    from animedex.pipeline.interpret import run_interpret
     from animedex.pipeline.p2 import run_p2
     from animedex.pipeline.p3 import run_p3
     from animedex.pipeline.p4 import run_p4
@@ -122,20 +147,28 @@ def run_batch(paths: Paths, title_ids: list[str], settings: Settings, env: dict[
 
     ids = [t for t in title_ids if t in corpus]
     done = _state_done(paths)
-    todo = [t for t in ids if t not in done["P1"]]
-    ok = stage("P1", lambda client, run_id: run_p1(paths, [corpus[t] for t in todo], client, vocab, settings,
-                                                     run_id=run_id), todo, "p1")
-    retry = [t for t, _ in report.stages.get("P1", {}).get("quarantined", [])]
-    if ok and retry:  # one fresh run for quarantined titles (a new run, not a second repair)
-        first = report.stages.pop("P1")
-        ok = stage("P1", lambda client, run_id: run_p1(paths, [corpus[t] for t in retry], client, vocab, settings,
-                                                         run_id=run_id, params={"attempt_run": 2}), retry, "p1")
-        again = report.stages.get("P1", {})
-        report.stages["P1"] = {**first, "done": first["done"] + again.get("done", []),
-                               "quarantined": again.get("quarantined", []),
-                               "counts": {**first.get("counts", {}), "retried": len(retry)}}
+    todo_gather = [t for t in ids if t not in done["GATHER"] and t not in done["INTERPRET"]]
+    rec = cli_reception(paths, env) if reception == "auto" and todo_gather and "GATHER" in stages else reception
+    ok = stage("GATHER", lambda client, run_id: run_gather(paths, [corpus[t] for t in todo_gather], client, vocab,
+                                                           settings, run_id=run_id, reception=None if rec == "auto" else rec),
+               todo_gather, "gather")
+    if ok:
+        gathered = {f.stem for f in (paths.candidates / "gathered").glob("*.json")}
+        todo = [t for t in ids if t not in done["INTERPRET"] and t in gathered]
+        ok = stage("INTERPRET", lambda client, run_id: run_interpret(paths, [corpus[t] for t in todo], client, vocab,
+                                                                     settings, run_id=run_id), todo, "interpret")
+        retry = [t for t, _ in report.stages.get("INTERPRET", {}).get("quarantined", [])]
+        if ok and retry:  # one fresh run for quarantined titles (a new run, not a second repair)
+            first = report.stages.pop("INTERPRET")
+            ok = stage("INTERPRET", lambda client, run_id: run_interpret(paths, [corpus[t] for t in retry], client,
+                                                                         vocab, settings, run_id=run_id,
+                                                                         params={"attempt_run": 2}), retry, "interpret")
+            again = report.stages.get("INTERPRET", {})
+            report.stages["INTERPRET"] = {**first, "done": first["done"] + again.get("done", []),
+                                          "quarantined": again.get("quarantined", []),
+                                          "counts": {**first.get("counts", {}), "retried": len(retry)}}
     if ok and "VERIFY" in stages:
-        pending = [t for t in todo if (paths.candidates / "verify" / f"{t}.json").is_file()]
+        pending = [t for t in ids if (paths.candidates / "verify" / f"{t}.json").is_file()]
         engine = build_search(settings, env) if search == "auto" else search
         ok = stage("VERIFY", lambda client, run_id: run_verify(paths, [corpus[t] for t in pending], client, engine,
                                                                vocab, settings, run_id=run_id), pending, "verify")
@@ -148,10 +181,10 @@ def run_batch(paths: Paths, title_ids: list[str], settings: Settings, env: dict[
             report.stages["VERIFY"] = {**first, "done": first["done"] + again.get("done", []),
                                        "quarantined": again.get("quarantined", []),
                                        "counts": {**first.get("counts", {}), "retried": len(retry_v)}}
-    canon("P1/VERIFY")
+    canon("INTERPRET/VERIFY")
     if ok:
         done = _state_done(paths)
-        need = [t for t in ids if t in done["P1"] and t not in done["P2"]]
+        need = [t for t in ids if t in done["INTERPRET"] and t not in done["P2"]]
         ok = stage("P2", lambda client, run_id: run_p2(paths, need, client, vocab, settings, run_id=run_id), need, "p2")
     if ok:
         with_atoms = [t for t in ids if (paths.candidates / "mechanism" / f"{t}.jsonl").is_file()

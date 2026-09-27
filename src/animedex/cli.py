@@ -322,7 +322,7 @@ def p4(title: str = TitleOpt, all_: bool = AllOpt) -> None:
 
 @app.command()
 def run(title: str = TitleOpt, all_: bool = AllOpt) -> None:
-    """Full pipeline for the given titles, skipping finished work: P1 -> VERIFY -> P2 -> P3 -> CHECK -> P4."""
+    """Full pipeline for the given titles, skipping finished work: GATHER -> INTERPRET -> VERIFY -> P2 -> P3 -> CHECK -> P4."""
     from animedex.ontology import get_vocab
     from animedex.pipeline.orchestrate import run_batch
 

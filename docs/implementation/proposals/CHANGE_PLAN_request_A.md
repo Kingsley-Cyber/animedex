@@ -1,6 +1,6 @@
 # Change plan: request A (MCP chat, commentary, search_atoms)
 
-**Status:** built (branch `a/mcp`), merged after the blind-review packet is ready ("FINISH IT"); decided by the lead under the owner's standing rule (D-033). The original request A text was never pasted (CHANGE_PLAN_v1.3-v1.5, "pending A"), so this plan implements the three items named in the owner's instruction and the constraints the earlier plan already recorded.
+**Status:** merged into main on 2026-09-27, after the blind-review packet was built ("FINISH IT"); decided by the lead under the owner's standing rule (D-033). The original request A text was never pasted (CHANGE_PLAN_v1.3-v1.5, "pending A"), so this plan implements the three items named in the owner's instruction and the constraints the earlier plan already recorded.
 
 ## What it is
 - **MCP chat.** An MCP server, `animedex mcp` (stdio), that lets Kingsley talk to the index from any MCP client (Claude Desktop, Claude Code). The client's model does the chatting. The server never calls a model, never uses the web, and reads only the built index (earlier plan: "the MCP server never calls a model").

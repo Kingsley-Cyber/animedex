@@ -329,27 +329,78 @@ def test_orchestrator_runs_m3_stages_with_mocks(m3):
     assert len(state["transfer"]) == 2 and report.canonical.get("check", 0) >= 6
 
 
-def test_orchestrator_retries_a_quarantined_p1_once_with_fresh_calls(repo):
+def test_orchestrator_retries_a_quarantined_interpret_once_with_fresh_calls(repo):
+    """Gather-first orchestration (D-042): INTERPRET runs on the gathered facts, and a quarantined title gets
+    one fresh run (a new cache key, not a second repair) before the batch gives up on it."""
     import yaml as _yaml
 
     from animedex.pipeline.orchestrate import run_batch
-    from tests.pipeline.test_p1 import ENTRY, make_draft
+    from tests.pipeline.test_interpret import GATHERED, TID, answer, cast
+    from tests.pipeline.test_p1 import ENTRY
 
     repo.corpus_file.write_text(_yaml.safe_dump({"titles": [ENTRY]}))
-    bad = make_draft()
+    (repo.candidates / "gathered").mkdir(parents=True, exist_ok=True)
+    (repo.candidates / "gathered" / f"{TID}.json").write_text(json.dumps(GATHERED))
+    bad = answer()
     bad["core"]["tone"]["uncertainty_reason"] = None  # a guess without a reason: repaired, then quarantined
-    calls = {"n": 0}
+    profile_calls = {"n": 0}
 
-    def answer(system, user, schema, params):
-        calls["n"] += 1
-        return bad if calls["n"] <= 2 else make_draft()
+    def respond(system, user, schema, params):
+        if "characters" in schema.get("properties", {}):
+            return cast()
+        profile_calls["n"] += 1
+        return bad if profile_calls["n"] <= 2 else answer()
 
     def clients(key, runlog):
-        return LLMClient(provider=MockProvider(default=answer), provider_name="mock",
+        assert key in ("gather", "interpret")
+        return LLMClient(provider=MockProvider(default=respond), provider_name="mock",
                          spec=ModelSpec(provider="mock", model="v"), prompt_version="unset",
                          schema_version=SCHEMA_VERSION, vocab_version=get_vocab().version,
                          cache=ResponseCache(repo.cache), runlog=runlog)
 
-    report = run_batch(repo, [ENTRY["title_id"]], load_settings(repo), {}, get_vocab(), stages=("P1",), clients=clients)
-    p1 = report.stages["P1"]
-    assert p1["done"] == [ENTRY["title_id"]] and p1["counts"]["retried"] == 1 and calls["n"] == 3
+    report = run_batch(repo, [TID], load_settings(repo), {}, get_vocab(), stages=("GATHER", "INTERPRET"),
+                       clients=clients, reception=None)
+    assert "GATHER" not in report.stages  # already gathered: nothing to do
+    st = report.stages["INTERPRET"]
+    assert st["done"] == [TID] and st["counts"]["retried"] == 1 and profile_calls["n"] == 3
+    # the batch canonicalizes after INTERPRET/VERIFY, so the profile is canonical now
+    assert TID in {t["title_id"] for t in CanonicalStore(repo).read("title")}
+
+
+def test_orchestrator_runs_gather_then_interpret_in_order(repo):
+    """D-042: `animedex run` / `make backfill` gather first, interpret from the gathered facts, and never call P1."""
+    import yaml as _yaml
+
+    from animedex.catalog.reception import Reception
+    from animedex.pipeline.orchestrate import run_batch
+    from tests.pipeline.test_gather import WIKI, WebMock, fact
+    from tests.pipeline.test_interpret import TID, answer, cast
+    from tests.pipeline.test_p1 import ENTRY
+
+    repo.corpus_file.write_text(_yaml.safe_dump({"titles": [ENTRY]}))
+    gathered = {"facts": [fact("power_combat.gate", "trained"),
+                          fact("anime_production.source_medium", "original", scope="unplaced")],
+                "characters": [{"role": "protagonist", "name": "Marisol Vey",
+                                "facts": [{"field": "turning_point", "value": "loses her memory of the harbor",
+                                           "season": 1, "episode": 7, "source_url": WIKI, "scope": "in_scope"}]}],
+                "reception": [{"kind": "critic_review", "verdict": "praised pacing and grounded stakes",
+                               "source_url": WIKI}]}
+    rec = Reception(source="anilist", mal_id=11, anilist_id=22, score=81.0, scorers=None, rank=None, popularity=5000,
+                    url="https://anilist.co/anime/22", fetched_at="2026-09-27T00:00:00+00:00")
+    keys: list[str] = []
+
+    def clients(key, runlog):
+        keys.append(key)
+        provider = (WebMock({WIKI}, responses={("GATHER", TID): [gathered]}) if key == "gather"
+                    else MockProvider(responses={("INTERPRET", TID): [answer()],
+                                                 ("INTERPRET", f"{TID}.characters"): [cast()]}))
+        return LLMClient(provider=provider, provider_name="mock", spec=ModelSpec(provider="mock", model="v"),
+                         prompt_version="unset", schema_version=SCHEMA_VERSION, vocab_version=get_vocab().version,
+                         cache=ResponseCache(repo.cache), runlog=runlog)
+
+    report = run_batch(repo, [TID], load_settings(repo), {}, get_vocab(), stages=("GATHER", "INTERPRET"),
+                       clients=clients, reception=lambda e: ([rec], []))
+    assert keys == ["gather", "interpret"] and list(report.stages) == ["GATHER", "INTERPRET"]
+    assert report.stages["GATHER"]["done"] == [TID] and report.stages["INTERPRET"]["done"] == [TID]
+    assert (repo.candidates / "gathered" / f"{TID}.json").is_file() and not report.stopped
+    assert TID in {t["title_id"] for t in CanonicalStore(repo).read("title")}  # canonicalized after INTERPRET

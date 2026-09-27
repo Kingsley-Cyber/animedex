@@ -10,7 +10,7 @@
 | `animedex check --title <id>` | CHECK |
 | `animedex p4 --title <id>` | P4 TRANSFER |
 | `animedex canonicalize` | CANONICALIZE |
-| `animedex run --title <id>` | P1 → CANONICALIZE for one title |
+| `animedex run --title <id>` | GATHER → INTERPRET → VERIFY → CANONICALIZE → P2 → P3 → CHECK → CANONICALIZE → P4 → CANONICALIZE for the given titles, skipping finished stages (gather-first since v1.7; D-042) |
 | `animedex ep --title <id> [--episodes key\|<list>]` | EP (M6) |
 | `animedex rollup --title <id>` | ROLLUP (M6) |
 | `animedex analyze` | Coverage, gaps, lanes, graveyard, episode analytics |

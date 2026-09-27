@@ -1,5 +1,12 @@
 # Changelog — docs/implementation
 
+## Orchestrator is gather-first — 2026-09-27
+- **D-042.** `run_batch` (behind `animedex run` and `make backfill`) now runs GATHER → INTERPRET → VERIFY → CANONICALIZE → P2 → P3 → CHECK → CANONICALIZE → P4 → CANONICALIZE. It skips titles that already have gathered facts or a profile candidate, retries a quarantined INTERPRET once with fresh calls, and takes its API reception from the same source as the `gather` command (`reception=None` in tests). The recall-first P1 stage is no longer orchestrated; `animedex p1` stays as a command for replays. 05 updated.
+
+## M5 complete — 2026-09-27
+- **Live runs.** Census 500 (292 powered rows). ANIMEDEX and baseline 1 on the same schedule (D-040): 42 champions in 42 cells; 51 passing baseline-1 cards; baseline 2 in one call. Blind packet `eval/blind/packet_2026-09-27.md`: 45 cards, 15 per arm, logline and premise only; key in the private data repo. Audit sheet, diagnose demo and backtest run; report in `reports/M5_REPORT.md`.
+- **Fixes from the live runs:** D-039 (names, not capitals), D-041 (Title Case speaker labels, guards at generation, per-row archive quarantine, `ideate --rebuild-archive`, search queries skipped by the quote guard), judge length paths, provenance of winners (A6), request A merged after the packet.
+
 ## Request A: MCP chat, commentary, search_atoms — 2026-09-27 (merged after the packet)
 - **D-033.** `animedex mcp` / `make mcp`: the index as an MCP server over stdio (official `mcp` SDK 2.x, `MCPServer`). Read-only tools (`search_atoms`, `get_atom`, `list_titles`, `get_title`, `find_titles`, `list_cqs`, `cq_answer`, `gaps`, `champions` after the blind review) and one write (`add_commentary` → `data/commentary/`, private data repo). `search_atoms` ranks by embedding (Polymath, then Ollama) or word overlap and says which. No model calls, no web; tests prove the read tools write nothing and the server imports no provider.
 - **Docs:** 02, 03, 04 (commentary record), 05, 06, 10, USAGE (section 4). Plan: `proposals/CHANGE_PLAN_request_A.md`.

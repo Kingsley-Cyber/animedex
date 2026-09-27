@@ -110,4 +110,7 @@ def build_server(paths: Paths, search: AtomSearch | None = None) -> MCPServer:
 
 
 def main() -> None:
+    import logging
+
+    logging.getLogger("httpx").setLevel(logging.WARNING)  # the embedder's request log is noise on stderr
     build_server(Paths.discover()).run("stdio")
