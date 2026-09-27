@@ -291,3 +291,43 @@ def test_a_length_repair_that_stays_long_is_quarantined(repo):
                                                               "twelve thirteen fourteen"}]}
     result, _ = run(repo, {KEY: [long], ("P1", f"{KEY[1]}.shorten"): [still, still]})
     assert result.titles == [] and "over 12 words" in result.quarantined[0][1]
+
+
+def test_replay_rebuilds_candidates_from_the_stored_draft_without_a_call(repo):
+    from animedex.store.jsonl import dumps_jsonl
+
+    tid = "ironvale_circuit_2021"
+    run(repo, {KEY: make_draft()})
+    path = repo.candidates / "title" / f"{tid}.jsonl"
+    first = path.read_text()
+    [rec] = read_jsonl(path)
+    rec["core"]["tone"]["verification"] = "web_confirmed"  # a later VERIFY rewrote the candidate in place
+    path.write_text(dumps_jsonl([rec]))
+    client, mock = client_for(repo, {})
+    other = CorpusEntry.model_validate({**ENTRY, "title_id": "other_show_2020", "title": "Other Show", "year": 2020})
+    result = run_p1(repo, [CorpusEntry.model_validate(ENTRY), other], client, get_vocab(), load_settings(repo),
+                    run_id="run_replay", replay=True)
+    assert not mock.calls and len(result.titles) == 1
+    assert path.read_text() == first  # the same draft with the original run's provenance
+    kept = repo.candidates / "title" / "superseded" / "run_replay" / f"{tid}.jsonl"
+    assert read_jsonl(kept)[0]["core"]["tone"]["verification"] == "web_confirmed"  # replaced, never deleted
+    assert result.failed == [("other_show_2020", "no P1 candidate to replay")]
+
+
+
+def test_replay_reuses_a_cached_length_repair_and_never_calls(repo):
+    long = make_draft()
+    long["core"]["logline_hook"]["value"] = ("a courier who can see the whole city grid trades her memories for "
+                                             "power every night")
+    short = {"items": [{"path": "core.logline_hook", "text": "a courier trades her memories for city power"}]}
+    run(repo, {KEY: [long], ("P1", f"{KEY[1]}.shorten"): [short]})
+    first = (repo.candidates / "title" / f"{KEY[1]}.jsonl").read_text()
+    client, mock = client_for(repo, {})
+    result = run_p1(repo, [CorpusEntry.model_validate(ENTRY)], client, get_vocab(), load_settings(repo),
+                    run_id="run_replay", replay=True)
+    assert not mock.calls and len(result.titles) == 1
+    assert (repo.candidates / "title" / f"{KEY[1]}.jsonl").read_text() == first
+    (repo.cache / "P1").rename(repo.cache / "P1_gone")  # nothing stored: a clean refusal, still no call
+    again = run_p1(repo, [CorpusEntry.model_validate(ENTRY)], client, get_vocab(), load_settings(repo),
+                   run_id="run_replay2", replay=True)
+    assert not mock.calls and again.failed == [(KEY[1], "its stored draft is not in the response cache")]

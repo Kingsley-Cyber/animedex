@@ -54,7 +54,9 @@ def _entries(paths: Any, title: str | None, all_: bool) -> list:
 
 @app.command()
 def p1(title: str = TitleOpt, all_: bool = AllOpt, dry_run: bool = DryOpt,
-       agreement: bool = typer.Option(False, "--agreement", help="Second run for AC-12 -> eval/agreement/p1/<run>/")) -> None:
+       agreement: bool = typer.Option(False, "--agreement", help="Second run for AC-12 -> eval/agreement/p1/<run>/"),
+       replay: bool = typer.Option(False, "--replay", help="Rebuild candidates from each title's stored draft "
+                                   "(no model call), e.g. before a fresh VERIFY.")) -> None:
     """P1 WHAT: title profile + moments -> candidates (then `animedex canonicalize`)."""
     from animedex import SCHEMA_VERSION as schema_version
     from animedex.ontology import get_vocab
@@ -90,6 +92,19 @@ def p1(title: str = TitleOpt, all_: bool = AllOpt, dry_run: bool = DryOpt,
         return
     run_id = new_run_id()
     runlog = RunLog(paths.raw_runs, run_id)
+    if replay:  # a provider that cannot answer: a replay reads the cache and never calls a model
+        from animedex.providers.client import LLMClient
+        from animedex.providers.mock import MockProvider
+
+        client = LLMClient(provider=MockProvider("replay"), provider_name="replay", spec=settings.models["p1"],
+                           prompt_version=prompt.version, schema_version=schema_version, vocab_version=vocab.version,
+                           cache=ResponseCache(paths.cache), runlog=runlog)
+        result = run_p1(paths, entries, client, vocab, settings, run_id=run_id, replay=True)
+        typer.echo(f"P1 replay: {len(result.titles)} profile(s) rebuilt from stored drafts, no model call; "
+                   "next: animedex verify")
+        for tid, why in result.failed:
+            typer.echo(f"  not replayed {tid}: {why[:200]}", err=True)
+        return
     client = build_client("p1", paths=paths, settings=settings, env=environment(paths), runlog=runlog,
                           prompt_version=prompt.version)
     agreement_dir = paths.root / "eval" / "agreement" / "p1" / run_id if agreement else None

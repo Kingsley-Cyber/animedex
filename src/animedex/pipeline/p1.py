@@ -24,14 +24,15 @@ from animedex.guards import LiveRunRefused
 from animedex.models import CorpusEntry, Moment, title_profile_model
 from animedex.ontology import Vocab
 from animedex.paths import Paths
+from animedex.pipeline.common import supersede
 from animedex.prompts import RenderedPrompt, read_prompt
-from animedex.providers.base import ProviderError
+from animedex.providers.base import ProviderError, Usage
 from animedex.providers.cli_common import CliAuthError, RateLimited
 from animedex.providers.client import CallContext, Completion, InvalidOutput, LLMClient
 from animedex.store.atomic import atomic_write_text
 from animedex.store.cache import upstream_hash
 from animedex.store.canonical import normalize_record
-from animedex.store.jsonl import dumps_jsonl
+from animedex.store.jsonl import dumps_jsonl, read_jsonl
 from animedex.store.quarantine import quarantine
 from animedex.textutil import word_count
 
@@ -346,11 +347,29 @@ def shorten_phrases(client: LLMClient, entry: CorpusEntry, draft: dict[str, Any]
     return out
 
 
+def stored_draft(paths: Paths, client: LLMClient, title_id: str) -> tuple[Completion | None, dict[str, Any], str]:
+    """Replay: the P1 draft behind a title's current candidate, read from the response cache (no call),
+    with the provenance of the run that produced it. Returns (None, {}, why) when it is not there."""
+    title_file = paths.candidates / "title" / f"{title_id}.jsonl"
+    if not title_file.is_file():
+        return None, {}, "no P1 candidate to replay"
+    [record] = read_jsonl(title_file)
+    prov = record.get("provenance") or {}
+    key = str(prov.get("cache_key") or "")
+    hit = client.cache.get("P1", key) if prov.get("pass") == "P1" and key else None
+    if hit is None:
+        return None, {}, "its stored draft is not in the response cache"
+    return (Completion(hit["json"], Usage(), hit.get("model", ""), key, True, False,
+                       hit.get("identity", client.identity), hit.get("meta") or {}), prov, "")
+
+
 def run_p1(paths: Paths, entries: list[CorpusEntry], client: LLMClient, vocab: Vocab, settings: Settings,
            *, run_id: str, guards: GuardConfig | None = None, created_at: str | None = None,
-           params: dict[str, Any] | None = None, agreement_dir: Path | None = None) -> P1Result:
+           params: dict[str, Any] | None = None, agreement_dir: Path | None = None, replay: bool = False) -> P1Result:
     """`agreement_dir` + `params={"rerun": n}`: a second, independent run for AC-12, written to
-    eval/agreement instead of candidates (the extra param changes the cache key)."""
+    eval/agreement instead of candidates (the extra param changes the cache key).
+    `replay`: rebuild each title's candidates from the stored draft behind its current candidate, with
+    that run's provenance and no model call (resets a title before a fresh VERIFY)."""
     guards = guards or GuardConfig.from_settings(settings)
     prompt = render_prompt(paths, vocab, settings)
     client.prompt_version = prompt.version  # cache keys follow the rendered prompt
@@ -368,28 +387,43 @@ def run_p1(paths: Paths, entries: list[CorpusEntry], client: LLMClient, vocab: V
             if other:
                 raise ValueError("; ".join(other[:25]))
 
-        ctx = CallContext(pass_="P1", record_id=tid, title_id=tid,
-                          upstream=upstream_hash([entry.model_dump(mode="json")]))
-        try:
-            completion = client.complete_ex(prompt.system, render_user(entry), schema, params, ctx=ctx, validate=check)
-        except InvalidOutput as exc:
-            quarantine(paths.quarantine, "P1", "title", tid, exc.raw, exc.errors)
-            result.quarantined.append((tid, exc.errors[-1][:300]))
-            continue
-        except LiveRunRefused as exc:
-            result.refused.append((tid, str(exc)))
-            continue
-        except (BudgetExceeded, RateLimited, CliAuthError) as exc:  # stop the run; finished titles stay cached
-            result.stopped = str(exc)
-            break
-        except ProviderError as exc:
-            result.failed.append((tid, str(exc)))
-            continue
+        origin: dict[str, Any] = {}
+        if replay:
+            completion, origin, why = stored_draft(paths, client, tid)
+            if completion is None:
+                result.failed.append((tid, why))
+                continue
+            try:
+                check(completion.data)
+            except ValueError as exc:
+                result.failed.append((tid, f"stored draft fails the current checks: {str(exc)[:200]}"))
+                continue
+        else:
+            ctx = CallContext(pass_="P1", record_id=tid, title_id=tid,
+                              upstream=upstream_hash([entry.model_dump(mode="json")]))
+            try:
+                completion = client.complete_ex(prompt.system, render_user(entry), schema, params, ctx=ctx,
+                                                validate=check)
+            except InvalidOutput as exc:
+                quarantine(paths.quarantine, "P1", "title", tid, exc.raw, exc.errors)
+                result.quarantined.append((tid, exc.errors[-1][:300]))
+                continue
+            except LiveRunRefused as exc:
+                result.refused.append((tid, str(exc)))
+                continue
+            except (BudgetExceeded, RateLimited, CliAuthError) as exc:  # stop the run; finished titles stay cached
+                result.stopped = str(exc)
+                break
+            except ProviderError as exc:
+                result.failed.append((tid, str(exc)))
+                continue
         if completion.substituted:
             result.substituted.append((tid, completion.model))
         draft = normalize_draft(completion.data, entry, vocab)
         long = [p for p in draft_problems(draft, entry, vocab, threshold, guards) if _is_length(p)]
         if long:
+            if replay:  # its length repair replays from the cache too, keyed as it was then
+                client.prompt_version = origin.get("prompt_version", prompt.version)
             try:
                 draft = normalize_draft(shorten_phrases(client, entry, draft, long, params), entry, vocab)
             except InvalidOutput as exc:
@@ -400,17 +434,20 @@ def run_p1(paths: Paths, entries: list[CorpusEntry], client: LLMClient, vocab: V
                 result.stopped = str(exc)
                 break
             except ProviderError as exc:
-                result.failed.append((tid, str(exc)))
+                result.failed.append((tid, "its length repair is not in the response cache; a replay makes no "
+                                           "model call" if replay else str(exc)))
                 continue
+            finally:
+                client.prompt_version = prompt.version
             left = draft_problems(draft, entry, vocab, threshold, guards)
             if left:
                 quarantine(paths.quarantine, "P1", "title", tid, draft, left)
                 result.quarantined.append((tid, left[0][:300]))
                 continue
         record, moments, to_verify = assemble(draft, entry, vocab, settings,
-                                              run_id=run_id,
-                                              prompt_version=prompt.version, completion=completion,
-                                              created_at=created_at)
+                                              run_id=origin.get("run_id", run_id),
+                                              prompt_version=origin.get("prompt_version", prompt.version),
+                                              completion=completion, created_at=origin.get("created_at", created_at))
         try:  # candidates keep raw other:<phrase>; check the normalized form CANONICALIZE will store
             title_model.model_validate(normalize_record("title", record, vocab)[0])
             for m in moments:
@@ -423,6 +460,9 @@ def run_p1(paths: Paths, entries: list[CorpusEntry], client: LLMClient, vocab: V
         result.moments.extend(moments)
         if agreement_dir is not None:
             continue
+        if replay:  # what the replay replaces is kept, and the old VERIFY's outcome no longer stands
+            for sub in ("title", "moment", "outcome"):
+                supersede(paths.candidates / sub / f"{tid}.jsonl", run_id)
         # one candidate file per title and record type: VERIFY rewrites these in place
         atomic_write_text(paths.candidates / "title" / f"{tid}.jsonl", dumps_jsonl([record]))
         atomic_write_text(paths.candidates / "moment" / f"{tid}.jsonl", dumps_jsonl(moments))

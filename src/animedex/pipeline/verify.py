@@ -29,7 +29,13 @@ from animedex.guards import LiveRunRefused
 from animedex.models import CorpusEntry
 from animedex.ontology import Vocab
 from animedex.paths import Paths
-from animedex.pipeline.common import BLOCKED_SOURCE_NOTE, blocked_source, norm_url, url_set
+from animedex.pipeline.common import (
+    BLOCKED_SOURCE_NOTE,
+    blocked_source,
+    norm_url,
+    supersede,
+    url_set,
+)
 from animedex.prompts import RenderedPrompt, read_prompt
 from animedex.providers.base import ProviderError
 from animedex.providers.cli_common import CliAuthError, RateLimited
@@ -466,6 +472,8 @@ def run_verify(paths: Paths, entries: list[CorpusEntry], client: LLMClient, sear
             atomic_write_text(paths.candidates / "moment" / f"{tid}.jsonl", dumps_jsonl(moments))
         if outcome:
             atomic_write_text(paths.candidates / "outcome" / f"{tid}.jsonl", dumps_jsonl([outcome]))
+        elif not outcome_only:  # an older VERIFY's outcome no longer stands
+            supersede(paths.candidates / "outcome" / f"{tid}.jsonl", run_id)
         summary = {"title_id": tid, "run_id": run_id, "statuses": res.statuses, "conflicts": res.conflicts,
                    "dropped_moments": res.dropped_moments, "outcome": res.outcome, "searches": res.searches,
                    "notes": res.notes, "sources": sorted(sources)}

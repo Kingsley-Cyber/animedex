@@ -11,6 +11,7 @@ import json
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
+from pathlib import Path
 from typing import Any
 
 from animedex import SCHEMA_VERSION
@@ -190,3 +191,10 @@ def url_set(urls: Any) -> set[str]:
     """Admissible citations, by page identity: blocked sources never count."""
     return {norm_url(u) for u in (urls or []) if norm_url(u) and not blocked_source(u)}
 
+
+def supersede(path: Path, run_id: str) -> None:
+    """Move a stale candidate aside: kept under superseded/<run_id>/, never read by CANONICALIZE."""
+    if path.is_file():
+        dest = path.parent / "superseded" / run_id / path.name
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        path.replace(dest)

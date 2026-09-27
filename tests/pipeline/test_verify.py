@@ -244,6 +244,16 @@ def test_myanimelist_pages_are_never_admissible_citations(repo):
     assert record["sensory"]["power_visual_signature"]["value"] == "x" and outcome is not None
 
 
+def test_a_verify_without_an_outcome_supersedes_a_stale_one(repo):
+    stale = repo.candidates / "outcome" / f"{TID}.jsonl"
+    stale.parent.mkdir(parents=True, exist_ok=True)
+    stale.write_text(json.dumps({"title_id": TID, "label": "hit"}) + "\n")
+    out = verify_out(fields=[f for f in verify_out()["fields"] if f["path"] != "sensory.color_motif"], outcome=None)
+    result, _, _ = verify(repo, {("VERIFY", TID): [out]})
+    assert result.titles and not result.titles[0].outcome
+    assert not stale.exists() and (repo.candidates / "outcome" / "superseded" / "run_v" / f"{TID}.jsonl").is_file()
+
+
 def test_native_mode_flags_a_blown_search_cap(repo):
     good = verify_out(fields=[f for f in verify_out()["fields"] if f["path"] != "sensory.color_motif"])
     result, mock, _ = verify_native(repo, {("VERIFY", TID): [good]}, {FACTS, EPISODES, RATINGS}, searches=9)
