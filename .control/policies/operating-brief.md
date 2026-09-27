@@ -233,3 +233,14 @@ Supersedes the provider, key and dollar-cap lines of the G1 rulings. The model c
 - **The only reasons to stop:** deleting data; a change to the taste standard; the blind-review packet is ready (the finish line). On plan limits: pause and resume automatically, no questions.
 - **Rules that stay:** subscription CLIs only; paraphrase only; scope discipline; no scraping MAL; Kingsley's concepts and all outputs only in the private data repo; no new fields after v1.8; tests green.
 - **Updates:** one short plain-language message per milestone. The final message says "ready for blind review" and lists the exact steps.
+
+## Owner ruling: statistics as gates (Kingsley, 2026-09-27)
+Snapshots and counts only, no models. Each statistic replaces the check it corresponds to inside its existing stage; `animedex stats` is only a read-only summary page. Pure arithmetic over DuckDB counts, deterministic.
+1. **Reliability:** Cohen's kappa per enum field alongside raw agreement. Grid fields need kappa ≥ 0.8. Any field below 0.6 is flagged unreliable and excluded from gaps (agreement eval).
+2. **Adequacy:** a zero counts as "open" only when the rule-of-three bound 3/n, over the relevant census or corpus subset, is below 0.02.
+3. **Gap ranking:** empty cells are ranked by expected count under independence (n × p(x) × p(y)). Cells with expected ≥ 3 and observed 0 are real gaps; the rest are "unsurprising".
+4. **Novelty:** PMI replaces "unseen pair"; each idea's key pair reports its PMI (novelty gate).
+5. **Field health:** per-field entropy and mutual information with outcome go in the analysis report; low-entropy fields are flagged.
+6. **Calibration:** Brier score of confidence vs. verified correctness, per field (VERIFY report).
+7. **Taste:** Bradley–Terry strengths from pairwise picks (Kingsley's and the panel's); the judge's agreement is measured against that ranking (review import).
+8. **Backtest:** the binomial p-value and the sample size needed for significance.
