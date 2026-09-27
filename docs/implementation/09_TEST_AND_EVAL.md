@@ -45,7 +45,12 @@ Metrics:
 - **Operator stats:** which operators produce champions, and which mostly fail gates.
 - **Grid coverage:** occupied cells / total cells, and the distribution across cells.
 - **Blind review protocol:**
-  1. Generate 20 ANIMEDEX champions and 20 baseline premises (same model, same length limits, baseline prompt includes the taste standard). Never loosen a gate to reach 20; if the budget cap hits first, review N champions vs. N baseline premises.
+  1. Generate three arms of 15 (v1.6, replacing 20 vs 20; `make packet`):
+     - ANIMEDEX champions;
+     - a plain prompt with the taste standard;
+     - the same model with its own web search, asked to find gaps first.
+
+     All arms use the same model and the same length limits. Never loosen a gate to reach 15; with fewer champions, every arm shrinks to N.
   2. Strip metadata; format identically (logline + premise only).
   3. Shuffle. Kingsley rates each 1–5, marks "would greenlight" y/n, and tags any taste criterion met (T1–T5).
   4. Unblind and compare. Record in `eval/blind/<date>.json`.

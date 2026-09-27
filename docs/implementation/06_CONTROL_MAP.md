@@ -49,7 +49,12 @@
 | IDEATE | H1 consequence test | Preventive | <2 of choices/relationships/outcomes differ from closest title | Reject (surface change) |
 | IDEATE | Failure-condition check | Preventive | Idea triggers an atom's failure condition | Rework once → reject |
 | IDEATE | Coherence gate | Preventive | Theme ↔ mechanic; dilemma follows from cost | Reject |
-| IDEATE | Diversity alarm | Detective | >40% of champions in 10% of cells | Target empty cells; vary operators |
+| IDEATE | Diversity alarm | Detective | >40% of champions share 10% of one grid dimension's values | Target empty cells; vary operators |
+| IDEATE | Runway (v1.6) | Preventive | Judge: the cost stops hurting by arc 5 | Rework once → reject |
+| IDEATE | Prior art (v1.6) | Preventive | Every T1/T4 and lane claim | Counterexample or unclear → claim removed |
+| IDEATE | Revival evidence (v1.6) | Preventive | revive_execution_flop without an execution-level flop backed by evidence | Operator not offered |
+| IDEATE | Borrowed system (v1.6) | Preventive | borrow_system when the census shows the system as a power | Operator not offered |
+| CENSUS | Counts only (v1.6) | Preventive | A census value reaching an atom, idea, or ideation prompt | Contract test fails |
 | ALL | Budget cap | Budget | Subscription CLIs: calls per run and per title. API-billed: per-run, per-title, per-episode dollar caps | Stop cleanly after current unit; report |
 | ALL (live) | Plan usage limit | Budget | CLI reports a usage/rate limit | Stop the run cleanly, no retries; finished calls stay cached; resume later |
 | ALL (live) | CLI isolation | Preventive | Allowlisted env (no `ANTHROPIC_*`/`OPENAI_*`/`CLAUDE*`/`CODEX_*`), empty scratch dir, tools off, no user settings/skills/MCP/memory | Refuse an API-key login; log each call's init metadata; report user-level leaks |

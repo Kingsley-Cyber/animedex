@@ -1,5 +1,23 @@
 # Changelog — docs/implementation
 
+## v1.6 — 2026-09-27 (approved under Kingsley's autopilot ruling with the agent's recommendations)
+- Placement: code and docs landed at the M2→M3 boundary with v1.3. The census and prior-art checks still run between M4 and M5, as ordered, so blind review #1's "never done" claims are credible.
+- **Census (00, 02, 04, 05, 06, 07, 08):**
+  - Catalog titles (AniList), about 10 per call, `trust: recall`, counts only (AC-44).
+  - New CQ-G10: empty cells across the census.
+- **Prior art (04, 05, 06, 08, 11):**
+  - A native web check for every T1/T4 and lane claim (AC-45).
+  - New CQ-I15: which claims survived.
+- **IDEATE (04, 05, 06, 07, 08):**
+  - Operators: `revive_execution_flop` (execution-level evidence) and `borrow_system` (census zero). Operator weighting waits for M7.
+  - The runway judge question.
+  - Pre-mortems, and "why this time is different" for graveyard matches (AC-46).
+- **Blind review #1 (07, 09):** three arms of 15 (ANIMEDEX, plain prompt, same model with web search), with the answer key kept outside the repo (AC-47). This supersedes G0 D6's 20 vs 20.
+- **Backfill (02, 05, 11):** `make backfill LIST=<file>` and `make ideas`, plus a one-page `USAGE.md`.
+- **Scope note (02):** catalog metadata through official APIs is allowed; descriptions and reviews are never stored.
+- **Judge training:** after blind review #1, pairwise picks are split into examples and held-out pairs, and agreement is reported on held-out pairs only. Not built yet; it needs your picks.
+- `schema_version` 1.3.0 (additive), CQ set 1.6.0.
+
 ## v1.3 — 2026-09-27 (M2→M3 boundary)
 Two changes land together:
 - `failure_level`: change plan v1.3, approved under Kingsley's autopilot ruling with the agent's recommendations.

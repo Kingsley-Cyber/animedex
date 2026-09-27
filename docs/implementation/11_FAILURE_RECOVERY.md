@@ -37,6 +37,9 @@
 | Generator keeps producing surface changes | H1 failure rate | Inspect operator stats; strengthen the operator prompt with a failing and a passing example | H1 test in judge |
 | Ideation mode collapse | Diversity alarm | Target empty cells; rotate operators | Cell-targeted generation |
 | Clone-gate false positive | Kingsley flags | Log; recalibrate in M7 | Calibration |
+| Catalog unavailable or rate-limited (v1.6) | HTTP error / 429 | Wait for Retry-After; list unresolved lines; never guess titles from recall | Paced calls |
+| Prior art finds a counterexample (v1.6) | Prior-art record | Drop the claim (T1 may stand as T2 with its own evidence) | Census before M5 |
+| A backfill pick is the wrong version | Backfill report | Kingsley corrects the line or `corpus/titles.yaml`; rerun | Versions in parentheses |
 | Name leak in P4 | Name-leak test | Re-run P4 for that atom | Name list check |
 | Thinking model rejects multi-turn call | Provider 400 | Keep pass calls single-turn; preserve reasoning content in the adapter for any multi-turn step | Adapter tests |
 | ANIMEDEX loses blind review | M5/M6/M7 eval | Diagnose in order: (1) load-bearing atoms weak? check AC-17; (2) engines weak? check engine match vs. gold; (3) H1 or gates too loose/tight? inspect gate stats; (4) grid dims wrong? try cluster dims; (5) judge rewarding the wrong thing? compare judge tags to Kingsley's | Do not scale until resolved |

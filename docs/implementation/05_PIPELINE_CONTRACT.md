@@ -15,7 +15,11 @@
 | `animedex rollup --title <id>` | ROLLUP (M6) |
 | `animedex analyze` | Coverage, gaps, lanes, graveyard, episode analytics |
 | `animedex patterns` | Pattern cards (M7) |
-| `animedex ideate --generations N` | MAP-Elites |
+| `animedex ideate --generations N` / `make ideas` | MAP-Elites; cards in `build/reports/ideas.md` |
+| `animedex packet` / `make packet` | Blind review packet: ANIMEDEX + plain baseline + web baseline (v1.6) |
+| `animedex census --top N` / `make census` | Census of catalog titles, counts only (v1.6) |
+| `animedex backfill --list <file>` / `make backfill LIST=<file>` | Resolve a title list, add it to the corpus, run the full pipeline in paced batches |
+| `animedex migrate --to <version>` | Mechanical data migration |
 | `make validate` / `make build` / `make clean-build` / `make test` / `make eval` / `make smoke TITLE=<id>` | Tooling |
 
 Flags: `--all` (every title in the corpus), `--dry-run` (print prompts and cache status, no model calls).
@@ -157,6 +161,33 @@ Deterministic except steps 3 and 5, which call a model.
 - **Fitness (lexicographic, no invented scores):** (1) all gates and H1 pass; (2) number of evidenced taste criteria; (3) more episode-backed atoms used; (4) lower max structural overlap; (5) Kingsley's rating overrides when present.
 - **Archive:** place if the cell is empty or fitness beats the incumbent. Champions are parents for the next generation; empty-cell targeting picks the operator most likely to move a parent toward the target cell.
 
+### IDEATE additions (v1.6)
+- **Operators:**
+  - `revive_execution_flop`: runs only when a flop's `failure_level` is `execution`, backed by web evidence or Kingsley's override. It keeps the premise, replaces the failed part with a proven engine, and names the improvement (T5).
+  - `borrow_system`: runs only when the census shows zero titles using the borrowed system as a power system.
+  - Operator weighting (a bandit with a minimum share of 5% per operator) waits for M7.
+- **Every card also carries:**
+  - a pre-mortem: 2–3 risks drawn from mixed/flop titles, each with a mitigation;
+  - the judge's runway answer to "does the cost still hurt by arc 5?" A "no" gets one rework, then the card is rejected;
+  - "why this time is different", when a premise-level graveyard combination matches.
+- **Taste criteria** stay only with their deterministic evidence (05 table).
+- **Prior art:** every T1 and T4 claim gets a prior-art web check, using the model's own web tools and the same evidence rule as VERIFY. A counterexample or an unclear result removes the claim.
+- **Call cap:** runs respect the per-run call cap and continue from the archive.
+
+### CENSUS (v1.6)
+- **In:**
+  - catalog titles: AniList's popular franchise roots since 1995, anime + donghua;
+  - or resolved queue lines.
+- **Out:** `census.jsonl` records, about 10 titles per call. Values are `trust: recall`, used only as counts: grid occupancy, coverage adequacy, and the `borrow_system` gate.
+- **Model:** Sonnet, unless a sampled accuracy check shows Haiku is good enough.
+
+### BACKFILL
+- **Picking the version:** a version in parentheses is used as given; otherwise the most-watched adaptation is picked, and the choices go to `build/reports/backfill.md`.
+- **Scope:** TV sequels with gaps under 5 years become seasons. Other adaptations are excluded.
+- **Pairing:** two versions of the same story become each other's nearest neighbor.
+- **Mix warning:** an all-hit or all-anime list gets a warning and suggestions, never a block.
+- **Running:** the full pipeline runs in paced batches, and the report shows counts only.
+
 ## Caching and idempotency
 `cache_key = sha256(id | pass | prompt_version | schema_version | vocab_version | model | params | upstream_hash)`, where `upstream_hash` hashes the canonical inputs the pass reads.
 - Changing the P3 prompt invalidates P3, CHECK, and P4 for affected titles, never P1 or P2.
@@ -190,6 +221,8 @@ models:           # concrete model ids, not aliases; strict_model refuses any ot
   ideate_generate: {provider: claude_cli, model: "<opus-id>"}
   ideate_judge:    {provider: codex_cli,  model: "<codex-model>", strict_model: true}
   embeddings:      {provider: local, model: "<embedding-model>"}
+  prior_art:       {provider: claude_cli, model: "<sonnet-id>"}   # v1.6 native web search
+  census:          {provider: claude_cli, model: "<sonnet-id>"}   # v1.6 counts only
   eval_match:      {provider: claude_cli, model: "<haiku-id>"}
 pricing:          # API-billed provider/model pairs only; CLI calls log their reported cost as a shadow cost
   "<provider/model>": {input_per_mtok: "<set>", output_per_mtok: "<set>"}

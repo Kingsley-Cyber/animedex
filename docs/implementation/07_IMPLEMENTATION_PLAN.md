@@ -48,9 +48,10 @@ M0 Audit → M1 Foundation → M2 P1+Verify → M3 P2–P4+Check → M4 Analyze 
 - **Exit:** AC-21 to AC-24.
 
 ## M5 — Ideate (first end-to-end checkpoint)
-- MAP-Elites on the V1 grid with the six operators, idea engines, consequence tracing, and all gates; 3 generations under the budget cap.
+- **Before M5 (v1.6):** the census (about 500 catalog titles, counts only) and prior-art checks, so blind review #1's "never done" claims are credible.
+- MAP-Elites on the V1 grid with eight operators (the six + `revive_execution_flop` + `borrow_system`, each with its evidence), idea engines, consequence tracing, all gates, the runway question, pre-mortems, and prior art; generations run under the call cap.
 - **Baseline:** same model, plain prompt that includes the taste standard: "generate N original action anime premises." Same N, same length limits.
-- **Blind review #1** (see 09).
+- **Blind review #1** (see 09): three arms of 15: ANIMEDEX, a plain prompt, and the same model with web search (v1.6).
 - **Exit:** AC-25 to AC-30. If ANIMEDEX does not beat the baseline, diagnose before continuing (see 11).
 
 ## M6 — Episode evidence layer (compounding)

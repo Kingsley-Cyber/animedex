@@ -9,7 +9,9 @@
 - **Sourcing:** recall draft + targeted web verification.
 - **Storage:** canonical JSONL; DuckDB build; derived CSV and Markdown reports.
 - **Analysis:** coverage ledger, co-occurrence, gaps, imported/export lanes, graveyard lookup.
-- **Ideation:** MAP-Elites with transformation operators, idea engines, consequence tracing, gates, and a judge. Target domain: anime premises.
+- **Census (v1.6):** power-system counts for about 500 catalog titles (anime + donghua), taken from a real catalog. Counts only: it adds titles, not fields or passes.
+- **Backfill:** a plain title list is resolved through catalogs into scoped corpus entries and runs through the full pipeline.
+- **Ideation:** MAP-Elites with transformation operators, idea engines, consequence tracing, gates, a judge, a runway check, pre-mortems, and prior-art web checks for absence claims (v1.6). Target domain: anime premises.
 - **Eval:** gold set, agreement, regression snapshots, blind baseline comparison.
 - **Interface:** CLI + Makefile only.
 
@@ -26,7 +28,7 @@
 | Per-scene audiovisual analysis (framing, blocking, editing, shot choices) | Can't be done reliably without watching | Not planned |
 | Neo4j or any graph DB | DuckDB handles 2-hop at this size | >300 titles or 3+ hop queries |
 | Universal kernel/pack split | Premature without a second domain | Roblox work starts |
-| Scraping, transcripts, subtitles, video analysis | Copyright and cost | Not planned |
+| Scraping, transcripts, subtitles, video analysis | Copyright and cost | Not planned. Catalog metadata through official APIs (AniList, TVmaze) is allowed: ids, titles, dates, formats, popularity. Descriptions and reviews are never stored (v1.6) |
 | Frontend/UI | CLI is enough | After V1.1 |
 | Fine-tuning | Not needed | Not planned |
 | More than four analysis passes | Depth past transfer yields philosophy, not ideas | Evidence of a specific failure |

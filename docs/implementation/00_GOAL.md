@@ -26,7 +26,7 @@ A generated concept is elite only if it meets at least one criterion:
 2. **Mechanisms over descriptions.** Effect atoms: `element → feeling → because`. Engine atoms: `goal → constraint → strategy → benefit + cost → dilemma`.
 3. **Load-bearing only.** Ablation separates atoms a title can't survive without from decoration. Ideation recombines load-bearing atoms only.
 4. **Search before generation.** The index constrains the idea space; the LLM assembles inside it.
-5. **Zero is not novel.** An empty cell counts as open only when coverage is adequate and failure data has been checked.
+5. **Zero is not novel.** An empty cell counts as open only when coverage is adequate and failure data has been checked. Coverage may come from the census: a wide, counts-only scan of about 500 catalog titles (v1.6). "Never done" claims also need a prior-art web check.
 6. **Consequences prove novelty.** An idea is only as new as what its change does downstream.
 7. **Episodes compound.** Key episodes are evidence for their show's atoms. The index grows more trustworthy with every episode, and spends tokens only when an atom's status actually changes.
 

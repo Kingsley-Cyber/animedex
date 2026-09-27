@@ -45,3 +45,7 @@
 | AC-41 | ANIMEDEX beats the baseline on greenlights in blind review #3 | `eval/blind/` record | M7 |
 | AC-42 | Cost per title (show passes + episodes) reported and within budget caps | Report | M7 |
 | AC-43 | Every mixed/flop outcome carries a `failure_level`. A level other than `unknown` is web-sourced (evidence + URL) or Kingsley's override (v1.3) | Contract test | M3 |
+| AC-44 | Census titles come from a catalog and are counted in batches of ≤10; no atom, transfer, idea, or ideation prompt references a census entry (v1.6) | Contract test | M5 |
+| AC-45 | Every T1/T4 claim on a champion carries a prior-art record; counterexample or inconclusive removes the claim (v1.6) | Pipeline test | M5 |
+| AC-46 | Every judged card records the runway answer; revival cards name an execution-level flop with evidence; champions carry a pre-mortem (v1.6) | Pipeline test | M5 |
+| AC-47 | The blind packet has three equal arms, shows logline + premise only, and keeps the answer key out of the repo (v1.6) | Pipeline test | M5 |

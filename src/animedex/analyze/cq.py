@@ -156,6 +156,14 @@ QUERIES: dict[str, Query] = {
     "CQ-I14": Query(
         "SELECT o.title_id, o.label, o.failure_reason, o.failure_evidence, (SELECT COUNT(*) FROM v_load_bearing m "
         "WHERE m.title_id = o.title_id) AS n_load_bearing FROM outcomes o WHERE o.failure_level = 'execution'"),
+    "CQ-G10": Query(
+        "WITH g AS (SELECT unnest(?::VARCHAR[]) AS gate), c AS (SELECT unnest(?::VARCHAR[]) AS cost_of_power), "
+        "p AS (SELECT gate, cost_of_power, COUNT(*) AS n FROM census WHERE has_power_system GROUP BY 1, 2) "
+        "SELECT g.gate, c.cost_of_power FROM g CROSS JOIN c LEFT JOIN p ON p.gate = g.gate "
+        "AND p.cost_of_power = c.cost_of_power WHERE p.n IS NULL",
+        ("enum:power_combat.gate", "enum:power_combat.cost_of_power"),
+        note="census counts only (v1.6): recall-based occupancy across the catalog"),
+    "CQ-I15": Query("SELECT claim_kind, verdict, COUNT(*) AS n FROM prior_art GROUP BY 1, 2"),
     "CQ-E01": Query(
         "SELECT mo.moment_type, COUNT(DISTINCT mo.moment_id) AS n_moments, COUNT(DISTINCT mo.title_id) AS n_titles, "
         "array_to_string(list_sort(list_distinct(list(pf.value))), '; ') AS primary_feelings, "
