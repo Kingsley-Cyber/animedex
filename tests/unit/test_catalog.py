@@ -6,12 +6,9 @@ import json
 
 import httpx
 import pytest
-import yaml
 
 from animedex.catalog.anilist import AniList
-from animedex.catalog.backfill import add_to_corpus, plan_backfill, read_list
 from animedex.catalog.resolve import resolve, slug
-from animedex.guards import load_corpus
 
 pytestmark = pytest.mark.unit
 
@@ -90,64 +87,6 @@ def test_announced_seasons_are_not_in_scope():
 def test_slug_never_doubles_the_year():
     assert slug("Hunter x Hunter (2011)", 2011) == "hunter_x_hunter_2011"
     assert slug("Re:Zero - Starting Life in Another World", 2016) == "re_zero_starting_life_in_another_world_2016"
-
-
-def test_backfill_skips_known_titles_pairs_versions_and_warns_on_mix(repo, tmp_path):
-    lst = tmp_path / "list.txt"
-    lst.write_text("# my list\nIron Tide (2015)\nIron Tide (2024)\nGlass Harbor\nGlass Harbor\n\nNo Such Show\n")
-    # the test's own corpus: the real one now holds titles whose catalog ids collide with the fake catalog's
-    data = {"titles": [{"title_id": "glass_harbor_2019", "title": "Glass Harbor", "year": 2019, "medium": "anime",
-                        "format": "serialized", "scope": {"version": "TV", "seasons": [1], "numbering": "broadcast"}}]}
-    repo.corpus_file.write_text(yaml.safe_dump(data))
-    plan = plan_backfill(fake_anilist(), read_list(lst), load_corpus(repo), suggest=False)
-    assert [r.entry["title_id"] for r in plan.new] == ["iron_tide_2015", "iron_tide_2024"]
-    assert ("Glass Harbor", "already in the corpus as glass_harbor_2019") in plan.skipped
-    assert plan.unresolved == ["No Such Show"]
-    assert plan.pairs == [("iron_tide_2015", "iron_tide_2024")]  # same story, different execution
-    assert plan.new[0].entry["partners"]["nearest_neighbor"] == "iron_tide_2024"
-    assert any("anime or donghua" in w for w in plan.warnings)
-    added = add_to_corpus(repo, plan, "list.txt")
-    corpus = load_corpus(repo)
-    assert set(added) <= set(corpus) and corpus["iron_tide_2024"].partners.nearest_neighbor == "iron_tide_2015"
-    assert corpus["iron_tide_2015"].catalog_ref == "anilist:1"
-
-
-def test_census_counts_titles_and_never_feeds_ideation(repo):
-    from animedex import SCHEMA_VERSION
-    from animedex.config import ModelSpec, load_settings
-    from animedex.ontology import get_vocab
-    from animedex.pipeline.canonicalize import canonicalize
-    from animedex.pipeline.census import CensusItem, run_census
-    from animedex.providers.client import LLMClient
-    from animedex.providers.mock import MockProvider
-    from animedex.store.cache import ResponseCache
-    from animedex.store.canonical import CanonicalStore
-    from animedex.store.runlog import RunLog
-
-    items = [CensusItem(f"anilist:{i}", f"Show {i}", 2000 + i, "anime", "TV") for i in range(1, 13)]
-
-    def answer(system, user, schema, params):
-        ids = schema["properties"]["titles"]["items"]["properties"]["census_id"]["enum"]
-        return {"titles": [{"census_id": i, "has_power_system": True, "gate": "trained", "cost_of_power": "physical_toll",
-                            "progression": "linear", "visible_counter": "none", "fight_medium": "unarmed",
-                            "power_is": "individual", "borrowed_system": "none"} for i in ids]}
-
-    client = LLMClient(provider=MockProvider(default=answer), provider_name="mock",
-                       spec=ModelSpec(provider="mock", model="v"), prompt_version="unset", schema_version=SCHEMA_VERSION,
-                       vocab_version=get_vocab().version, cache=ResponseCache(repo.cache), runlog=RunLog(repo.raw_runs, "c"))
-    res = run_census(repo, items, client, get_vocab(), load_settings(repo), run_id="run_c")
-    assert res.counts["titles"] == 12 and len(res.done) == 2  # 10 per call
-    system = client.provider.calls[0]["system"]  # the corpus's value tests reach the census (D-038)
-    assert "Value tests" in system and "- gate:" in system and "choose inherited" in system
-    canonicalize(repo, "run_cc")
-    census = CanonicalStore(repo).read("census")
-    assert len(census) == 12 and all(c["trust"] == "recall" for c in census)
-    again = run_census(repo, items, client, get_vocab(), load_settings(repo), run_id="run_c2")
-    assert again.counts.get("already_counted") == 12 and not again.done
-    from animedex.ideate.context import build_context
-
-    ctx = build_context(repo, load_settings(repo), get_vocab())
-    assert ctx.census_size == 12 and not ctx.pool  # counts only: nothing reaches the atom pool
 
 
 def test_anilist_stays_under_the_degraded_limit_and_caches_for_a_month(tmp_path):

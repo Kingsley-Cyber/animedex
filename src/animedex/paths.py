@@ -1,4 +1,4 @@
-"""Repository layout (03). Every module resolves files through here."""
+"""Repository layout. Every module resolves files through here."""
 
 from __future__ import annotations
 
@@ -29,26 +29,14 @@ class Paths:
     def discover(cls, start: Path | None = None) -> Paths:
         return cls(find_root(start))
 
-    # ontology / config / corpus
-    @property
-    def ontology(self) -> Path:
-        return self.root / "ontology"
-
+    # ontology / config
     @property
     def vocab_file(self) -> Path:
-        return self.ontology / "vocab.json"
-
-    @property
-    def bridge_file(self) -> Path:
-        return self.ontology / "bridge.json"
+        return self.root / "ontology" / "vocab.json"
 
     @property
     def cq_file(self) -> Path:
-        return self.ontology / "competency_questions.yaml"
-
-    @property
-    def proposals(self) -> Path:
-        return self.ontology / "proposals"
+        return self.root / "ontology" / "competency_questions.yaml"
 
     @property
     def config_file(self) -> Path:
@@ -60,38 +48,14 @@ class Paths:
 
     @property
     def corpus_file(self) -> Path:
+        """The heavy path's corpus; the light path reads only its gold tags (blind masking)."""
         return self.root / "corpus" / "titles.yaml"
-
-    @property
-    def schemas(self) -> Path:
-        return self.root / "schemas"
 
     @property
     def prompts(self) -> Path:
         return self.root / "prompts"
 
-    # data tiers (03): only canonical/ is committed
-    @property
-    def canonical(self) -> Path:
-        return self.root / "data" / "canonical"
-
-    @property
-    def raw_runs(self) -> Path:
-        return self.root / "data" / "raw" / "runs"
-
-    @property
-    def candidates(self) -> Path:
-        return self.root / "data" / "candidates"
-
-    @property
-    def quarantine(self) -> Path:
-        return self.root / "data" / "quarantine"
-
-    @property
-    def cache(self) -> Path:
-        return self.root / "data" / "cache"
-
-    # light path (owner instruction 2026-09-27): the notes index and quick cards, private (mirrored to the data repo)
+    # the one store, and what the runs write
     @property
     def notes(self) -> Path:
         return self.root / "notes"
@@ -101,21 +65,29 @@ class Paths:
         return self.notes / "_research"
 
     @property
-    def quick(self) -> Path:
-        return self.root / "build" / "quick"
+    def raw_runs(self) -> Path:
+        return self.root / "data" / "raw" / "runs"
 
-    # derived (gitignored, rebuildable)
+    @property
+    def quarantine(self) -> Path:
+        return self.root / "data" / "quarantine"
+
+    @property
+    def cache(self) -> Path:
+        return self.root / "data" / "cache"
+
+    @property
+    def diagnose(self) -> Path:
+        return self.root / "data" / "diagnose"
+
+    # derived (gitignored)
     @property
     def build(self) -> Path:
         return self.root / "build"
 
     @property
-    def build_db(self) -> Path:
-        return self.build / "animedex.duckdb"
-
-    @property
-    def build_hashes(self) -> Path:
-        return self.build / "hashes.json"
+    def quick(self) -> Path:
+        return self.build / "quick"
 
     @property
     def exports(self) -> Path:
@@ -125,7 +97,7 @@ class Paths:
     def reports(self) -> Path:
         return self.build / "reports"
 
-    # eval
+    # the blind review (`make review`)
     @property
     def gold(self) -> Path:
         return self.root / "eval" / "gold"

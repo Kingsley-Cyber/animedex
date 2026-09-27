@@ -1,21 +1,22 @@
 # ANIMEDEX
 
-Evidence-backed ideation engine for screen stories. It breaks titles into effect atoms (why a story feels good) and engine atoms (why it keeps going), proves which ones matter, and generates anime premises where the map is empty.
+A notes index of shows, and idea cards checked against it. Every show gets a short study note (premise, engine, power kit, MC edge, the three things it can't survive without, two sources, the catalog's outcome). A seed (a concept, a fight image, or a lane) becomes idea cards that are checked against those notes and Kingsley's steering rules.
 
-- **Spec (source of truth):** `docs/implementation/` (start with `00_GOAL.md` and `CHANGELOG.md`).
-- **Owner's operating brief:** `.control/policies/operating-brief.md`.
-- **Control plane:** URCP. Start a session with `harness bootstrap --json`; tasks live in Beads (`bd ready`).
+- **How to use it:** `USAGE.md`.
+- **What changed and why:** `docs/AUDIT.md` and `docs/implementation/DECISIONS.md`.
+- **The old heavy pipeline** (gather, interpret, verify, atoms, proofs, critic, patterns): tag `heavy-final`; `legacy/README.md` says how to run it for the gold titles.
 
 ## Commands
 | Command | What it does |
 |---|---|
-| `make validate` | Ontology coverage (every field traces to a competency question), canonical data invariants, schemas current |
-| `make test` | Full offline test suite (mock provider, no network) |
-| `make build` | DuckDB build and exports from `data/canonical/` into `build/` |
-| `make clean-build` | `rm -rf build`, rebuild, and verify identical table hashes |
-| `make schemas` | Regenerate `schemas/*.schema.json` from the pydantic models |
-| `make eval` | Gold-set status and evaluation reports |
-| `make smoke TITLE=<id>` | One budget-capped live run through the configured providers |
+| `make ingest LIST=<file>` | Study shows: one Sonnet call with web per three shows writes `notes/<slug>.json` |
+| `make quick SEED="..." [SHOWS="a, b"] [N=6]` | Idea cards: research (only when needed), generate, check, prior art; at most 4 calls |
+| `make diagnose TEXT="..."` | Check your own concept against the notes and `steering/rules.yaml` (2 calls) |
+| `make analyze` | Lanes and gaps from the notes, read in place by DuckDB |
+| `make export` | Spreadsheets: `build/exports/notes.csv` and `cards.csv` |
+| `make review` / `make review-report` | The blind packet's rating page, and its report |
+| `make data-push` / `make data-pull` | Back up or restore the private data repo |
+| `make test` / `make lint` | Offline tests (mock providers, no network) and lint |
 
-## Data tiers
-Only `data/canonical/` is committed. `data/raw/`, `data/candidates/`, `data/quarantine/`, `data/cache/`, and `build/` are local and rebuildable. Fetched web text is never stored; logs keep the URL and a hash.
+## Where things live
+`notes/` is the one store. Notes, quick cards (`build/quick/`), diagnoses (`data/diagnose/`), the steering rules and your seeds are private: git-ignored here and mirrored to `Kingsley-Cyber/animedex-data` by `make data-push`. Model calls go through the `claude` and `codex` subscription CLIs; no API keys.

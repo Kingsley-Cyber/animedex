@@ -246,10 +246,17 @@ def panel_picks(panel_dir: Path, card_ids: set[str]) -> tuple[list[tuple[str, st
 
 
 def judge_fitness(card: dict[str, Any]) -> list[float]:
-    """The pipeline's own ordering of a card: its fitness without Kingsley's rating."""
-    from animedex.ideate.run import card_fitness
+    """The heavy pipeline's own ordering of a packet card, from its stored record (without Kingsley's rating):
+    gates passed, evidenced taste criteria, lower max structural overlap."""
+    return [1.0 if card.get("status") != "rejected" else 0.0,
+            float(len((card.get("taste") or {}).get("criteria_met") or [])), 0.0,
+            -float((card.get("gates") or {}).get("structural_jaccard_max") or 0.0)]
 
-    return card_fitness({**card, "human_rating": None})[1:]
+
+def _read_jsonl(path: Path) -> list[dict[str, Any]]:
+    if not path.is_file():
+        return []
+    return [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
 
 
 def judge_scores(key: dict[str, dict[str, Any]], ideas: dict[str, dict[str, Any]]) -> dict[str, float]:
@@ -289,12 +296,8 @@ class TasteResult:
 
 def taste_summary(paths: Paths, date: str | None = None) -> TasteResult:
     """The review import: picks -> Bradley-Terry strengths per card and per arm -> the judge's agreement."""
-    from animedex.ideate.run import baseline_file
-    from animedex.statgates import write_stage
-    from animedex.store.canonical import CanonicalStore
-    from animedex.store.jsonl import read_jsonl
-
     blind = paths.root / "eval" / "blind"
+    canonical = paths.root / "data" / "canonical"   # the heavy path's packet cards (the blind review predates the notes)
     packet_file = blind / f"packet_{date}.json" if date else latest_packet(blind)
     if not packet_file.is_file():
         raise FileNotFoundError(f"no blind packet {packet_file.name}")
@@ -317,19 +320,20 @@ def taste_summary(paths: Paths, date: str | None = None) -> TasteResult:
         res.arm_strength = {str(k): v for k, v in stats.bradley_terry(arm_picks).items()}
         res.arm_record = {arm: [sum(1 for w, _ in arm_picks if w == arm), sum(1 for _, lo in arm_picks if lo == arm)]
                           for arm in ARM_ORDER if any(arm in p for p in arm_picks)}
-        ideas = {i["idea_id"]: i for i in CanonicalStore(paths).read("idea")}
-        ideas.update({i["idea_id"]: i for i in read_jsonl(baseline_file(paths, "ideas"))})
+        ideas = {i["idea_id"]: i for i in _read_jsonl(canonical / "ideas.jsonl")}
+        ideas.update({i["idea_id"]: i for i in _read_jsonl(paths.root / "data" / "blind" / "baseline_loop" / "ideas.jsonl")})
         judge = judge_scores(key, ideas)
         res.judge_agreement = stats.ranking_agreement(res.card_strength, judge)
         res.judge_pairs = compared_pairs(res.card_strength, judge)
-        transfers = {t["transfer_id"]: t for t in CanonicalStore(paths).read("transfer")}
+        transfers = {t["transfer_id"]: t for t in _read_jsonl(canonical / "transfers.jsonl")}
         res.provenance = winners_provenance(key, ratings, ideas, transfers)
         text = _taste_md(res, key, ratings, judge, res.provenance)
     else:
         text = _taste_md(res, {}, {}, {})
     out = paths.reports / "taste.md"
     atomic_write_text(out, text)
-    write_stage(paths, "taste", res.to_dict())
+    atomic_write_text(paths.build / "stats" / "taste.json",
+                      json.dumps(res.to_dict(), indent=2, sort_keys=True, ensure_ascii=False) + "\n")
     res.report = str(out.relative_to(paths.root))
     return res
 

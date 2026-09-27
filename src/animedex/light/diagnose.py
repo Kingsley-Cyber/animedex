@@ -1,79 +1,100 @@
-"""`make diagnose TEXT="..."` on the light path (owner instruction 2026-09-27, item 4; D-054).
+"""`make diagnose TEXT="..."`: an author's own concept, checked against the notes and steering/rules.yaml.
 
-The notes index is the comparison set and steering/rules.yaml gives the constraints. Three calls under
-`diagnose.calls_per_run`: structure (slot `ideate_generate`, `diagnose_structure.md`), the judge (slot
-`ideate_judge`, `diagnose_judge.md`: the consequence test against the closest note, coherence, runway,
-why_different on a graveyard match, every steering rule) and the ablation pass (`diagnose_ablation.md`).
-Checks, one line each with a prescription for a failure: structure, clone (the five tracked enums and the
-premise's similarity to the notes; set_structure and power_is are not tracked), novelty (enum pairs no note
-holds), graveyard (flop or mixed notes sharing three of the five tracked enums), name leak, H1, coherence,
-runway, why different, each steering rule (a hard rule fails the concept, a soft one warns), ablation.
-Output: data/diagnose/<id>.json and .md (private).
+Two calls under `diagnose.calls_per_run`, on the same prompts as ingest and quick:
+1. STRUCTURE (slot `ingest`, ingest.md `job: concept`): the concept written as a note, as it is (premise,
+   engine, the six enums, MC edge, kit, and the three elements it cannot survive without).
+2. CHECK (slot `check`, check.md): the consequence test against its closest note, every steering rule, the
+   closest note and how close, the biggest weakness, a score.
+Checks without a call: clone (the five tracked enums' overlap with each note, and the premise's similarity
+to each note's premise), novelty (enum pairs no note holds; needs `diagnose.novelty_min_notes` notes),
+graveyard (flop or mixed notes sharing 3 of the 5 tracked enums) and name leak. Each failure gets a line
+from the fixed prescription table. Output: data/diagnose/<id>.json and .md (private). While the blind review
+is pending, gold titles are masked in the output.
 """
 
 from __future__ import annotations
 
 import json
-import math
+from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any
 
 from animedex.config import Settings
-from animedex.embeddings.base import Embedder
+from animedex.embeddings.base import Embedder, cosine
 from animedex.gold import masked_titles
-from animedex.guards import load_corpus
-from animedex.ideate.diagnose import (
-    PRESCRIPTIONS,
-    Check,
-    DiagnoseError,
-    DiagnoseResult,
-    _call,
-    ablation_check,
-    ablation_parts,
-    ablation_problems,
-    ablation_schema,
-    ablation_user,
-    card_draft,
-    diagnose_id,
-    render_md,
-    structure_problems,
-    structure_schema,
+from animedex.ideate.steering import load_rules
+from animedex.light.notes import (
+    ENGINE,
+    ENUMS,
+    note_problems,
+    note_schema,
+    note_titles,
+    read_notes,
+    study_fields,
+    values_lines,
 )
-from animedex.ideate.llm import ENGINE, OPERATORS, TEXT, _obj
-from animedex.ideate.report import Masker
-from animedex.ideate.steering import Rule, load_rules, rule_lines
-from animedex.integrity import name_leaks
-from animedex.light.notes import note_lines, note_titles, read_notes
-from animedex.models.diagnose import DiagnoseCard
+from animedex.light.quick import (
+    call,
+    check_problems,
+    check_schema,
+    check_user,
+    raise_problems,
+    verdict_dims,
+)
 from animedex.ontology import Vocab
 from animedex.paths import Paths
-from animedex.pipeline.common import provenance, raise_problems
 from animedex.prompts import read_prompt
 from animedex.providers.client import LLMClient
 from animedex.store.atomic import atomic_write_text
-from animedex.textutil import word_count
+from animedex.textutil import name_leaks, sha256_text, word_count
 
 TRACKED = ("gate", "cost_of_power", "progression", "visible_counter", "fight_medium")
-NOT_TRACKED = ("set_structure", "power_is")
 PAIRS = (("gate", "cost_of_power"), ("progression", "visible_counter"), ("fight_medium", "cost_of_power"))
-MIN_NOTES_FOR_NOVELTY = 10
-LIGHT_PRESCRIPTIONS = {
-    **PRESCRIPTIONS,
-    "steering_hard": ("rung", "MC", "Make the lead legibly the strongest through the medium or a cost nobody else pays, "
-                                    "not the biggest number."),
-    "steering_soft": ("rung", "kit", "Derive the affinity from a domain of meaning bound to a host, and build the premise "
-                                     "out from the fight."),
+NEAREST = 5   # notes the check sees
+MASK = "[gold title]"
+# failure -> what to do (a fixed table; no call)
+PRESCRIPTIONS = {
+    "structure": "Start from the power kit: what the power does, its limits, and what using it costs.",
+    "clone": "Change the rule the nearest show depends on most, so the concept stops reading like it.",
+    "novelty": "Add a second engine that pulls against the first, so the pair is one no show in the notes has tried.",
+    "graveyard": "Say what the audience is promised and why that promise holds where the matched show's fell short.",
+    "name_leak": "Invent your own world, places and names.",
+    "consequence": "Let someone other than the hero pay, so choices, relationships and outcomes change.",
+    "steering_hard": "Make the lead legibly the strongest through the medium or a cost nobody else pays, not the biggest number.",
+    "steering_soft": "Revisit the rule: derive the power from the concept and build the premise out from the fight.",
 }
 
 
-def prescription(failure: str) -> str:
-    kind, target, advice = LIGHT_PRESCRIPTIONS[failure]
-    if kind == "operator":
-        return f"operator {target} ({OPERATORS[target].rstrip('.').lower()}): {advice}"
-    return f"ladder rung '{target}': {advice}"
+class DiagnoseError(ValueError):
+    pass
 
 
-# ---------------------------------------------------------------- the notes as the comparison set
+@dataclass
+class Check:
+    name: str
+    ok: bool | None          # None: not run (SKIP)
+    why: str
+    failure: str | None = None
+
+    @property
+    def status(self) -> str:
+        return "SKIP" if self.ok is None else ("PASS" if self.ok else "FAIL")
+
+
+@dataclass
+class DiagnoseResult:
+    diagnose_id: str
+    checks: list[Check] = field(default_factory=list)
+    lines: list[str] = field(default_factory=list)
+    json_path: str = ""
+    md_path: str = ""
+    stopped: str | None = None
+
+
+def diagnose_id(text: str, date: str) -> str:
+    return f"diag_{date.replace('-', '')}_{sha256_text(' '.join(text.split())).split(':')[1][:8]}"
+
+
 def tracked_set(profile: dict[str, Any]) -> set[str]:
     return {f"{k}={profile.get(k)}" for k in TRACKED if profile.get(k) and not str(profile[k]).startswith("other")}
 
@@ -82,46 +103,30 @@ def jaccard(a: set[str], b: set[str]) -> float:
     return len(a & b) / len(a | b) if a | b else 0.0
 
 
-def _cosine(a: list[float], b: list[float]) -> float:
-    dot = sum(x * y for x, y in zip(a, b, strict=False))
-    na, nb = math.sqrt(sum(x * x for x in a)), math.sqrt(sum(y * y for y in b))
-    return dot / (na * nb) if na and nb else 0.0
-
-
-def clone_numbers(card: dict[str, Any], notes: dict[str, dict[str, Any]], embedder: Embedder | None
-                  ) -> dict[str, Any]:
-    mine = tracked_set(card["profile"])
-    struct = max(((jaccard(mine, tracked_set(n)), slug) for slug, n in notes.items()), default=(0.0, None))
-    cos: tuple[float, str | None] = (0.0, None)
+def similarity(concept: dict[str, Any], notes: dict[str, dict[str, Any]], embedder: Embedder | None) -> dict[str, Any]:
+    """Tracked-enum overlap and premise similarity against every note."""
+    mine = tracked_set(concept)
+    overlap = {s: jaccard(mine, tracked_set(n)) for s, n in notes.items()}
+    sims: dict[str, float] = {}
     if embedder is not None and notes:
         slugs = sorted(notes)
-        vectors = embedder.embed([f"{notes[s].get('title')}: {notes[s].get('premise')}" for s in slugs])
-        [mine_v] = embedder.embed([f"{card['logline']} {card['premise']}"])
-        cos = max(((_cosine(mine_v, v), s) for s, v in zip(slugs, vectors, strict=True)), default=(0.0, None))
-    return {"structural_jaccard_max": round(struct[0], 4), "nearest": struct[1],
-            "premise_cosine_max": round(cos[0], 4), "nearest_premise": cos[1]}
+        vectors = embedder.embed([str(notes[s].get("premise") or "") for s in slugs])
+        [v] = embedder.embed([str(concept.get("premise") or "")])
+        sims = {s: cosine(v, w) for s, w in zip(slugs, vectors, strict=True)}
+    return {"overlap": overlap, "cosine": sims}
 
 
-def clone_check(numbers: dict[str, Any], gates_cfg: dict[str, Any], m: Masker) -> Check:
-    struct, cos = numbers["structural_jaccard_max"], numbers["premise_cosine_max"]
-    why = (f"tracked-enum overlap {struct:.2f} (nearest {m.title(numbers['nearest']) or 'none'}), premise similarity "
-           f"{cos:.2f} (nearest {m.title(numbers['nearest_premise']) or 'none'}); {', '.join(NOT_TRACKED)}: not tracked "
-           "in the notes")
-    if struct >= float(gates_cfg.get("structural_jaccard_reject", 0.70)):
-        return Check("clone", False, why, "clone_structural")
-    if cos >= float(gates_cfg.get("premise_cosine_reject", 0.72)) or (
-            cos >= float(gates_cfg.get("premise_cosine_with_structural", 0.55)) and struct >= 0.5):
-        return Check("clone", False, why, "clone_premise")
-    return Check("clone", True, why)
+def nearest(sim: dict[str, Any], k: int = NEAREST) -> list[str]:
+    scores = {s: sim["overlap"][s] + sim["cosine"].get(s, 0.0) for s in sim["overlap"]}
+    return sorted(scores, key=lambda s: (-scores[s], s))[:k]
 
 
-def novelty_check(card: dict[str, Any], notes: dict[str, dict[str, Any]]) -> Check:
-    if len(notes) < MIN_NOTES_FOR_NOVELTY:
-        return Check("novelty", None, f"not tracked: {len(notes)} note(s), fewer than {MIN_NOTES_FOR_NOVELTY}")
-    p = card["profile"]
-    seen: list[str] = []
+def novelty_check(concept: dict[str, Any], notes: dict[str, dict[str, Any]], min_notes: int) -> Check:
+    if len(notes) < min_notes:
+        return Check("novelty", None, f"not run: {len(notes)} note(s), fewer than {min_notes}")
+    seen = []
     for x, y in PAIRS:
-        vx, vy = p.get(x), p.get(y)
+        vx, vy = concept.get(x), concept.get(y)
         if not vx or not vy or str(vx).startswith("other") or str(vy).startswith("other"):
             continue
         n = sum(1 for note in notes.values() if note.get(x) == vx and note.get(y) == vy)
@@ -131,219 +136,160 @@ def novelty_check(card: dict[str, Any], notes: dict[str, dict[str, Any]]) -> Che
     return Check("novelty", False, "every tracked pair appears in the notes: " + "; ".join(seen), "novelty")
 
 
-def graveyard_matches(card: dict[str, Any], notes: dict[str, dict[str, Any]]) -> list[dict[str, Any]]:
-    mine = tracked_set(card["profile"])
-    out = []
-    for slug, n in sorted(notes.items()):
-        label = (n.get("outcome") or {}).get("label")
-        if label in ("flop", "mixed") and len(mine & tracked_set(n)) >= 3:
-            out.append({"title_id": slug, "label": label, "shared": len(mine & tracked_set(n))})
-    return out
+def graveyard_matches(concept: dict[str, Any], notes: dict[str, dict[str, Any]]) -> list[str]:
+    mine = tracked_set(concept)
+    return [s for s, n in sorted(notes.items()) if (n.get("outcome") or {}).get("label") in ("flop", "mixed")
+            and len(mine & tracked_set(n)) >= 3]
 
 
-# ---------------------------------------------------------------- the judge
-def judge_schema(rule_ids: list[str]) -> dict[str, Any]:
-    rule = _obj({"id": {"type": "string", "enum": rule_ids}, "verdict": {"type": "string", "enum": ["pass", "fail"]},
-                 "reason": TEXT})
-    item = _obj({"ref": {"type": "string", "enum": ["D1"]},
-                 **{f"{d}_differs": {"type": "boolean"} for d in ("choices", "relationships", "outcomes")},
-                 **{f"{d}_reason": TEXT for d in ("choices", "relationships", "outcomes")},
-                 "coherence": {"type": "string", "enum": ["pass", "fail"]}, "coherence_reason": TEXT,
-                 "runway_hurts_by_arc5": {"type": "boolean"}, "runway_reason": TEXT,
-                 "why_different_verdict": {"type": "string", "enum": ["pass", "fail", "not_applicable"]},
-                 "why_different_reason": TEXT, "rules": {"type": "array", "items": rule}})
-    return _obj({"cards": {"type": "array", "items": item}})
+class Masker:
+    def __init__(self, notes: dict[str, dict[str, Any]], hidden: set[str]):
+        self.notes, self.hidden = notes, hidden
+        self.names = sorted({s for s in hidden} | {str(notes[s].get("title")) for s in hidden if s in notes},
+                            key=len, reverse=True)
+
+    def title(self, slug: str | None) -> str:
+        if not slug:
+            return "none"
+        return MASK if slug in self.hidden else str(self.notes.get(slug, {}).get("title", slug))
+
+    def text(self, value: Any) -> str:
+        text = str(value or "")
+        for name in self.names:
+            text = text.replace(name, MASK)
+        return text
 
 
-def judge_problems(out: dict[str, Any], rule_ids: list[str], matched: bool) -> list[str]:
-    problems: list[str] = []
-    cards = out.get("cards") or []
-    if [c.get("ref") for c in cards] != ["D1"]:
-        problems.append("judge the one card, ref D1, exactly once")
-    for c in cards:
-        for key in ("choices_reason", "relationships_reason", "outcomes_reason", "coherence_reason", "runway_reason",
-                    "why_different_reason"):
-            if (n := word_count(str(c.get(key) or ""))) > 25:
-                problems.append(f"cards[0].{key}: {n} words exceeds the 25-word limit")
-        if sorted(r.get("id") for r in c.get("rules") or []) != sorted(rule_ids):
-            problems.append(f"cards[0].rules: one verdict per rule: {rule_ids}")
-        for r in c.get("rules") or []:
-            if not 1 <= word_count(str(r.get("reason") or "")) <= 20:
-                problems.append(f"cards[0].rules.{r.get('id')}.reason: 1-20 words")
-        if matched and c.get("why_different_verdict") not in ("pass", "fail"):
-            problems.append("cards[0]: the card matches a flop or mixed note; judge why_different pass or fail")
-    return problems
-
-
-def judge_user(card: dict[str, Any], rules: list[Rule], near: dict[str, Any] | None,
-               matches: list[dict[str, Any]], notes: dict[str, dict[str, Any]]) -> str:
-    lines = list(rule_lines(rules) or ["rules: none"])
-    lines += note_lines(near) if near else ["closest note: none"]
-    if matches:
-        lines += [f"graveyard match {g['title_id']}: {g['label']} ({notes[g['title_id']].get('title')}); recorded "
-                  f"failure: not tracked in the notes, judge on the outcome; shares {g['shared']} of 5 tracked fields"
-                  for g in matches]
-        lines.append(f"why_different: {card.get('why_different') or '(blank)'}")
-    else:
-        lines.append("graveyard match: none (answer why_different not_applicable)")
-    e, q = card["engine"], card["consequences"]
-    lines += ["=== CARD D1", f"logline: {card['logline']}", f"premise: {card['premise']}", f"theme: {card['theme_root']}",
-              "engine: " + "; ".join(f"{k} {e[k]}" for k in ENGINE), f"what changed: {card['what_changed']}",
-              f"consequences: choices {q['choices']}; relationships {q['relationships']}; outcomes {q['outcomes']}",
-              "profile: " + ", ".join(f"{k}={v}" for k, v in card["profile"].items())]
-    return "\n".join(lines)
-
-
-# ---------------------------------------------------------------- the run
-def run_diagnose_light(paths: Paths, settings: Settings, vocab: Vocab, *, text: str, clients: dict[str, LLMClient],
-                       embedder: Embedder | None, run_id: str, source: str = "text", date: str | None = None,
-                       created_at: str | None = None) -> DiagnoseResult:
-    cfg = (settings.model_extra or {}).get("diagnose") or {}
-    concept = text.strip()
-    if not concept:
+def run_diagnose(paths: Paths, settings: Settings, vocab: Vocab, *, text: str, clients: dict[str, LLMClient],
+                 embedder: Embedder | None, run_id: str, source: str = "text", date: str | None = None,
+                 created_at: str | None = None) -> DiagnoseResult:
+    cfg = settings.section("diagnose")
+    concept_text = text.strip()
+    if not concept_text:
         raise DiagnoseError("the concept is empty")
     limit = int(cfg.get("max_concept_words", 800))
-    if word_count(concept) > limit:
-        raise DiagnoseError(f"the concept is {word_count(concept)} words; keep it to {limit} or fewer")
+    if word_count(concept_text) > limit:
+        raise DiagnoseError(f"the concept is {word_count(concept_text)} words; keep it to {limit} or fewer")
     notes = read_notes(paths)
     if not notes:
         raise DiagnoseError("no notes yet: run `make ingest LIST=<file>` first (the checks compare against notes/)")
     rules = load_rules(paths)
     date = date or datetime.now(UTC).strftime("%Y-%m-%d")
-    did = diagnose_id(concept, date)
+    did = diagnose_id(concept_text, date)
     key = did.rsplit("_", 1)[1]
     res = DiagnoseResult(did)
-    gold = {t for t, e in load_corpus(paths).items() if "gold" in e.role_tags}
-    hidden = masked_titles(paths, gold) & set(notes)
-    m = Masker({s: {"title": n.get("title")} for s, n in notes.items()}, hidden)
-    visible = [s for s in sorted(notes) if s not in hidden] or sorted(notes)
-    flops = [s for s in visible if (notes[s].get("outcome") or {}).get("label") in ("flop", "mixed")]
+    m = Masker(notes, masked_titles(paths) & set(notes))
+    record: dict[str, Any] = {"diagnose_id": did, "source": source, "concept": concept_text, "rules": [r.__dict__ for r in rules],
+                              "created_at": created_at or datetime.now(UTC).isoformat()}
 
-    structure = read_prompt(paths.prompts / "diagnose_structure.md")
-    gen = clients["ideate_generate"]
-    gen.prompt_version = structure.version
-    prov = provenance("IDEATE", run_id, None, structure.version, vocab, created_at)
-    user = "\n".join([f"concept: {' '.join(concept.split())}",
-                      *(f"title {s}: {notes[s].get('medium')}; {notes[s].get('premise')}" for s in visible),
-                      *(f"flop {s}: {(notes[s].get('outcome') or {}).get('label')}; recorded failure: not tracked"
-                        for s in flops)])
-    done, problem, stop = _call(gen, f"diagnose:{key}", structure.body, user, structure_schema(vocab, visible),
-                                lambda out: raise_problems(structure_problems(out, did, prov)), paths)
-    record: dict[str, Any] = {"diagnose_id": did, "source": source, "created_at": created_at or
-                              datetime.now(UTC).isoformat(), "concept": concept, "path": "light",
-                              "rules": [r.__dict__ for r in rules]}
+    # 1. structure: the concept as a note
+    ingest = read_prompt(paths.prompts / "ingest.md")
+    ic = clients["ingest"]
+    ic.prompt_version = ingest.version
+    user = "\n".join(["job: concept", f"concept: {' '.join(concept_text.split())}", *values_lines(vocab)])
+    done, problem, stop = call(ic, "INGEST", f"concept:{key}", ingest.body, user, note_schema(["concept"]), None,
+                               lambda out: raise_problems(note_problems(out, ["concept"], vocab, set(), concept=True)), paths)
     if done is None:
         res.stopped = stop
-        res.checks.append(Check("structure", None if stop else False, stop or problem or "no card",
-                                None if stop else "structure"))
-        return _finish(paths, res, record, None, m)
-    card = DiagnoseCard.model_validate(card_draft(done.data, did, provenance("IDEATE", run_id, done, structure.version,
-                                                                              vocab, created_at))).to_record()
-    record["card"] = card
-    res.checks.append(Check("structure", True, f"structured into a card; closest note: {m.title(card['closest_existing'])}"))
+        res.checks.append(Check("structure", None if stop else False, stop or problem or "no note", None if stop else "structure"))
+        return _finish(paths, res, record, m)
+    concept = study_fields(done.data["notes"][0])
+    record["note"] = concept
+    res.checks.append(Check("structure", True, "written as a note: " + ", ".join(f"{k} {concept[k]}" for k in ENUMS)))
 
-    numbers = clone_numbers(card, notes, embedder)
-    record["gates"] = numbers
-    res.checks.append(clone_check(numbers, settings.gates, m))
-    res.checks.append(novelty_check(card, notes))
-    matches = graveyard_matches(card, notes)
-    record["gates"]["graveyard_hits"] = [g["title_id"] for g in matches]
-    if not matches:
-        res.checks.append(Check("graveyard", True, "shares no core combination with a flop or mixed note"))
-    elif not card.get("why_different"):
-        res.checks.append(Check("graveyard", False, "shares its core combination with " +
-                                ", ".join(m.title(g["title_id"]) for g in matches) + " and says nothing about why this "
-                                "time is different", "graveyard"))
-    else:
-        res.checks.append(Check("graveyard", True, "shares its core combination with " +
-                                ", ".join(m.title(g["title_id"]) for g in matches) + "; why_different is given (judged below)"))
-    leaks = name_leaks(f"{card['logline']} {card['premise']}", note_titles(notes), set())
-    res.checks.append(Check("name leak", False, f"reuses existing names: {m.text(', '.join(leaks[:3]))}", "name_leak")
-                      if leaks else Check("name leak", True, "no existing title names"))
+    # checks without a call
+    sim = similarity(concept, notes, embedder)
+    near = nearest(sim)
+    top_o = max(sim["overlap"], key=lambda s: (sim["overlap"][s], s))
+    top_c = max(sim["cosine"], key=lambda s: (sim["cosine"][s], s)) if sim["cosine"] else None
+    o, c = sim["overlap"][top_o], (sim["cosine"][top_c] if top_c else 0.0)
+    record["similarity"] = {"overlap_max": round(o, 4), "overlap_nearest": top_o, "premise_max": round(c, 4),
+                            "premise_nearest": top_c, "nearest": near}
+    why = (f"tracked-enum overlap {o:.2f} ({m.title(top_o)}), premise similarity {c:.2f} ({m.title(top_c)})"
+           + ("" if top_c else "; premise similarity not run (no embedder)"))
+    clone = o >= float(cfg.get("structural_overlap_fail", 0.70)) or c >= float(cfg.get("premise_similarity_fail", 0.72))
+    res.checks.append(Check("clone", not clone, why, "clone" if clone else None))
+    res.checks.append(novelty_check(concept, notes, int(cfg.get("novelty_min_notes", 10))))
+    graves = graveyard_matches(concept, notes)
+    res.checks.append(Check("graveyard", not graves, "shares 3 of 5 tracked enums with " + ", ".join(m.title(s) for s in graves)
+                            + " (rated flop or mixed)" if graves else "shares its core combination with no flop or mixed note",
+                            "graveyard" if graves else None))
+    leaks = name_leaks(f"{concept['premise']} {concept['mc_edge']}", note_titles(notes), set())
+    res.checks.append(Check("name leak", not leaks, f"reuses existing names: {m.text(', '.join(leaks[:3]))}" if leaks
+                            else "no existing title names", "name_leak" if leaks else None))
 
-    judge = read_prompt(paths.prompts / "diagnose_judge.md")
-    jc = clients["ideate_judge"]
-    jc.prompt_version = judge.version
+    # 2. the check, against the nearest notes
+    chk = read_prompt(paths.prompts / "check.md")
+    cc = clients["check"]
+    cc.prompt_version = chk.version
     rule_ids = [r.id for r in rules]
-    near = notes.get(card["closest_existing"])
-    jdone, problem, stop = _call(jc, f"diagnose:{key}:judge", judge.body, judge_user(card, rules, near, matches, notes),
-                                 judge_schema(rule_ids), lambda out: raise_problems(judge_problems(out, rule_ids, bool(matches))),
-                                 paths)
-    if stop:
+    cdone, problem, stop = call(cc, "CHECK", f"concept:{key}", chk.body, check_user(rules, notes, near, {"D1": concept}),
+                                check_schema(["D1"], rule_ids, near), None,
+                                lambda out: raise_problems(check_problems(out, ["D1"], rule_ids)), paths)
+    if cdone is None:
         res.stopped = stop
-    h1_min = int(settings.ideate.get("h1_min_changed_dimensions", 2))
-    hide_near = card["closest_existing"] in hidden
-    if jdone is None:
-        why = stop or problem or "the judge gave no verdict"
-        for name in ("H1 consequence test", "coherence", "runway", *(["why different"] if matches else []),
-                     *(f"rule {r.id} ({r.strength})" for r in rules)):
-            res.checks.append(Check(name, None, why))
+        for name in ("consequence test", *(f"rule {r.id} ({r.strength})" for r in rules)):
+            res.checks.append(Check(name, None, stop or problem or "the check gave no verdict"))
     else:
-        j = jdone.data["cards"][0]
-        record["judge"] = j
-        dims = [d for d in ("choices", "relationships", "outcomes") if j[f"{d}_differs"]]
-        reasons = ("(reasons withheld: the closest note is a gold title while the blind is pending)" if hide_near else
-                   "; ".join(f"{d}: {j[f'{d}_reason']}" for d in ("choices", "relationships", "outcomes")))
-        res.checks.append(Check("H1 consequence test", len(dims) >= h1_min,
-                                f"{len(dims)} of 3 consequence dimensions differ from "
-                                f"{m.title(card['closest_existing'])} (needs {h1_min}); {m.text(reasons)}",
-                                None if len(dims) >= h1_min else "h1"))
-        res.checks.append(Check("coherence", j["coherence"] == "pass", m.text(j["coherence_reason"]),
-                                None if j["coherence"] == "pass" else "coherence"))
-        res.checks.append(Check("runway", bool(j["runway_hurts_by_arc5"]), m.text(j["runway_reason"]),
-                                None if j["runway_hurts_by_arc5"] else "runway"))
-        if matches:
-            ok = j["why_different_verdict"] == "pass"
-            res.checks.append(Check("why different", ok, m.text(j["why_different_reason"]), None if ok else "why_different"))
-        verdicts = {r["id"]: r for r in j.get("rules") or []}
+        j = cdone.data["cards"][0]
+        record["check"] = j
+        need = int(settings.section("quick").get("consequence_min", 2))
+        dims = verdict_dims(j)
+        res.checks.append(Check("consequence test", dims >= need, f"{dims} of 3 dimensions differ from "
+                                f"{m.title(j['closest_slug'])} (needs {need}); {m.text(j['consequence_reason'])}",
+                                None if dims >= need else "consequence"))
+        verdicts = {v["id"]: v for v in j.get("rules") or []}
         for r in rules:
             v = verdicts.get(r.id, {})
             ok = v.get("verdict") == "pass"
             res.checks.append(Check(f"rule {r.id} ({r.strength})", ok, m.text(v.get("reason") or "no verdict"),
                                     None if ok else ("steering_hard" if r.strength == "hard" else "steering_soft")))
-
-    abl = read_prompt(paths.prompts / "diagnose_ablation.md")
-    parts = ablation_parts(card)
-    part_ids = list(parts)
-    if not res.stopped:
-        jc.prompt_version = abl.version
-        adone, problem, stop = _call(jc, f"diagnose:{key}:ablation", abl.body, ablation_user(card, parts),
-                                     ablation_schema(part_ids), lambda out: raise_problems(ablation_problems(out, part_ids)),
-                                     paths)
-        if stop:
-            res.stopped = stop
-        if adone is None:
-            res.checks.append(Check("ablation", None, stop or problem or "no answer"))
-        else:
-            record["ablation"] = sorted(adone.data["parts"], key=lambda p: part_ids.index(p["part"]))
-            res.checks.append(ablation_check(record["ablation"]))
-    else:
-        res.checks.append(Check("ablation", None, res.stopped))
-    return _finish(paths, res, record, card, m)
+    return _finish(paths, res, record, m)
 
 
-def _finish(paths: Paths, res: DiagnoseResult, record: dict[str, Any], card: dict[str, Any] | None,
-            m: Masker) -> DiagnoseResult:
+def _finish(paths: Paths, res: DiagnoseResult, record: dict[str, Any], m: Masker) -> DiagnoseResult:
     record["checks"] = [{"check": c.name, "status": c.status, "why": c.why,
-                         "prescription": prescription(c.failure) if c.failure else None} for c in res.checks]
-    base = paths.root / "data" / "diagnose" / res.diagnose_id
-    json_path, md_path = base.with_suffix(".json"), base.with_suffix(".md")
-    atomic_write_text(json_path, json.dumps(record, indent=2, ensure_ascii=False, sort_keys=True) + "\n")
-    atomic_write_text(md_path, render_md(record, card, res, m).replace("## Checks", "## Checks (against the notes index "
-                                                                                    "and steering/rules.yaml)", 1))
-    res.json_path = str(json_path.relative_to(paths.root))
-    res.md_path = str(md_path.relative_to(paths.root))
+                         "fix": PRESCRIPTIONS[c.failure] if c.failure else None} for c in res.checks]
+    base = paths.diagnose / res.diagnose_id
+    atomic_write_text(base.with_suffix(".json"), json.dumps(record, indent=2, ensure_ascii=False, sort_keys=True) + "\n")
+    atomic_write_text(base.with_suffix(".md"), render_md(record, m))
+    res.json_path = str(base.with_suffix(".json").relative_to(paths.root))
+    res.md_path = str(base.with_suffix(".md").relative_to(paths.root))
     failed = sum(1 for c in res.checks if c.ok is False)
-    res.lines = [f"diagnose {res.diagnose_id}: {failed} of {len(res.checks)} checks failed (light path: notes + steering)"]
+    res.lines = [f"diagnose {res.diagnose_id}: {failed} of {len(res.checks)} checks failed (against the notes and your rules)"]
     for c in res.checks:
         res.lines.append(f"  {c.status} {c.name}: {c.why}")
         if c.failure:
-            res.lines.append(f"       fix: {prescription(c.failure)}")
+            res.lines.append(f"       fix: {PRESCRIPTIONS[c.failure]}")
+    j = record.get("check")
+    if j:
+        res.lines.append(f"  closest: {m.title(j['closest_slug'])} ({j['closeness']}); weakness: {m.text(j['weakness'])}; "
+                         f"score {j['score']}")
     if res.stopped:
         res.lines.append(f"  paused: {res.stopped}. Run the same command later; finished calls are cached.")
-    res.lines.append(f"card and report -> {res.md_path} (private: data/diagnose/ never goes to the public repo)")
+    res.lines.append(f"report -> {res.md_path} (private: data/diagnose/ never goes to the public repo)")
     return res
 
 
-__all__ = ["LIGHT_PRESCRIPTIONS", "NOT_TRACKED", "PAIRS", "TRACKED", "clone_check", "clone_numbers", "graveyard_matches",
-           "judge_problems", "judge_schema", "novelty_check", "prescription", "run_diagnose_light", "tracked_set"]
+def render_md(record: dict[str, Any], m: Masker) -> str:
+    lines = [f"# Diagnosis {record['diagnose_id']}", "", f"*{record['created_at'][:10]}; from {record['source']}*", "",
+             "## Your concept", "", record["concept"], ""]
+    note = record.get("note")
+    if note:
+        e, kit = note["engine"], note["power_kit"]
+        lines += ["## As a note", "", f"**Premise.** {note['premise']}", "",
+                  "**Engine.** " + "; ".join(f"{k}: {e.get(k)}" for k in ENGINE), "",
+                  "**Profile.** " + ", ".join(f"{k} {note.get(k)}" for k in ENUMS), "",
+                  f"**MC edge.** {note['mc_edge']}", "",
+                  f"**Power kit.** Medium: {kit.get('medium')}. Functions: {' / '.join(kit.get('functions') or [])}. "
+                  f"Tools: {' / '.join(kit.get('tools') or [])}. Limits: {kit.get('limits')}", "",
+                  "**What it can't survive without.** " + " ".join(f"({i}) {el.get('element')}"
+                                                                   for i, el in enumerate(note.get("elements") or [], 1)), ""]
+    j = record.get("check")
+    if j:
+        lines += [f"**Closest note.** {m.title(j['closest_slug'])} ({j['closeness']}: {m.text(j['closeness_reason'])})", "",
+                  f"**Biggest weakness.** {m.text(j['weakness'])}", "", f"**Score.** {j['score']} of 100", ""]
+    lines += ["## Checks (against the notes and steering/rules.yaml)", "", "| Check | Result | Why | Fix |", "|---|---|---|---|"]
+    for c in record["checks"]:
+        lines.append(f"| {c['check']} | {c['status']} | {str(c['why']).replace('|', '/')} | {c['fix'] or ''} |")
+    return "\n".join(lines) + "\n"

@@ -139,15 +139,3 @@ def pull(paths: Paths, cfg: DataRepoConfig) -> int:
     if _git(cfg.clone, "ls-remote", "--heads", "origin", "main", check=False):
         _git(cfg.clone, "pull", "-q", "--ff-only", "origin", "main")
     return mirror(cfg.clone, paths.root, cfg.paths, delete=False)
-
-
-def push_after_batch(paths: Paths, settings: Any) -> str | None:
-    """Best-effort backup at the end of a batch run; only once the local clone exists."""
-    cfg = load_config(paths, settings)
-    if cfg is None or not cfg.push_after_batch or not (cfg.clone / ".git").is_dir():
-        return None
-    try:
-        res = push(paths, cfg)
-    except DataRepoError as exc:
-        return f"data backup failed: {exc}"
-    return f"data backup: {res.changed} file(s) changed, data repo at {res.head}"

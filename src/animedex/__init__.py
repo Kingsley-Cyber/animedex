@@ -1,6 +1,6 @@
-"""ANIMEDEX: evidence-backed ideation engine for screen stories."""
+"""ANIMEDEX: a notes index of shows, and idea cards checked against it."""
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 
-# Version of the record shapes in src/animedex/models (04; 1.4.0: v1.8 contracts).
-SCHEMA_VERSION = "1.5.0"   # v1.9 print media (D-046): additive
+# Version of the note and card shapes (light path, 2026-09-27 audit). Part of every cache key.
+SCHEMA_VERSION = "2.0.0"

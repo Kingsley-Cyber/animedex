@@ -6,7 +6,7 @@ import subprocess
 
 import pytest
 
-from animedex.datarepo import DataRepoConfig, mirror, pull, push, push_after_batch
+from animedex.datarepo import DataRepoConfig, mirror, pull, push
 from animedex.paths import Paths
 
 pytestmark = pytest.mark.unit
@@ -64,7 +64,3 @@ def test_push_pairs_tags_and_pull_restores_on_a_fresh_checkout(tmp_path, monkeyp
     assert not (tmp_path / "data-clone" / "data" / "cache").exists()
 
 
-def test_batch_backup_is_skipped_until_the_clone_exists(repo):
-    from animedex.config import load_settings
-
-    assert push_after_batch(repo, load_settings(repo)) is None  # no clone next to this checkout: no network
