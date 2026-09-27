@@ -1,0 +1,33 @@
+# M3a (2026-09-27): P2 -> P3 -> CHECK per title, 3 at once; they write candidates only.
+# Then one `animedex canonicalize` lands atoms and proofs with their checks (never canonicalize in parallel).
+name: m3a
+max_parallel: 3
+jobs:
+  - title: solo_leveling_2024
+    steps: [p2, p3, check]
+  - title: fullmetal_alchemist_brotherhood_2009
+    steps: [p2, p3, check]
+  - title: hunter_x_hunter_2011
+    steps: [p2, p3, check]
+  - title: btooom_2012
+    steps: [p2, p3, check]
+  - title: platinum_end_2021
+    steps: [p2, p3, check]
+  - title: sword_art_online_2012
+    steps: [p2, p3, check]
+  - title: big_order_2016
+    steps: [p2, p3, check]
+  - title: future_diary_2011
+    steps: [p2, p3, check]
+  - title: jujutsu_kaisen_2020
+    steps: [p2, p3, check]
+  - title: demon_slayer_kimetsu_no_yaiba_2019
+    steps: [p2, p3, check]
+  - title: mob_psycho_100_2016
+    steps: [p2, p3, check]
+  - title: avatar_the_last_airbender_2005
+    steps: [p2, p3, check]
+  - title: invincible_2021
+    steps: [p2, p3, check]
+  - title: the_boys_2019
+    steps: [p2, p3, check]
