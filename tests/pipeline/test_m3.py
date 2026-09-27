@@ -265,3 +265,29 @@ def test_orchestrator_runs_m3_stages_with_mocks(m3):
     assert not report.stopped and report.stages["P4"]["done"] == [T1]
     state = CanonicalStore(m3).state()
     assert len(state["transfer"]) == 2 and report.canonical.get("check", 0) >= 6
+
+
+def test_orchestrator_retries_a_quarantined_p1_once_with_fresh_calls(repo):
+    import yaml as _yaml
+
+    from animedex.pipeline.orchestrate import run_batch
+    from tests.pipeline.test_p1 import ENTRY, make_draft
+
+    repo.corpus_file.write_text(_yaml.safe_dump({"titles": [ENTRY]}))
+    bad = make_draft()
+    bad["core"]["tone"]["uncertainty_reason"] = None  # a guess without a reason: repaired, then quarantined
+    calls = {"n": 0}
+
+    def answer(system, user, schema, params):
+        calls["n"] += 1
+        return bad if calls["n"] <= 2 else make_draft()
+
+    def clients(key, runlog):
+        return LLMClient(provider=MockProvider(default=answer), provider_name="mock",
+                         spec=ModelSpec(provider="mock", model="v"), prompt_version="unset",
+                         schema_version=SCHEMA_VERSION, vocab_version=get_vocab().version,
+                         cache=ResponseCache(repo.cache), runlog=runlog)
+
+    report = run_batch(repo, [ENTRY["title_id"]], load_settings(repo), {}, get_vocab(), stages=("P1",), clients=clients)
+    p1 = report.stages["P1"]
+    assert p1["done"] == [ENTRY["title_id"]] and p1["counts"]["retried"] == 1 and calls["n"] == 3
