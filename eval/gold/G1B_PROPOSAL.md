@@ -65,3 +65,15 @@ Solo Leveling: only S1 and S2 have aired as of 2026-09-26. Both clear the hit ba
 - Season-level graded reviews for Tokyo Ghoul:re, God of High School, and Tower of God.
 - Possible extra exclusions: the FMA 2003 film, the live-action FMA films, the SAO *Ordinal Scale* film.
 - The Jikan API failed (504 and stale cache), so MAL values come from the live MAL pages.
+
+## Addendum (2026-09-27): flop swap under the owner's autopilot ruling
+- Kingsley has not watched Big Order and asked for the flop to be picked from verified reception data.
+- Gold flop is now **Platinum End (2021)**, the backup already verified in this proposal:
+  - MAL 6.01 from 151k scorers; AniList 58.
+  - ANN judged it a failure relative to its creators' pedigree.
+- AniList metadata confirms the scope: TV, 24 episodes, 2021-10-08 to 2022-03-25, Signal.MD, manga source.
+- Its nearest neighbor is Future Diary: both are god-candidate battle royales.
+- The caveats from section 2 stand: neither site tags it Action, and the director changed mid-run.
+- Big Order stays in the corpus as a **non-gold flop**. Its verified reception adds graveyard and revival evidence.
+- The annotation template moved with `git mv` (`big_order_2016` → `platinum_end_2021`). Nothing was deleted.
+

@@ -1,0 +1,7 @@
+# Gold blind state (owner ruling, 2026-09-27). Only Kingsley changes `state`, by saying
+# "annotations done" or "annotations waived".
+#   pending          gold live runs may proceed; gold-title outputs are shown only as counts
+#   annotations_done gold outputs may be shown (annotations are committed first)
+#   waived           gold outputs may be shown; gold-vs-annotation metrics stay deferred
+state: pending
+runs_without_annotations: true

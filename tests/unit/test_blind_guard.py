@@ -109,3 +109,43 @@ def test_non_gold_title_is_allowed_and_unknown_title_refused(git_repo):
     guard(git_repo)
     with pytest.raises(LiveRunRefused, match="not in corpus"):
         check_live_title(git_repo, load_settings(git_repo), get_vocab(), "nobody_2000")
+
+
+# --- owner ruling 2026-09-27 (autopilot): runs without annotations, outputs counts-only --------------
+
+def write_blind(paths, state="pending", runs=True):
+    (paths.gold / "BLIND.yaml").write_text(yaml.safe_dump({"state": state, "runs_without_annotations": runs}))
+
+
+def test_missing_blind_file_keeps_the_strict_guard(repo):
+    from animedex.gold import blind_settings
+
+    write_corpus(repo)
+    init_template(repo)
+    assert blind_settings(repo) == {"state": "pending", "runs_without_annotations": False}
+    with pytest.raises(LiveRunRefused, match="blind guard"):
+        guard(repo)
+
+
+def test_runs_without_annotations_when_the_owner_allows_it(repo):
+    write_corpus(repo)
+    init_template(repo)  # blank annotation
+    write_blind(repo, runs=True)
+    guard(repo)  # no raise: the owner's autopilot ruling lets gold runs proceed
+    write_blind(repo, runs=False)
+    with pytest.raises(LiveRunRefused, match="blind guard"):
+        guard(repo)
+
+
+def test_gold_outputs_stay_masked_until_done_or_waived(repo):
+    from animedex.gold import masked_titles
+
+    write_blind(repo, state="pending")
+    assert masked_titles(repo, {GOLD}) == {GOLD}
+    for state in ("annotations_done", "waived"):
+        write_blind(repo, state=state)
+        assert masked_titles(repo, {GOLD}) == set()
+    write_blind(repo, state="maybe")
+    with pytest.raises(ValueError, match="state must be one of"):
+        masked_titles(repo, {GOLD})
+

@@ -28,7 +28,8 @@ def render_template(title_id: str, title: str, key_fields: list[str], vocab: Voc
     lines = [
         f"# Blind gold annotation: {title} ({title_id})",
         "# Fill this BEFORE any model output for this title is shown to you, then commit it.",
-        "# Live runs on this title refuse to start until every field is filled and committed.",
+        "# Optional (owner ruling 2026-09-27): runs proceed without it; outputs stay counts-only until you say "
+        '"annotations done" or "annotations waived".',
         f"title_id: {title_id}",
         "key_enums:   # one value each; allowed values are in the comment",
     ]
@@ -116,3 +117,25 @@ def gold_status(
     if not status.committed:
         status.problems.append("not committed (commit the filled file; edits after commit also block)")
     return status
+
+
+BLIND_FILE = "BLIND.yaml"
+BLIND_STATES = ("pending", "annotations_done", "waived")
+
+
+def blind_settings(paths: Paths) -> dict[str, Any]:
+    """eval/gold/BLIND.yaml (owner ruling 2026-09-27). Missing file = the original strict guard."""
+    f = paths.gold / BLIND_FILE
+    if not f.is_file():
+        return {"state": "pending", "runs_without_annotations": False}
+    data = yaml.safe_load(f.read_text(encoding="utf-8")) or {}
+    state = str(data.get("state", "pending"))
+    if state not in BLIND_STATES:
+        raise ValueError(f"{f}: state must be one of {BLIND_STATES}")
+    return {"state": state, "runs_without_annotations": bool(data.get("runs_without_annotations", False))}
+
+
+def masked_titles(paths: Paths, gold_ids: set[str]) -> set[str]:
+    """Gold titles whose outputs may be shown only as counts (state still pending)."""
+    return set(gold_ids) if blind_settings(paths)["state"] == "pending" else set()
+

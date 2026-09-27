@@ -3,6 +3,9 @@
 - gold blind guard (owner ruling, G0): a gold title's eval/gold annotations are filled and
   committed. Otherwise the run refuses to start, so no gold output exists before the blind
   annotation does.
+- Owner ruling 2026-09-27 (autopilot): with `runs_without_annotations: true` in
+  eval/gold/BLIND.yaml, gold runs proceed without annotations; their outputs are then shown only
+  as counts until the blind state is `annotations_done` or `waived` (gold.masked_titles).
 """
 
 from __future__ import annotations
@@ -12,7 +15,7 @@ from typing import Any
 import yaml
 
 from animedex.config import Settings
-from animedex.gold import gold_status
+from animedex.gold import blind_settings, gold_status
 from animedex.models import CorpusEntry
 from animedex.ontology import Vocab
 from animedex.paths import Paths
@@ -45,7 +48,7 @@ def check_live_title(paths: Paths, settings: Settings, vocab: Vocab, title_id: s
             paths, title_id, list(cfg.get("gold_key_fields", [])), vocab,
             int(bounds.get("min", 3)), int(bounds.get("max", 5)),
         )
-        if not status.ready:
+        if not status.ready and not blind_settings(paths)["runs_without_annotations"]:
             raise LiveRunRefused(
                 f"blind guard: {title_id} is a gold title and its annotation is not ready: "
                 + "; ".join(status.problems)

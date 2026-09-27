@@ -59,8 +59,21 @@ titles:
       seasons: [1]
       numbering: broadcast
       exclude: ["2015 OVA", "manga beyond the anime"]
-    role_tags: [gold, flop]
+    role_tags: [flop]   # non-gold since 2026-09-27: Platinum End is the gold flop; kept as flop evidence
     partners: {nearest_neighbor: future_diary_2011}   # same author, better received (G1b request)
+
+  - title_id: platinum_end_2021   # gold flop from 2026-09-27 (owner autopilot ruling; G1b backup, verified reception)
+    title: Platinum End
+    year: 2021
+    medium: anime
+    format: serialized
+    scope:
+      version: "Signal.MD TV anime (24 eps, 2021-10 to 2022-03)"   # anilist.co/anime/127401
+      seasons: [1]
+      numbering: broadcast
+      exclude: ["manga-only material", "Koufukuron music video"]
+    role_tags: [gold, flop]
+    partners: {nearest_neighbor: future_diary_2011}   # both: candidates battle to become the next god
 
   # --- partner batch (non-gold): nearest-neighbor and cross-medium candidates for P3 ---
   - title_id: future_diary_2011

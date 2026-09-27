@@ -1,7 +1,7 @@
-# Blind gold annotation: Big Order (big_order_2016)
+# Blind gold annotation: Platinum End (platinum_end_2021)
 # Fill this BEFORE any model output for this title is shown to you, then commit it.
-# Live runs on this title refuse to start until every field is filled and committed.
-title_id: big_order_2016
+# Optional (owner ruling 2026-09-27): runs proceed without it; outputs stay counts-only until you say "annotations done" or "annotations waived".
+title_id: platinum_end_2021
 key_enums:   # one value each; allowed values are in the comment
   power_combat.gate: ""   # innate | trained | inherited | contract | system_granted | artifact | death_or_ritual | mutation | none | other
   power_combat.cost_of_power: ""   # physical_toll | lifespan | memory | identity_or_humanity | relationships | resource | moral | none | other
