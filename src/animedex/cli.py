@@ -68,13 +68,22 @@ def p1(title: str = TitleOpt, all_: bool = AllOpt, dry_run: bool = DryOpt,
     entries = _entries(paths, title, all_)
     prompt = render_prompt(paths, vocab, settings)
     if dry_run:
+        from animedex.providers.factory import build_provider
+
         spec = settings.models["p1"]
         cache = ResponseCache(paths.cache)
-        typer.echo(f"P1 prompt {prompt.version} ({len(prompt.system)} chars); model {spec.provider}/{spec.model}")
+        from animedex.providers.base import ProviderError
+
+        try:  # the cache key carries the CLI identity (name + version)
+            identity = getattr(build_provider(spec.provider, settings, environment(paths)), "identity", spec.provider)
+        except ProviderError as exc:
+            identity = spec.provider
+            typer.echo(f"note: {exc}; cache status below may be wrong", err=True)
+        typer.echo(f"P1 prompt {prompt.version} ({len(prompt.system)} chars); model {identity}/{spec.model}")
         for e in entries:
             key = cache_key(record_id=e.title_id, pass_="P1", prompt_version=prompt.version,
                             schema_version=schema_version, vocab_version=vocab.version,
-                            model=f"{spec.provider}/{spec.model}", params=spec.params,
+                            model=f"{identity}/{spec.model}", params=spec.params,
                             upstream=upstream_hash([e.model_dump(mode="json")]))
             status = "cached" if cache.get("P1", key) else "would call"
             typer.echo(f"--- {e.title_id} [{status}]\n{render_user(e)}")
