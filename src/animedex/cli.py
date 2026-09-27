@@ -459,6 +459,31 @@ def census(top: int = typer.Option(0, "--top", help="Count the N most popular fr
 
 
 @app.command()
+def review(port: int = typer.Option(8765, "--port"), open_browser: bool = typer.Option(True, "--open/--no-open")) -> None:
+    """Blind review page on http://127.0.0.1:<port> (localhost only); ratings save to eval/blind/."""
+    import webbrowser
+
+    from animedex.ideate.review import serve
+
+    paths = _paths()
+    try:
+        server = serve(paths.root / "eval" / "blind", port)
+    except FileNotFoundError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(1) from exc
+    url = f"http://127.0.0.1:{server.server_address[1]}/"
+    typer.echo(f"blind review: {url} (this computer only). Ratings save as you go. Ctrl+C to stop.")
+    if open_browser:
+        webbrowser.open(url)
+    try:
+        server.serve_forever()
+    except KeyboardInterrupt:
+        pass
+    finally:
+        server.server_close()
+
+
+@app.command()
 def canonicalize() -> None:
     """CANONICALIZE: data/candidates -> data/canonical (validate, normalize, quarantine, atomic write)."""
     from animedex.pipeline.canonicalize import canonicalize as run_canonicalize

@@ -102,6 +102,10 @@ def build_packet(paths: Paths, settings: Any, vocab: Vocab, *, plain: LLMClient,
         lines += [f"## {cid}", "", f"**Logline.** {c['logline']}", "", f"**Premise.** {c['premise']}", ""]
         key[cid] = {"arm": arm, "source": c.get("source")}
         ratings += [f"  {cid}: {{rating: null, greenlight: null, criteria: []}}"]
+    cards_json = [{"id": f"C{i:02d}", "logline": c["logline"], "premise": c["premise"]}
+                  for i, (_, c) in enumerate(cards, start=1)]  # no arm, no source: the page stays blind
+    atomic_write_text(paths.root / "eval" / "blind" / f"packet_{date}.json",
+                      json.dumps({"date": date, "cards": cards_json}, indent=2, ensure_ascii=False) + "\n")
     packet_path = paths.root / "eval" / "blind" / f"packet_{date}.md"
     ratings_path = paths.root / "eval" / "blind" / f"ratings_{date}.yaml"
     key_path = paths.root / "data" / "blind" / f"key_{date}.json"

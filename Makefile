@@ -1,4 +1,4 @@
-.PHONY: validate build clean-build test eval smoke schemas lint ideas packet analyze backfill census
+.PHONY: validate build clean-build test eval smoke schemas lint ideas packet analyze backfill census review
 
 UV ?= uv
 RUN = $(UV) run
@@ -43,3 +43,5 @@ backfill:
 census:
 	$(RUN) animedex census --top $(if $(TOP),$(TOP),500)
 
+review:
+	$(RUN) animedex review
