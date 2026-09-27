@@ -14,6 +14,7 @@ data/candidates/
 data/quarantine/
 data/cache/
 data/adjudication/
+data/blind/
 /build/
 .env
 .venv/

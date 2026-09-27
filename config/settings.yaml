@@ -53,6 +53,8 @@ models:   # G1a, approved 2026-09-26; routed to subscription CLIs 2026-09-26. Co
   ideate_judge:    {provider: codex_cli, model: gpt-5.6-terra, strict_model: true}   # owner: an older model is enough
   embeddings:      {provider: local, model: mxbai-embed-large}               # Ollama, local (pulled 2026-09-27)
   eval_match:      {provider: claude_cli, model: claude-haiku-4-5-20251001}   # PROPOSED (not in the G1a list); AC-17, M3
+  prior_art:       {provider: claude_cli, model: claude-sonnet-5}   # v1.6: native web search for absence claims
+  census:          {provider: claude_cli, model: claude-sonnet-5}   # v1.6: counts only; Haiku only if the accuracy check passes
 # USD per 1M tokens for API-billed "<provider>/<model>" pairs (local models: 0). Subscription CLI
 # calls are not priced here: each call's own reported cost is logged as a shadow cost.
 pricing:

@@ -276,10 +276,63 @@ def patterns() -> None:
     _stub("patterns")
 
 
+def _ideate_clients(paths: Any, settings: Any, keys: tuple[str, ...]) -> tuple[dict, Any]:
+    from animedex.budget import Budget
+    from animedex.providers.factory import build_client
+    from animedex.store.runlog import RunLog, new_run_id
+
+    runlog = RunLog(paths.raw_runs, new_run_id())
+    budget = Budget.from_settings(settings)  # one cap for the whole run, across every model it uses
+    env = environment(paths)
+    clients = {k: build_client(k, paths=paths, settings=settings, env=env, runlog=runlog, prompt_version="unset",
+                               budget=budget) for k in keys}
+    return clients, runlog
+
+
 @app.command()
-def ideate(generations: int = typer.Option(3, "--generations")) -> None:
-    """MAP-Elites ideation (M5)."""
-    _stub("ideate")
+def ideate(generations: int = typer.Option(None, "--generations", help="Default: ideate.generations")) -> None:
+    """IDEATE: MAP-Elites idea cards -> data/canonical/ideas.jsonl and build/reports/ideas.md."""
+    from animedex.embeddings.base import build_embedder
+    from animedex.ideate.report import write_report
+    from animedex.ideate.run import run_ideate
+    from animedex.ontology import get_vocab
+    from animedex.store.runlog import new_run_id
+
+    paths = _paths()
+    settings, vocab = load_settings(paths), get_vocab(paths)
+    clients, runlog = _ideate_clients(paths, settings, ("ideate_generate", "ideate_judge", "prior_art"))
+    result = run_ideate(paths, settings, vocab, clients=clients, embedder=build_embedder(settings, environment(paths)),
+                        run_id=new_run_id(), generations=generations)
+    runlog.write_ledger()
+    write_report(paths)
+    rejected = ", ".join(f"{k} {v}" for k, v in sorted(result.rejected.items())) or "none"
+    typer.echo(f"ideate: generations {result.generations or 'none'}; {result.candidates} cards, {result.placed} placed; "
+               f"{result.champions} champions in the archive; reworks {result.reworks}; rejected: {rejected}; "
+               f"prior-art {dict(result.prior_art) or 'none'}")
+    for note in result.notes:
+        typer.echo(f"  note: {note}", err=True)
+    if result.diversity_alarm:
+        typer.echo(f"  diversity alarm: {result.diversity_alarm}", err=True)
+    typer.echo("cards -> build/reports/ideas.md")
+    if result.stopped:
+        typer.echo(f"Paused: {result.stopped}. Run `make ideas` again later; it continues from the archive.", err=True)
+        raise typer.Exit(3)
+
+
+@app.command()
+def packet() -> None:
+    """Blind review packet: champions + plain baseline + web baseline, shuffled, logline and premise only."""
+    from animedex.ideate.packet import build_packet
+    from animedex.ontology import get_vocab
+
+    paths = _paths()
+    settings, vocab = load_settings(paths), get_vocab(paths)
+    clients, runlog = _ideate_clients(paths, settings, ("ideate_generate",))
+    web, _ = _ideate_clients(paths, settings, ("ideate_generate",))
+    result = build_packet(paths, settings, vocab, plain=clients["ideate_generate"], web=web["ideate_generate"])
+    runlog.write_ledger()
+    typer.echo(f"blind packet: {result.per_arm} cards per arm x 3 -> {result.packet}; ratings -> {result.ratings}; "
+               f"answer key kept out of view in {result.key}")
 
 
 @app.command()

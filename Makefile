@@ -1,4 +1,4 @@
-.PHONY: validate build clean-build test eval smoke schemas lint
+.PHONY: validate build clean-build test eval smoke schemas lint ideas packet analyze
 
 UV ?= uv
 RUN = $(UV) run
@@ -27,3 +27,13 @@ schemas:
 
 lint:
 	$(RUN) ruff check .
+
+analyze:
+	$(RUN) animedex analyze
+
+ideas:
+	$(RUN) animedex ideate
+
+packet:
+	$(RUN) animedex packet
+

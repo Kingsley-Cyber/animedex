@@ -48,9 +48,10 @@ class ModelSpec(BaseModel):
 STAGE_SLOTS: dict[str, list[str]] = {
     "m2": ["p1", "verify"],
     "m3": ["p1", "verify", "p2", "p3", "check", "p4", "eval_match"],
-    "m5": ["p1", "verify", "p2", "p3", "check", "p4", "eval_match", "ideate_generate", "ideate_judge", "embeddings"],
+    "m5": ["p1", "verify", "p2", "p3", "check", "p4", "eval_match", "ideate_generate", "ideate_judge", "embeddings",
+           "prior_art", "census"],
     "m6": ["p1", "verify", "p2", "p3", "check", "p4", "eval_match", "ideate_generate", "ideate_judge", "embeddings",
-           "ep", "rollup_match"],
+           "prior_art", "census", "ep", "rollup_match"],
 }
 
 
