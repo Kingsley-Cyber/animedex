@@ -1,0 +1,13 @@
+# Backtest (D-007, D-032): 10 held-out power-system titles, mid-popularity and recent, none in the corpus.
+# Picked for a spread of likely outcomes; the labels the judge is scored against come from reception
+# (GATHER's reception record + API scores), never from this list.
+Black Clover (2017)
+Fire Force (2019)
+The God of High School (2020)
+Tower of God (2020)
+Plunderer (2020)
+Arifureta: From Commonplace to World's Strongest (2019)
+Mashle: Magic and Muscles (2023)
+Hell's Paradise (2023)
+Undead Unluck (2023)
+Ex-Arm (2021)
