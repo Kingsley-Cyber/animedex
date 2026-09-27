@@ -120,3 +120,30 @@ Supersedes the provider, key and dollar-cap lines of the G1 rulings. The model c
   - Search: VERIFY uses the model harness's own web search (claude's WebSearch/WebFetch). There is no Brave, SearXNG, or search key (CHANGELOG v1.2.2).
   - Gold: Kingsley has seen SAO. Big Order stays pending until he says what he has watched, since the annotations must come from his own viewing.
 
+## Owner ruling: autopilot (Kingsley, 2026-09-27)
+> Switch to autopilot. Goal: I send a plain list of anime titles and get idea cards back. Build everything needed for that, without waiting on me.
+> Scope: finish M2 through M5, plus the v1.6 census and prior-art check. Then build `make backfill LIST=<file>` (one title per line: resolve each title to a catalog entry with scope, run the full pipeline, report counts only; for ambiguous titles pick the most-watched adaptation and list the choices in the report; warn, without blocking, if the list is all hits or all anime and suggest flops and non-anime titles), `make ideas` (cards to build/reports/ideas.md), and a one-page plain-language USAGE.md.
+> Decisions: use your own recommendations for everything pending (v1.3 failure_level, the v1.6 section 7 items, the change plan). Plan the Studio but don't build it yet. Change request A stays deferred.
+> Gold set: pick the flop yourself from verified reception data. Annotations are now optional: gold runs may proceed, but never show me gold-title outputs (counts only) until I say "annotations done" or "annotations waived". Mark any AC that depends on my input as "deferred (owner: Kingsley)", not failed, and keep going.
+> Blind review: prepare the packet when M5 is done, including both baselines, but don't block on it.
+> Only stop for: plan limits or budget caps (pause and tell me how to resume), deleting data, anything that would change the taste standard, or a conflict your own recommendation can't resolve. All existing safety rules stay: subscription-only CLIs, paraphrase only, scope, and no copied text.
+> Updates: one short plain-language message per milestone: what's done, what's next, and anything I must do (ideally nothing).
+
+**Decisions recorded under this ruling (the agent's recommendations):**
+- **v1.3 `failure_level`:** lands at the M2→M3 boundary, with an outcome-only re-verify. Hits carry null; mixed and flop require a value. A `failure_level_override` in `corpus/titles.yaml` is allowed.
+- **v1.5 Studio:** planned, not built. Its docs, models and stages land when M8 starts. Its decisions 6–10 follow the plan's recommendations.
+- **v1.6:** approved with the section 7 recommendations:
+  - Catalog: AniList, assuming personal use; if ideas will be sold, switch to Wikidata.
+  - Census: the top 500 franchise roots from 1995–2026, stored as `census_entry` in `data/canonical/` with `trust: recall`, counts only, no premise line.
+  - Haiku only if its accuracy is ≥0.80 and within 5 points of Sonnet.
+  - A runway "no" means rework once, then reject.
+  - `borrowed_system` is a census-only label.
+  - Pairwise picks use the CLI.
+  - Minimum operator share at M7 is 5%.
+  - The concept bible comes after blind review #1.
+  - The new operators and stages are owner-approved exceptions, re-judged at M7.
+- **Gold flop:** Platinum End (2021), the backup chosen from verified reception data in `eval/gold/G1B_PROPOSAL.md`.
+  - Big Order stays in the corpus as a non-gold flop, which adds graveyard and revival evidence.
+  - Future Diary becomes Platinum End's nearest neighbor: both are god-candidate battle royales.
+- **Gold blind:** gold live runs are allowed without annotations. Gold-title outputs are shown only as counts until "annotations done" or "annotations waived". ACs that need Kingsley's input are marked "deferred (owner: Kingsley)".
+
