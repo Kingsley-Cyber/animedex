@@ -156,7 +156,8 @@ def output_problems(out: dict[str, Any], record: dict[str, Any], moments: list[d
 
 
 def run_p2(paths: Paths, title_ids: list[str], client: LLMClient, vocab: Vocab, settings: Settings, *, run_id: str,
-           guards: GuardConfig | None = None, created_at: str | None = None) -> StageResult:
+           guards: GuardConfig | None = None, created_at: str | None = None,
+              params: dict[str, Any] | None = None) -> StageResult:
     guards = guards or GuardConfig.from_settings(settings)
     prompt = render_prompt(paths, vocab, settings)
     client.prompt_version = prompt.version
@@ -178,7 +179,7 @@ def run_p2(paths: Paths, title_ids: list[str], client: LLMClient, vocab: Vocab, 
 
         call = guarded_call(result, paths, "P2", "mechanism", tid, client, prompt.system,
                             render_user(record, moments, vocab), output_schema(vocab, record.get("modules_active") or []),
-                            upstream=upstream_hash([record, *moments]), validate=check)
+                            upstream=upstream_hash([record, *moments]), params=params, validate=check)
         if call.stop:
             break
         if call.completion is None:

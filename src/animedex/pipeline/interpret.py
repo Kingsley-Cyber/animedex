@@ -45,7 +45,7 @@ from animedex.pipeline.p1 import (
 from animedex.prompts import RenderedPrompt, read_prompt
 from animedex.providers.base import ProviderError
 from animedex.providers.cli_common import CliAuthError, RateLimited
-from animedex.providers.client import CallContext, InvalidOutput, LLMClient
+from animedex.providers.client import CallContext, Completion, InvalidOutput, LLMClient
 from animedex.store.atomic import atomic_write_text
 from animedex.store.cache import upstream_hash
 from animedex.store.canonical import normalize_record
@@ -118,8 +118,10 @@ def render_facts(gathered: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
-def schema_with_evidence(base: dict[str, Any], ids: list[str]) -> dict[str, Any]:
-    fid = {"type": "string", "enum": ids or ["none"]}
+def schema_with_evidence(base: dict[str, Any], ids: list[str], free_ids: bool = False) -> dict[str, Any]:
+    """`free_ids` (PROFILE, v1.10): the facts are in the same answer, so any id string is allowed here and
+    checked afterwards against the facts that were admitted."""
+    fid = {"type": "string"} if free_ids else {"type": "string", "enum": ids or ["none"]}
     evidence = {"type": "array", "items": {"type": "object", "additionalProperties": False,
                                            "required": ["path", "fact_ids"],
                                            "properties": {"path": {"type": "string"},
@@ -194,13 +196,14 @@ def build_outcome(tid: str, oc: dict[str, Any] | None, facts: dict[str, dict[str
             "failure_level_source": "verify" if level is not None else None, "provenance": prov}
 
 
-def characters_schema(vocab: Vocab, ids: list[str]) -> dict[str, Any]:
+def characters_schema(vocab: Vocab, ids: list[str], free_ids: bool = False) -> dict[str, Any]:
     def enum(name: str, nullable: bool = True) -> dict[str, Any]:
         values = list(vocab.enum(name))
         return {"type": ["string", "null"], "enum": [*values, None]} if nullable else {"type": "string", "enum": values}
 
     s, sn = {"type": "string"}, {"type": ["string", "null"]}
-    fid, fidn = {"type": "string", "enum": ids or ["none"]}, {"type": ["string", "null"], "enum": [*(ids or ["none"]), None]}
+    fid = {"type": "string"} if free_ids else {"type": "string", "enum": ids or ["none"]}
+    fidn = {"type": ["string", "null"]} if free_ids else {"type": ["string", "null"], "enum": [*(ids or ["none"]), None]}
 
     def obj(props: dict[str, Any], nullable: bool = False) -> dict[str, Any]:
         return {"type": ["object", "null"] if nullable else "object", "additionalProperties": False,
@@ -309,121 +312,131 @@ def build_characters(entry: CorpusEntry, out: dict[str, Any], facts: dict[str, d
     return records, notes
 
 
-def run_interpret(paths: Paths, entries: list[CorpusEntry], client: LLMClient, vocab: Vocab, settings: Settings, *,
-                  run_id: str, guards: GuardConfig | None = None, created_at: str | None = None,
-                  params: dict[str, Any] | None = None, out_dir: Path | None = None) -> InterpretResult:
-    """`out_dir` + `params` (e.g. {"rerun": 2} or {"effort": "high"}): an extra run written there instead
-    of candidates (AC-12 agreement runs, the effort A/B)."""
-    guards = guards or GuardConfig.from_settings(settings)
-    prompt = render_system(paths, vocab, settings)
-    client.prompt_version = prompt.version
-    threshold = float(settings.verify.get("conf_threshold", 0.7))
-    title_model = title_profile_model(vocab)
-    documented = gather_paths(vocab, settings)
-    needs_source = {f.path for f in vocab.lens_fields() if f.needs_source}
-    result = InterpretResult()
-    for entry in entries:
-        tid = entry.title_id
-        gathered = load_gathered(paths, tid)
-        if gathered is None:
-            result.skipped.append((tid, "no GATHER facts; run `animedex gather` first"))
-            continue
-        facts = fact_index(gathered)
-        schema = schema_with_evidence(output_schema(vocab, entry), sorted(facts))
-        user = render_user(entry) + "\n\n" + render_facts(gathered)
+@dataclass
+class InterpretContext:
+    """What every title of an INTERPRET or PROFILE run shares."""
 
-        def check(draft: dict[str, Any], _entry: CorpusEntry = entry) -> None:
-            problems = draft_problems(normalize_draft(draft, _entry, vocab), _entry, vocab, threshold, guards)
-            other = [p for p in problems if not _is_length(p)]
-            if other:
-                raise ValueError("; ".join(other[:25]))
+    paths: Paths
+    vocab: Vocab
+    settings: Settings
+    guards: GuardConfig
+    prompt: RenderedPrompt
+    threshold: float
+    title_model: Any
+    documented: list[str]
+    needs_source: set[str]
+    run_id: str
+    created_at: str | None = None
+    params: dict[str, Any] | None = None
+    out_dir: Path | None = None
 
-        ctx = CallContext(pass_="INTERPRET", record_id=tid, title_id=tid,
-                          upstream=upstream_hash([entry.model_dump(mode="json"), {"gathered": sorted(facts.items())}]))
+
+def interpret_context(paths: Paths, vocab: Vocab, settings: Settings, *, run_id: str, guards: GuardConfig | None = None,
+                      created_at: str | None = None, params: dict[str, Any] | None = None,
+                      out_dir: Path | None = None) -> InterpretContext:
+    return InterpretContext(paths=paths, vocab=vocab, settings=settings, guards=guards or GuardConfig.from_settings(settings),
+                            prompt=render_system(paths, vocab, settings),
+                            threshold=float(settings.verify.get("conf_threshold", 0.7)),
+                            title_model=title_profile_model(vocab), documented=gather_paths(vocab, settings),
+                            needs_source={f.path for f in vocab.lens_fields() if f.needs_source},
+                            run_id=run_id, created_at=created_at, params=params, out_dir=out_dir)
+
+
+def _known_evidence(evidence: list[dict[str, Any]], facts: dict[str, dict[str, Any]]) -> list[dict[str, Any]]:
+    """Evidence links to facts that exist (a merged call may name a fact that was not admitted)."""
+    out = []
+    for e in evidence or []:
+        ids = [i for i in e.get("fact_ids") or [] if i in facts]
+        if ids:
+            out.append({"path": e.get("path"), "fact_ids": ids})
+    return out
+
+
+def finish_title(ctx: InterpretContext, entry: CorpusEntry, gathered: dict[str, Any], facts: dict[str, dict[str, Any]],
+                 data: dict[str, Any], completion: Completion, client: LLMClient, result: InterpretResult, *,
+                 cast_data: dict[str, Any] | None = None, fast: bool = False) -> bool:
+    """INTERPRET's tail for one title, shared with PROFILE (v1.10): normalize the draft, repair lengths,
+    assemble the record, apply the evidence, build the outcome, decide the verify list, write the
+    candidates, then the cast (a second call, or `cast_data` from a merged call). `fast` (non-gold speed
+    pass): VERIFY gets the outcome and the moment locators only. Returns False when the run must stop."""
+    paths, vocab, settings, guards, threshold, params = ctx.paths, ctx.vocab, ctx.settings, ctx.guards, ctx.threshold, ctx.params
+    tid = entry.title_id
+    draft = normalize_draft(data, entry, vocab)
+    long = [p for p in draft_problems(draft, entry, vocab, threshold, guards) if _is_length(p)]
+    if long:
         try:
-            completion = client.complete_ex(prompt.system, user, schema, params, ctx=ctx, validate=check)
+            draft = normalize_draft(shorten_phrases(client, entry, draft, long, params), entry, vocab)
         except InvalidOutput as exc:
-            quarantine(paths.quarantine, "INTERPRET", "title", tid, exc.raw, exc.errors)
-            result.quarantined.append((tid, exc.errors[-1][:300]))
-            continue
-        except LiveRunRefused as exc:
-            result.skipped.append((tid, str(exc)))
-            continue
-        except (BudgetExceeded, RateLimited, CliAuthError) as exc:  # stop the run; finished titles stay cached
+            quarantine(paths.quarantine, "INTERPRET", "title", tid, draft, [*exc.errors, *long])
+            result.quarantined.append((tid, "phrases still over their word limits after the length repair"))
+            return True
+        except (BudgetExceeded, RateLimited, CliAuthError) as exc:
             result.stopped = str(exc)
-            break
+            return False
         except ProviderError as exc:
             result.failed.append((tid, str(exc)))
-            continue
-        data = completion.data
-        draft = normalize_draft(data, entry, vocab)
-        long = [p for p in draft_problems(draft, entry, vocab, threshold, guards) if _is_length(p)]
-        if long:
-            try:
-                draft = normalize_draft(shorten_phrases(client, entry, draft, long, params), entry, vocab)
-            except InvalidOutput as exc:
-                quarantine(paths.quarantine, "INTERPRET", "title", tid, draft, [*exc.errors, *long])
-                result.quarantined.append((tid, "phrases still over their word limits after the length repair"))
-                continue
-            except (BudgetExceeded, RateLimited, CliAuthError) as exc:
-                result.stopped = str(exc)
-                break
-            except ProviderError as exc:
-                result.failed.append((tid, str(exc)))
-                continue
-        record, moments, to_verify = assemble(draft, entry, vocab, settings, run_id=run_id,
-                                              prompt_version=prompt.version, completion=completion,
-                                              created_at=created_at)
-        sourced = apply_evidence(record, data.get("evidence") or [], facts, threshold)
-        outcome = build_outcome(tid, data.get("outcome"), facts, record["provenance"])
-        if outcome and entry.medium in PRINT_MEDIA and gathered.get("adaptation"):  # v1.9: from the catalog
-            outcome["adaptation"] = gathered["adaptation"]
-        if outcome:  # the profile's outcome field follows the reception-backed outcome
-            record["core"]["outcome"].update(value=outcome["label"], source="web", verification="gathered",
-                                             source_ref=outcome["signals"][0]["source_ref"],
-                                             conf=max(float(record["core"]["outcome"].get("conf") or 0), threshold))
-            sourced.append("core.outcome")
-        # VERIFY checks documented facts only (v1.7): what GATHER could have sourced, the outcome, and the
-        # sensory/moment items VERIFY's gold rule decides; analysis fields have no page that could confirm them
-        checkable = set(documented) | {"core.outcome"} | needs_source  # a source-required field goes to VERIFY
-        to_verify = [p for p in to_verify if p not in set(sourced)
-                     and (p in checkable or p.startswith(("sensory.", "moments.")))]
-        for block, fields in record.items():
-            if block in ("core", *record.get("modules_active", [])) and isinstance(fields, dict):
-                for name, fv in fields.items():
-                    if isinstance(fv, dict) and fv.get("verification") == "unverified" and f"{block}.{name}" not in to_verify:
-                        fv["verification"] = "not_required"
-        try:
-            title_model.model_validate(normalize_record("title", record, vocab)[0])
-            for m in moments:
-                Moment.model_validate(normalize_record("moment", m, vocab)[0])
-        except ValidationError as exc:
-            quarantine(paths.quarantine, "INTERPRET", "title", tid, {"record": record, "moments": moments}, [str(exc)])
-            result.quarantined.append((tid, f"assembly: {exc.errors()[0]['msg']}"))
-            continue
-        result.titles.append(record)
-        result.sourced[tid] = len(sourced)
-        if outcome:
-            result.outcomes.append(tid)
-        if out_dir is not None:
-            atomic_write_text(out_dir / f"{tid}.json", json.dumps({"record": record, "outcome": outcome}, indent=2) + "\n")
-            continue
-        # the raw profile before VERIFY: the first run of the AC-12 pair (eval/agreement is git-ignored)
-        atomic_write_text(paths.root / "eval" / "agreement" / "interpret" / "first" / f"{tid}.json",
-                          json.dumps({"record": record, "outcome": outcome}, indent=2) + "\n")
-        atomic_write_text(paths.candidates / "title" / f"{tid}.jsonl", dumps_jsonl([record]))
-        atomic_write_text(paths.candidates / "moment" / f"{tid}.jsonl", dumps_jsonl(moments))
-        atomic_write_text(paths.candidates / "verify" / f"{tid}.json",
-                          json.dumps({"title_id": tid, "run_id": run_id, "verify": to_verify}, indent=2) + "\n")
-        if outcome:
-            atomic_write_text(paths.candidates / "outcome" / f"{tid}.jsonl", dumps_jsonl([outcome]))
-        # characters (v1.8): a second call from the same facts plus the interpreted profile
+            return True
+    record, moments, to_verify = assemble(draft, entry, vocab, settings, run_id=ctx.run_id,
+                                          prompt_version=ctx.prompt.version, completion=completion,
+                                          created_at=ctx.created_at)
+    sourced = apply_evidence(record, _known_evidence(data.get("evidence") or [], facts), facts, threshold)
+    outcome = build_outcome(tid, data.get("outcome"), facts, record["provenance"])
+    if outcome and entry.medium in PRINT_MEDIA and gathered.get("adaptation"):  # v1.9: from the catalog
+        outcome["adaptation"] = gathered["adaptation"]
+    if outcome:  # the profile's outcome field follows the reception-backed outcome
+        record["core"]["outcome"].update(value=outcome["label"], source="web", verification="gathered",
+                                         source_ref=outcome["signals"][0]["source_ref"],
+                                         conf=max(float(record["core"]["outcome"].get("conf") or 0), threshold))
+        sourced.append("core.outcome")
+    # VERIFY checks documented facts only (v1.7): what GATHER could have sourced, the outcome, and the
+    # sensory/moment items VERIFY's gold rule decides; analysis fields have no page that could confirm them
+    checkable = set(ctx.documented) | {"core.outcome"} | ctx.needs_source  # a source-required field goes to VERIFY
+    to_verify = [p for p in to_verify if p not in set(sourced)
+                 and (p in checkable or p.startswith(("sensory.", "moments.")))]
+    if fast:  # speed pass (D-048): the outcome and the moment locators; everything else keeps its source
+        only = list(((settings.model_extra or {}).get("speed") or {}).get("verify_only") or ["core.outcome", "moments"])
+        to_verify = [p for p in to_verify if p in only or any(p.startswith(f"{o}.") for o in only)]
+    for block, fields in record.items():
+        if block in ("core", *record.get("modules_active", [])) and isinstance(fields, dict):
+            for name, fv in fields.items():
+                if isinstance(fv, dict) and fv.get("verification") == "unverified" and f"{block}.{name}" not in to_verify:
+                    fv["verification"] = "not_required"
+    try:
+        ctx.title_model.model_validate(normalize_record("title", record, vocab)[0])
+        for m in moments:
+            Moment.model_validate(normalize_record("moment", m, vocab)[0])
+    except ValidationError as exc:
+        quarantine(paths.quarantine, "INTERPRET", "title", tid, {"record": record, "moments": moments}, [str(exc)])
+        result.quarantined.append((tid, f"assembly: {exc.errors()[0]['msg']}"))
+        return True
+    result.titles.append(record)
+    result.sourced[tid] = len(sourced)
+    if outcome:
+        result.outcomes.append(tid)
+    if ctx.out_dir is not None:
+        atomic_write_text(ctx.out_dir / f"{tid}.json", json.dumps({"record": record, "outcome": outcome}, indent=2) + "\n")
+        return True
+    # the raw profile before VERIFY: the first run of the AC-12 pair (eval/agreement is git-ignored)
+    atomic_write_text(paths.root / "eval" / "agreement" / "interpret" / "first" / f"{tid}.json",
+                      json.dumps({"record": record, "outcome": outcome}, indent=2) + "\n")
+    atomic_write_text(paths.candidates / "title" / f"{tid}.jsonl", dumps_jsonl([record]))
+    atomic_write_text(paths.candidates / "moment" / f"{tid}.jsonl", dumps_jsonl(moments))
+    atomic_write_text(paths.candidates / "verify" / f"{tid}.json",
+                      json.dumps({"title_id": tid, "run_id": ctx.run_id, "verify": to_verify}, indent=2) + "\n")
+    if outcome:
+        atomic_write_text(paths.candidates / "outcome" / f"{tid}.jsonl", dumps_jsonl([outcome]))
+    # characters (v1.8): a second call from the same facts plus the interpreted profile, or (PROFILE) the
+    # cast the merged call already wrote
+    chars: list[dict[str, Any]] = []
+    if cast_data is not None:
+        chars, notes = build_characters(entry, cast_data, facts, vocab, record["provenance"])
+        result.notes[tid] = notes
+    else:
         cprompt = read_prompt(paths.prompts / "interpret_characters.md")
         cuser = "\n".join([*render_profile(record, vocab, verification=False), "", render_facts(gathered)])
         cctx = CallContext(pass_="INTERPRET", record_id=f"{tid}.characters", title_id=tid,
                            upstream=upstream_hash([record, {"facts": sorted(facts.items())}]))
-        version, client.prompt_version = client.prompt_version, f"{cprompt.meta['version']}+{prompt.version}"
-        chars: list[dict[str, Any]] = []
+        version, client.prompt_version = client.prompt_version, f"{cprompt.meta['version']}+{ctx.prompt.version}"
         try:
             done = client.complete_ex(cprompt.body, cuser, characters_schema(vocab, sorted(facts)), params, ctx=cctx,
                                       validate=None)
@@ -439,12 +452,57 @@ def run_interpret(paths: Paths, entries: list[CorpusEntry], client: LLMClient, v
                 result.stopped = str(exc)
         finally:
             client.prompt_version = version
-        cfile = paths.candidates / "character" / f"{tid}.jsonl"
-        if chars:
-            atomic_write_text(cfile, dumps_jsonl(chars))
-        else:
-            supersede(cfile, run_id)  # an older run's cast no longer stands
-        result.characters[tid] = len(chars)
-        if result.stopped:
+    cfile = paths.candidates / "character" / f"{tid}.jsonl"
+    if chars:
+        atomic_write_text(cfile, dumps_jsonl(chars))
+    else:
+        supersede(cfile, ctx.run_id)  # an older run's cast no longer stands
+    result.characters[tid] = len(chars)
+    return not result.stopped
+
+
+def run_interpret(paths: Paths, entries: list[CorpusEntry], client: LLMClient, vocab: Vocab, settings: Settings, *,
+                  run_id: str, guards: GuardConfig | None = None, created_at: str | None = None,
+                  params: dict[str, Any] | None = None, out_dir: Path | None = None) -> InterpretResult:
+    """`out_dir` + `params` (e.g. {"rerun": 2} or {"effort": "high"}): an extra run written there instead
+    of candidates (AC-12 agreement runs, the effort A/B)."""
+    ctx = interpret_context(paths, vocab, settings, run_id=run_id, guards=guards, created_at=created_at, params=params,
+                            out_dir=out_dir)
+    client.prompt_version = ctx.prompt.version
+    result = InterpretResult()
+    for entry in entries:
+        tid = entry.title_id
+        gathered = load_gathered(paths, tid)
+        if gathered is None:
+            result.skipped.append((tid, "no GATHER facts; run `animedex gather` first"))
+            continue
+        facts = fact_index(gathered)
+        schema = schema_with_evidence(output_schema(vocab, entry), sorted(facts))
+        user = render_user(entry) + "\n\n" + render_facts(gathered)
+
+        def check(draft: dict[str, Any], _entry: CorpusEntry = entry) -> None:
+            problems = draft_problems(normalize_draft(draft, _entry, vocab), _entry, vocab, ctx.threshold, ctx.guards)
+            other = [p for p in problems if not _is_length(p)]
+            if other:
+                raise ValueError("; ".join(other[:25]))
+
+        cctx = CallContext(pass_="INTERPRET", record_id=tid, title_id=tid,
+                           upstream=upstream_hash([entry.model_dump(mode="json"), {"gathered": sorted(facts.items())}]))
+        try:
+            completion = client.complete_ex(ctx.prompt.system, user, schema, params, ctx=cctx, validate=check)
+        except InvalidOutput as exc:
+            quarantine(paths.quarantine, "INTERPRET", "title", tid, exc.raw, exc.errors)
+            result.quarantined.append((tid, exc.errors[-1][:300]))
+            continue
+        except LiveRunRefused as exc:
+            result.skipped.append((tid, str(exc)))
+            continue
+        except (BudgetExceeded, RateLimited, CliAuthError) as exc:  # stop the run; finished titles stay cached
+            result.stopped = str(exc)
+            break
+        except ProviderError as exc:
+            result.failed.append((tid, str(exc)))
+            continue
+        if not finish_title(ctx, entry, gathered, facts, completion.data, completion, client, result):
             break
     return result

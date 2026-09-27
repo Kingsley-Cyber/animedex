@@ -21,6 +21,7 @@ from pydantic import ValidationError
 from animedex.config import Settings
 from animedex.content_guards import GuardConfig, record_problems
 from animedex.models import CheckRecord, MechanismAtom, ProofRecord
+from animedex.models.common import title_of
 from animedex.ontology import Vocab
 from animedex.paths import Paths
 from animedex.pipeline.common import (
@@ -198,7 +199,10 @@ def _later(created_at: str | None, seconds: int) -> str | None:
 
 
 def run_check(paths: Paths, title_ids: list[str], client: LLMClient, vocab: Vocab, settings: Settings, *, run_id: str,
-              guards: GuardConfig | None = None, created_at: str | None = None) -> StageResult:
+              guards: GuardConfig | None = None, created_at: str | None = None,
+              params: dict[str, Any] | None = None, batch_titles: int = 1) -> StageResult:
+    """`batch_titles` (speed pass, D-048): the critic reads that many titles per call; each title's checks,
+    atoms and proofs are still written on their own. Gold titles run one per call."""
     guards = guards or GuardConfig.from_settings(settings)
     prompt = render_prompt(paths)
     client.prompt_version = prompt.version
@@ -207,99 +211,118 @@ def run_check(paths: Paths, title_ids: list[str], client: LLMClient, vocab: Voca
     for m in read_jsonl(paths.canonical / "moments.jsonl"):
         moments_by.setdefault(m["title_id"], []).append(m)
     result = StageResult()
+    ready = []
     for tid in title_ids:
-        record = titles.get(tid)
-        atom_list, proof_list = read_candidates(paths, "mechanism", tid), read_candidates(paths, "proof", tid)
-        if record is None or not atom_list or not proof_list:
+        if titles.get(tid) is None or not read_candidates(paths, "mechanism", tid) or not read_candidates(paths, "proof", tid):
             result.skipped.append((tid, "needs a canonical profile plus P2 atoms and P3 proofs"))
             continue
-        atoms = {a["atom_id"]: a for a in atom_list}
-        proofs = {p["atom_id"]: p for p in proof_list if p["atom_id"] in atoms}
-        checks: list[dict[str, Any]] = []
-        targets_atoms, targets_proofs = dict(atoms), dict(proofs)
-        stop = False
-        for round_no in (0, 1):  # the second round re-checks revised targets once
-            if not targets_atoms and not targets_proofs:
-                break
+        ready.append(tid)
+    step = max(1, int(batch_titles))
+    for i in range(0, len(ready), step):
+        if not _check_group(paths, ready[i:i + step], client, vocab, guards, prompt, titles, moments_by, result,
+                            run_id=run_id, created_at=created_at, params=params):
+            break
+    return result
 
-            def validate(out: dict[str, Any], _a: dict = targets_atoms, _p: dict = targets_proofs) -> None:
-                raise_problems(output_problems(out, _a, _p, guards))
 
-            ids = sorted(set(targets_atoms) | set(targets_proofs))
+def _check_group(paths: Paths, group: list[str], client: LLMClient, vocab: Vocab, guards: GuardConfig,
+                 prompt: RenderedPrompt, titles: dict[str, dict[str, Any]], moments_by: dict[str, list[dict[str, Any]]],
+                 result: StageResult, *, run_id: str, created_at: str | None, params: dict[str, Any] | None) -> bool:
+    """One critic conversation (a check, then one re-check of the revised targets) over one or more titles.
+    Returns False when the run must stop."""
+    atoms = {a["atom_id"]: a for tid in group for a in read_candidates(paths, "mechanism", tid)}
+    proofs = {p["atom_id"]: p for tid in group for p in read_candidates(paths, "proof", tid) if p["atom_id"] in atoms}
+    label = group[0] if len(group) == 1 else "+".join(group)
+    checks: list[dict[str, Any]] = []
+    targets_atoms, targets_proofs = dict(atoms), dict(proofs)
+    for round_no in (0, 1):  # the second round re-checks revised targets once
+        if not targets_atoms and not targets_proofs:
+            break
+
+        def validate(out: dict[str, Any], _a: dict = targets_atoms, _p: dict = targets_proofs) -> None:
+            raise_problems(output_problems(out, _a, _p, guards))
+
+        ids = sorted(set(targets_atoms) | set(targets_proofs))
+        sections: list[str] = []
+        upstream: list[Any] = []
+        for tid in group:
+            t_atoms = [atoms[a] for a in sorted(targets_atoms) if title_of(a) == tid]
+            t_proofs = [proofs[a] for a in sorted(targets_proofs) if title_of(a) == tid]
+            if not t_atoms and not t_proofs:
+                continue
             moments = sorted(moments_by.get(tid, []), key=lambda m: m["moment_id"])
             # re-check round: a revised proof is read with its atom, a revised atom with its proof
-            context = ([atoms[a] for a in sorted(targets_proofs) if a in atoms and a not in targets_atoms]
-                       + [proofs[a] for a in sorted(targets_atoms) if a in proofs and a not in targets_proofs])
-            shown = [proofs[a] for a in sorted(targets_proofs)] + [c for c in context if "contrast" in c]
+            context = ([atoms[a] for a in sorted(targets_proofs) if title_of(a) == tid and a in atoms and a not in targets_atoms]
+                       + [proofs[a] for a in sorted(targets_atoms) if title_of(a) == tid and a in proofs and a not in targets_proofs])
+            shown = t_proofs + [c for c in context if "contrast" in c]
             partner_recs = {pid: titles[pid] for pid, _ in proof_partners(shown) if pid in titles}
-            call = guarded_call(result, paths, "CHECK", "check", tid, client, prompt.system,
-                                render_user(record, [atoms[a] for a in sorted(targets_atoms)],
-                                            [proofs[a] for a in sorted(targets_proofs)], vocab, moments, context,
-                                            partner_recs),
-                                output_schema(vocab, ids),
-                                upstream=upstream_hash([record, *moments, *targets_atoms.values(),
-                                                        *targets_proofs.values(), {"context": context},
-                                                        *(partner_recs[k] for k in sorted(partner_recs))]),
-                                validate=validate, record_id=tid if round_no == 0 else f"{tid}.recheck")
-            if call.stop:
-                stop = True
-                break
-            if call.completion is None:
-                break
-            prov = provenance("CHECK", run_id, call.completion, prompt.version, vocab, _later(created_at, round_no))
-            revised_atoms: dict[str, dict[str, Any]] = {}
-            revised_proofs: dict[str, dict[str, Any]] = {}
-            round_targets = {(a, "mechanism") for a in targets_atoms} | {(a, "proof") for a in targets_proofs}
-            for v in sorted(call.completion.data["verdicts"], key=lambda v: (v["target_id"], v["target_type"])):
-                aid, ttype, verdict = v["target_id"], v["target_type"], v["verdict"]
-                if (aid, ttype) not in round_targets or aid not in atoms:  # off-target, or rejected in this call
-                    continue
-                rev = _relevant(v.get("revision"), ttype, atoms[aid]["atom_kind"]) if verdict == "REVISE" else None
-                result.bump(f"{ttype}_{verdict.lower()}")
-                if verdict == "REJECT":
-                    what = atoms[aid] if ttype == "mechanism" else proofs.get(aid)
-                    quarantine(paths.quarantine, "CHECK", ttype, aid, what, [f"REJECT: {', '.join(v['reasons'])}"])
-                    if ttype == "mechanism":
-                        atoms.pop(aid, None)
-                        proofs.pop(aid, None)
-                        checks = [c for c in checks if c["target_id"] != aid]
-                    else:
-                        proofs.pop(aid, None)
-                        checks = [c for c in checks if not (c["target_id"] == aid and c["target_type"] == "proof")]
-                    continue
-                if verdict == "REVISE" and rev:
-                    if ttype == "mechanism":
-                        atoms[aid] = _revised_atom(atoms[aid], rev)
-                        revised_atoms[aid] = atoms[aid]
-                    elif aid in proofs:
-                        proofs[aid] = _revised_proof(proofs[aid], rev)
-                        revised_proofs[aid] = proofs[aid]
-                if verdict == "CONTESTED":
-                    atoms[aid]["explanation"] = "contested"
-                if verdict == "NEEDS_ADJUDICATION":
-                    result.flags.append((tid, f"{aid} {ttype} needs adjudication"))
-                checks.append({"target_id": aid, "target_type": ttype, "verdict": verdict,
-                               "reasons": list(v.get("reasons") or []), "revision": rev, "provenance": prov})
-            targets_atoms = {a: atoms[a] for a in revised_atoms if a in atoms}
-            targets_proofs = {a: proofs[a] for a in revised_proofs if a in proofs}
-            if round_no == 0:
-                # a revised atom's proof is re-checked with it; a revised proof's atom stays as it is
-                for a in list(targets_atoms):
-                    if a in proofs:
-                        targets_proofs.setdefault(a, proofs[a])
-        if stop:
-            break
-        if not checks:
+            text = render_user(titles[tid], t_atoms, t_proofs, vocab, moments, context, partner_recs)
+            sections.append((f"=== title {tid}\n" if len(group) > 1 else "") + text)
+            upstream += [titles[tid], *moments, *t_atoms, *t_proofs, {"context": context},
+                         *(partner_recs[k] for k in sorted(partner_recs))]
+        call = guarded_call(result, paths, "CHECK", "check", label, client, prompt.system, "\n\n".join(sections),
+                            output_schema(vocab, ids), upstream=upstream_hash(upstream), params=params,
+                            validate=validate, record_id=label if round_no == 0 else f"{label}.recheck")
+        if call.stop:
+            return False
+        if call.completion is None:
+            return True
+        prov = provenance("CHECK", run_id, call.completion, prompt.version, vocab, _later(created_at, round_no))
+        revised_atoms: dict[str, dict[str, Any]] = {}
+        revised_proofs: dict[str, dict[str, Any]] = {}
+        round_targets = {(a, "mechanism") for a in targets_atoms} | {(a, "proof") for a in targets_proofs}
+        for v in sorted(call.completion.data["verdicts"], key=lambda v: (v["target_id"], v["target_type"])):
+            aid, ttype, verdict = v["target_id"], v["target_type"], v["verdict"]
+            if (aid, ttype) not in round_targets or aid not in atoms:  # off-target, or rejected in this call
+                continue
+            rev = _relevant(v.get("revision"), ttype, atoms[aid]["atom_kind"]) if verdict == "REVISE" else None
+            result.bump(f"{ttype}_{verdict.lower()}")
+            if verdict == "REJECT":
+                what = atoms[aid] if ttype == "mechanism" else proofs.get(aid)
+                quarantine(paths.quarantine, "CHECK", ttype, aid, what, [f"REJECT: {', '.join(v['reasons'])}"])
+                if ttype == "mechanism":
+                    atoms.pop(aid, None)
+                    proofs.pop(aid, None)
+                    checks = [c for c in checks if c["target_id"] != aid]
+                else:
+                    proofs.pop(aid, None)
+                    checks = [c for c in checks if not (c["target_id"] == aid and c["target_type"] == "proof")]
+                continue
+            if verdict == "REVISE" and rev:
+                if ttype == "mechanism":
+                    atoms[aid] = _revised_atom(atoms[aid], rev)
+                    revised_atoms[aid] = atoms[aid]
+                elif aid in proofs:
+                    proofs[aid] = _revised_proof(proofs[aid], rev)
+                    revised_proofs[aid] = proofs[aid]
+            if verdict == "CONTESTED":
+                atoms[aid]["explanation"] = "contested"
+            if verdict == "NEEDS_ADJUDICATION":
+                result.flags.append((title_of(aid), f"{aid} {ttype} needs adjudication"))
+            checks.append({"target_id": aid, "target_type": ttype, "verdict": verdict,
+                           "reasons": list(v.get("reasons") or []), "revision": rev, "provenance": prov})
+        targets_atoms = {a: atoms[a] for a in revised_atoms if a in atoms}
+        targets_proofs = {a: proofs[a] for a in revised_proofs if a in proofs}
+        if round_no == 0:
+            # a revised atom's proof is re-checked with it; a revised proof's atom stays as it is
+            for a in list(targets_atoms):
+                if a in proofs:
+                    targets_proofs.setdefault(a, proofs[a])
+    if not checks:
+        return True
+    for c in checks:
+        CheckRecord.model_validate(c)
+    for tid in group:
+        t_checks = [c for c in checks if title_of(c["target_id"]) == tid]
+        if not t_checks:
             continue
-        for c in checks:
-            CheckRecord.model_validate(c)
-        write_candidates(paths, "mechanism", tid, [atoms[a] for a in sorted(atoms)])
-        write_candidates(paths, "proof", tid, [proofs[a] for a in sorted(proofs)])
-        write_candidates(paths, "check", tid, checks)
-        adjudicate = [c for c in checks if c["verdict"] == "NEEDS_ADJUDICATION"]
+        write_candidates(paths, "mechanism", tid, [atoms[a] for a in sorted(atoms) if title_of(a) == tid])
+        write_candidates(paths, "proof", tid, [proofs[a] for a in sorted(proofs) if title_of(a) == tid])
+        write_candidates(paths, "check", tid, t_checks)
+        adjudicate = [c for c in t_checks if c["verdict"] == "NEEDS_ADJUDICATION"]
         if adjudicate:
             atomic_write_text(paths.root / "data" / "adjudication" / f"{tid}.json",
                               json.dumps(adjudicate, indent=2, sort_keys=True) + "\n")
         result.done.append(tid)
-        result.bump("checks", len(checks))
-    return result
+        result.bump("checks", len(t_checks))
+    return True

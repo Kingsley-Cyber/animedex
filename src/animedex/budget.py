@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import threading
 from collections import defaultdict
 from dataclasses import dataclass, field
 
@@ -50,6 +51,7 @@ class Budget:
     spent_episode: dict[str, float] = field(default_factory=lambda: defaultdict(float))
     calls_run: int = 0
     calls_title: dict[str, int] = field(default_factory=lambda: defaultdict(int))
+    _lock: threading.Lock = field(default_factory=threading.Lock, repr=False, compare=False)   # v1.10: shared by workers
 
     @classmethod
     def from_settings(cls, settings: Settings) -> Budget:
@@ -71,15 +73,17 @@ class Budget:
         """Subscription calls: stop before a call that would pass the per-run or per-title cap."""
         if self.calls_per_run is None or self.calls_per_title is None:
             raise BudgetConfigError("budget.calls_per_run / calls_per_title are not set; CLI runs are blocked")
-        if self.calls_run >= self.calls_per_run:
-            raise BudgetExceeded(f"call cap reached: {self.calls_run}/{self.calls_per_run} calls this run")
-        if title_id and self.calls_title[title_id] >= self.calls_per_title:
-            raise BudgetExceeded(f"call cap reached for {title_id}: {self.calls_per_title} calls")
+        with self._lock:
+            if self.calls_run >= self.calls_per_run:
+                raise BudgetExceeded(f"call cap reached: {self.calls_run}/{self.calls_per_run} calls this run")
+            if title_id and self.calls_title[title_id] >= self.calls_per_title:
+                raise BudgetExceeded(f"call cap reached for {title_id}: {self.calls_per_title} calls")
 
     def count_call(self, title_id: str | None = None) -> None:
-        self.calls_run += 1
-        if title_id:
-            self.calls_title[title_id] += 1
+        with self._lock:
+            self.calls_run += 1
+            if title_id:
+                self.calls_title[title_id] += 1
 
     def check(self, title_id: str | None = None, episode_id: str | None = None) -> None:
         """API-billed calls: call before starting a unit. Raises once any cap is reached."""
@@ -93,8 +97,9 @@ class Budget:
             raise BudgetExceeded(f"episode cap ${self.per_episode_cap:.2f} reached for {episode_id}")
 
     def charge(self, cost: float, title_id: str | None = None, episode_id: str | None = None) -> None:
-        self.spent_run += cost
-        if title_id:
-            self.spent_title[title_id] += cost
-        if episode_id:
-            self.spent_episode[episode_id] += cost
+        with self._lock:
+            self.spent_run += cost
+            if title_id:
+                self.spent_title[title_id] += cost
+            if episode_id:
+                self.spent_episode[episode_id] += cost

@@ -55,6 +55,13 @@ Flags: `--all` (every title in the corpus), `--dry-run` (print prompts and cache
 - Unknown field → `value: null`, `conf: 0`. Never guess to fill. Fields under the confidence threshold carry an `uncertainty_reason`.
 - `verify` list = fields with `conf < verify.conf_threshold` + `core.outcome` + all sensory fields + all moment locators. Code recomputes it from `conf` and `verify.always_verify`; the model's list is advisory.
 
+### PROFILE (v1.10 speed pass, D-048; non-gold titles only)
+- **In:** corpus entry, API reception numbers (as citable `A01..` lines) and, for print, the catalog's adaptation signal. **Out:** the same records GATHER and INTERPRET write (gathered facts with the model's own ids `F1/C1/R1`, title candidate, moments, verify list, outcome, characters), from one Opus call (slot `profile`, effort medium) with web tools.
+- Prompt `profile.md` = its own head + the GATHER rules (part 1) + the INTERPRET rules (part 2); facts are admitted by GATHER's rules (only pages the call retrieved, MAL never); the profile is assembled by INTERPRET's shared tail (`finish_title`).
+- Gold titles are refused here (`role_tags: [gold]` keep GATHER → INTERPRET → full VERIFY). A quarantined title gets one fresh run in the orchestrator.
+- The verify list of a PROFILE title is the outcome (only when reception didn't settle it) and the moment locators (`speed.verify_only`); every other field keeps its gathered source or is `not_required`.
+- `animedex profile --title <id> | --all` runs it by hand; `--agreement` writes a second run to `eval/agreement/interpret/<run>/` without touching the candidates or the gathered facts.
+
 ### VERIFY
 - **In:** P1 candidate + verify list. **Out:** updated fields (`source: web`, verification status, `source_ref`) + outcomes record.
 - Search cap: `verify.max_searches_per_title` (+ `verify.outcome_extra_searches` for outcomes).
@@ -65,7 +72,7 @@ Flags: `--all` (every title in the corpus), `--dry-run` (print prompts and cache
   - A status of confirmed or corrected needs a URL that the same call's searches returned or fetches opened.
 - Owner rules (2026-09-27): `unresolved` is a result, not a failure.
   - No retries for evidence: an uncited, blocked, over-cap, quoted or off-vocab answer is stored as `unresolved`, and the title's verify notes count it. Only unreadable output gets the one repair.
-  - Visual-detail fields (`sensory.*`) and moment episode numbers are checked for gold titles only. For other titles they stay `unresolved`, with no search spent on them.
+  - Visual-detail fields (`sensory.*`) are checked for gold titles only; they stay `unresolved` elsewhere, with no search spent on them. Since v1.10 a non-gold title's VERIFY asks about its outcome (when not settled by reception) and its moment locators and nothing else; VERIFY keeps INTERPRET's reception-backed outcome (and its adaptation signal) when it finds nothing better, and carries the adaptation signal onto its own outcome when it does.
   - Outcome: two independent reception sources are enough (for example AniList plus one critic source such as ANN or a Wikipedia reception section). MAL is optional. Uncited signals drop out; a mixed or flop label without a level is stored with `failure_level: unknown`.
   - Blocked sources (owner rule, 2026-09-27): the call cannot fetch myanimelist.net pages, and a myanimelist.net URL is never an admissible citation here or in the prior-art check. MAL numbers come only through AniList, Jikan, or MAL's official API.
 - Recall vs. web conflict: web wins if the source is credible; otherwise `unresolved`. Conflicts are logged.
@@ -241,7 +248,7 @@ Deterministic except steps 3 and 5, which call a model.
 - **Scope:** TV sequels with gaps under 5 years become seasons. Other adaptations are excluded.
 - **Pairing:** two versions of the same story become each other's nearest neighbor.
 - **Mix warning:** an all-hit or all-anime list gets a warning and suggestions, never a block.
-- **Running:** the full pipeline runs in paced batches, and the report shows counts only.
+- **Running:** the full pipeline runs in paced batches, and the report shows counts only. Since v1.10 non-gold titles take the fast path (PROFILE → VERIFY → P2 → P3 → CHECK (3 titles per call) → P4, `speed.parallel_titles` titles at once under one thread-safe budget, every call at `speed.effort`); gold titles take the full path one at a time. A caller that names GATHER or INTERPRET as stages gets the classic path.
 - **Print (v1.9):** a hint in parentheses (`manga`, `manhwa`, `webtoon`, `light novel`) resolves on AniList's manga side; a line with no screen match anywhere falls back to it ("no screen version found: the print original"). Print entries scope by volumes (else chapters) as `range: [1, n]`. GATHER records the adaptation signal from the catalog; INTERPRET copies it onto the outcome.
 
 ### BACKTEST (controls plan B1; statistics as gates, item 8)
@@ -409,6 +416,18 @@ backtest: {batch: 5, neighbors: 5}   # statistics as gates, item 8: titles per j
 diagnose: {calls_per_run: 6, max_concept_words: 800}
 ```
 Gate and episode thresholds are initial calibration values, not truths. Recalibrate in M7.
+
+### Speed pass (v1.10, D-048)
+```yaml
+models:
+  profile: {provider: claude_cli, model: claude-opus-5-5, params: {effort: medium}}   # GATHER + INTERPRET in one call
+speed:                     # non-gold titles only; gold keeps the full path
+  merged_profile: true     # PROFILE instead of GATHER + INTERPRET
+  effort: medium           # every non-gold call (PROFILE, VERIFY's slot as is, P2, P3, CHECK, P4)
+  verify_only: [core.outcome, moments]
+  check_batch_titles: 3    # CHECK carries three titles' atoms, proofs and profiles per call; verdicts split per title
+  parallel_titles: 4       # threads; one client and run log per worker; one Budget per run (locked counters)
+```
 
 ## Prompt contracts (excerpts; full text lives in `prompts/`, versioned)
 

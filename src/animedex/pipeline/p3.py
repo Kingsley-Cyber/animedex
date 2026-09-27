@@ -134,7 +134,8 @@ def output_problems(out: dict[str, Any], atoms: dict[str, dict[str, Any]], partn
 
 
 def run_p3(paths: Paths, title_ids: list[str], client: LLMClient, vocab: Vocab, settings: Settings, *, run_id: str,
-           guards: GuardConfig | None = None, created_at: str | None = None) -> StageResult:
+           guards: GuardConfig | None = None, created_at: str | None = None,
+              params: dict[str, Any] | None = None) -> StageResult:
     guards = guards or GuardConfig.from_settings(settings)
     prompt = render_prompt(paths)
     client.prompt_version = prompt.version
@@ -162,7 +163,7 @@ def run_p3(paths: Paths, title_ids: list[str], client: LLMClient, vocab: Vocab, 
         upstream = upstream_hash([record, *atom_list, *(titles[p["title_id"]] for p in partners), {"partners": partners}])
         call = guarded_call(result, paths, "P3", "proof", tid, client, prompt.system,
                             render_user(record, atom_list, partners, titles, vocab),
-                            output_schema(sorted(atoms), partners), upstream=upstream, validate=check)
+                            output_schema(sorted(atoms), partners), upstream=upstream, params=params, validate=check)
         if call.stop:
             break
         if call.completion is None:

@@ -16,6 +16,7 @@ Output: `data/candidates/gathered/<title_id>.json`, the input INTERPRET works fr
 from __future__ import annotations
 
 import json
+import re
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any
@@ -74,7 +75,8 @@ def web_limits(settings: Settings) -> dict[str, int]:
     return {"max_searches": searches, "outcome_extra": 0, "max_fetches": fetches, "max_turns": searches + fetches + 2}
 
 
-def output_schema(paths_: list[str]) -> dict[str, Any]:
+def output_schema(paths_: list[str], with_ids: bool = False) -> dict[str, Any]:
+    """`with_ids` (PROFILE, v1.10): the model names each fact (F1, C1, R1) so its profile can cite them."""
     fact = {"type": "object", "additionalProperties": False,
             "required": ["path", "value", "season", "episode", "chapter", "volume", "source_url", "scope"],
             "properties": {"path": {"type": "string", "enum": paths_ or ["none"]}, "value": {"type": "string"},
@@ -94,6 +96,10 @@ def output_schema(paths_: list[str]) -> dict[str, Any]:
     verdict = {"type": "object", "additionalProperties": False, "required": ["kind", "verdict", "source_url"],
                "properties": {"kind": {"type": "string", "enum": ["critic_review", "reception_section"]},
                               "verdict": {"type": "string"}, "source_url": {"type": "string"}}}
+    if with_ids:
+        for item, prefix in ((fact, "F"), (cfact, "C"), (verdict, "R")):
+            item["properties"]["id"] = {"type": "string", "pattern": rf"^{prefix}[0-9]{{1,3}}$"}
+            item["required"] = [*item["required"], "id"]
     return {"type": "object", "additionalProperties": False, "required": ["facts", "characters", "reception"],
             "properties": {"facts": {"type": "array", "items": fact},
                            "characters": {"type": "array", "items": character, "maxItems": 4},
@@ -125,11 +131,25 @@ def _clean(value: str, cap: int, guards: GuardConfig) -> str | None:
     return problems[0] if problems else None
 
 
-def admit(out: dict[str, Any], urls: set[str], vocab: Vocab, allowed: list[str], guards: GuardConfig
-          ) -> tuple[dict[str, Any], list[str]]:
-    """Keep what the evidence supports; drop the rest with a reason (owner rule: no retries)."""
+def admit(out: dict[str, Any], urls: set[str], vocab: Vocab, allowed: list[str], guards: GuardConfig,
+          keep_ids: bool = False) -> tuple[dict[str, Any], list[str]]:
+    """Keep what the evidence supports; drop the rest with a reason (owner rule: no retries). `keep_ids`
+    (PROFILE, v1.10): keep the ids the model gave its facts, so its own evidence links still hold."""
     dropped: list[str] = []
     ok_urls = url_set(urls)
+    seen_ids: set[str] = set()
+
+    def pick_id(prefix: str, n: int, item: dict[str, Any]) -> str:
+        given = str(item.get("id") or "")
+        if keep_ids and re.fullmatch(rf"{prefix}[0-9]{{1,3}}", given) and given not in seen_ids:
+            seen_ids.add(given)
+            return given
+        fresh = f"{prefix}{n:02d}"
+        while fresh in seen_ids:
+            n += 1
+            fresh = f"{prefix}{n:02d}"
+        seen_ids.add(fresh)
+        return fresh
 
     def cited(url: Any, what: str) -> bool:
         if blocked_source(url):
@@ -158,7 +178,7 @@ def admit(out: dict[str, Any], urls: set[str], vocab: Vocab, allowed: list[str],
         if not cited(f.get("source_url"), what):
             continue
         n += 1
-        facts.append({"id": f"F{n:02d}", **{k: f.get(k) for k in ("path", "value", "season", "episode", "chapter", "volume", "source_url", "scope")}})
+        facts.append({"id": pick_id("F", n, f), **{k: f.get(k) for k in ("path", "value", "season", "episode", "chapter", "volume", "source_url", "scope")}})
     characters, c = [], 0
     for ch in (out.get("characters") or [])[:4]:
         kept = []
@@ -170,7 +190,7 @@ def admit(out: dict[str, Any], urls: set[str], vocab: Vocab, allowed: list[str],
             if not cited(cf.get("source_url"), what):
                 continue
             c += 1
-            kept.append({"id": f"C{c:02d}", **{k: cf.get(k) for k in ("field", "value", "season", "episode", "chapter", "volume", "source_url", "scope")}})
+            kept.append({"id": pick_id("C", c, cf), **{k: cf.get(k) for k in ("field", "value", "season", "episode", "chapter", "volume", "source_url", "scope")}})
         if kept:
             characters.append({"role": ch.get("role"), "name": str(ch.get("name") or "")[:60], "facts": kept})
     reception, r = [], 0
@@ -181,7 +201,7 @@ def admit(out: dict[str, Any], urls: set[str], vocab: Vocab, allowed: list[str],
                 dropped.append(f"{what}: {why}")
             continue
         r += 1
-        reception.append({"id": f"R{r:02d}", **{k: v.get(k) for k in ("kind", "verdict", "source_url")}})
+        reception.append({"id": pick_id("R", r, v), **{k: v.get(k) for k in ("kind", "verdict", "source_url")}})
     return {"facts": facts, "characters": characters, "reception": reception}, dropped
 
 

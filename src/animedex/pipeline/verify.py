@@ -33,6 +33,7 @@ from animedex.pipeline.common import (
     BLOCKED_SOURCE_NOTE,
     blocked_source,
     norm_url,
+    read_candidates,
     scope_lines,
     supersede,
     url_set,
@@ -236,16 +237,17 @@ def _text_ok(text: Any, limit: int, guards: GuardConfig | None) -> bool:
 
 
 def ask_view(entry: CorpusEntry, pending: Pending) -> tuple[Pending, list[str]]:
-    """What the model is asked. Owner rule (2026-09-27): visual-detail fields and moment episode numbers
-    are checked for gold titles only; for the rest they stay unresolved, with no search spent on them."""
+    """What the model is asked. Visual-detail (sensory) fields are checked for gold titles only (owner rule
+    2026-09-27); moment locators are checked for every title (speed pass, D-048: for non-gold titles they
+    and the outcome are all VERIFY checks)."""
     if "gold" in entry.role_tags:
         return pending, []
-    fields = [p for p in pending.verify if not p.startswith(("sensory.", "moments."))]
+    fields = [p for p in pending.verify if not p.startswith("sensory.")]
     visual = sum(p.startswith("sensory.") for p in pending.verify)
-    if not visual and not pending.moments:
+    if not visual:
         return pending, []
-    return Pending(pending.record, [], fields), [
-        f"not checked (gold titles only): {visual} visual-detail field(s), {len(pending.moments)} moment episode(s)"]
+    return Pending(pending.record, pending.moments, fields), [
+        f"not checked (gold titles only): {visual} visual-detail field(s)"]
 
 
 def _brief(entry: CorpusEntry, pending: Pending, vocab: Vocab) -> list[str]:
@@ -573,8 +575,14 @@ def run_verify(paths: Paths, entries: list[CorpusEntry], client: LLMClient, sear
         if not outcome_only:
             atomic_write_text(paths.candidates / "title" / f"{tid}.jsonl", dumps_jsonl([record]))
             atomic_write_text(paths.candidates / "moment" / f"{tid}.jsonl", dumps_jsonl(moments))
+        prior = read_candidates(paths, "outcome", tid) if not outcome_only else []
+        prior_outcome = prior[0] if prior else None   # INTERPRET's reception-backed outcome (gather-first, v1.7)
+        if outcome and prior_outcome and prior_outcome.get("adaptation") and not outcome.get("adaptation"):
+            outcome["adaptation"] = prior_outcome["adaptation"]   # v1.9: the catalog's signal survives VERIFY
         if outcome:
             atomic_write_text(paths.candidates / "outcome" / f"{tid}.jsonl", dumps_jsonl([outcome]))
+        elif not outcome_only and (prior_outcome or {}).get("provenance") and prior_outcome["provenance"].get("pass") != "VERIFY":
+            notes.append("outcome kept from INTERPRET (reception-backed); VERIFY found nothing better")
         elif not outcome_only:  # an older VERIFY's outcome no longer stands
             supersede(paths.candidates / "outcome" / f"{tid}.jsonl", run_id)
         summary = {"title_id": tid, "run_id": run_id, "statuses": res.statuses, "conflicts": res.conflicts,

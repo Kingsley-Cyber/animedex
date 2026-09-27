@@ -4,6 +4,7 @@ fetched text never stored, outcome recorded with sourced metrics."""
 from __future__ import annotations
 
 import json
+import shutil
 
 import httpx
 import pytest
@@ -266,20 +267,23 @@ def test_a_corrected_value_keeps_its_fields_word_cap(repo):
     assert r.statuses["core.central_mystery"] == "corrected" and r.statuses["sensory.power_visual_signature"] == "unresolved"
 
 
-def test_non_gold_titles_skip_visual_details_and_moment_episodes(repo):
+def test_non_gold_titles_skip_visual_details_but_get_their_moments_located(repo):
+    """Owner rule 2026-09-27: visual details are gold-only; the speed pass (D-048) makes moment locators a
+    check for every title."""
     ans = verify_out(fields=[
         {"path": "core.outcome", "status": "confirmed", "value": None, "source_url": RATINGS, "note": None},
         {"path": "sensory.power_visual_signature", "status": "corrected", "value": "violet lines", "source_url": FACTS,
          "note": None}])  # answered although never asked: ignored
     result, mock, _ = verify_native(repo, {("VERIFY", TID): [ans]}, {FACTS, EPISODES, RATINGS}, entry=ENTRY)
     user = mock.calls[0]["user"]
-    assert "sensory.power_visual_signature" not in user and f"{TID}.mo.01" not in user and "core.tone" in user
+    assert "sensory.power_visual_signature" not in user and f"{TID}.mo.01" in user and "core.tone" in user
     [r] = result.titles
     assert r.statuses["core.outcome"] == "confirmed" and r.statuses["sensory.power_visual_signature"] == "unresolved"
-    assert {r.statuses[f"moments.{TID}.mo.0{i}.locator"] for i in (1, 2, 3)} == {"unresolved"}
-    assert any(n.startswith("not checked (gold titles only): 4 visual-detail field(s), 3 moment") for n in r.notes)
+    assert (r.statuses[f"moments.{TID}.mo.01.locator"], r.statuses[f"moments.{TID}.mo.02.locator"]) == ("confirmed", "corrected")
+    assert r.dropped_moments == [f"{TID}.mo.03"]  # not found on the page: dropped, no status
+    assert any(n.startswith("not checked (gold titles only): 4 visual-detail field(s)") for n in r.notes)
     moments = read_jsonl(repo.candidates / "moment" / f"{TID}.jsonl")
-    assert len(moments) == 3 and {m["verification"] for m in moments} == {"unresolved"}
+    assert len(moments) == 2 and {m["verification"] for m in moments} == {"web_confirmed", "web_corrected"}
 
 
 def test_native_mode_flags_a_blown_search_cap(repo):
@@ -368,3 +372,36 @@ def test_outcome_only_rechecks_canonical_outcomes_and_writes_only_outcomes(repo)
     [outcome] = read_jsonl(repo.candidates / "outcome" / f"{TID}.jsonl")
     assert outcome["failure_level"] == "execution"
     assert "\nfields_to_check: 1 " in mock.calls[0]["user"] and "\ncore.outcome: " in mock.calls[0]["user"]
+
+
+def test_verify_keeps_interprets_outcome_and_its_adaptation_signal(repo):
+    """Gather-first (v1.7) + print (v1.9): INTERPRET writes a reception-backed outcome that may carry the
+    catalog's adaptation signal. VERIFY must not throw it away when it finds nothing better, and must carry
+    the signal onto its own outcome when it does."""
+    import json as _json
+
+    from animedex.pipeline.common import read_candidates
+    from animedex.store.jsonl import dumps_jsonl
+
+    prior = {"title_id": TID, "label": "mixed", "signals": [{"metric": "AniList score", "value": "73", "source_ref": RATINGS}],
+             "confounders": {"studio": "", "budget_signal": "", "source_popularity": "", "platform": "", "release_context": ""},
+             "failure_reason": "Later volumes drift", "failure_level": "unknown", "failure_evidence": None,
+             "failure_evidence_ref": None, "failure_level_source": "verify", "failure_patterns": [],
+             "adaptation": {"status": "none", "screen_title": None, "catalog_ref": None, "source_ref": "https://anilist.co/manga/1"},
+             "provenance": {"run_id": "run_i", "pass": "P1", "model": "m", "prompt_version": "1", "schema_version": "1.5.0",
+                            "vocab_version": "1.6.0", "cache_key": None, "created_at": "2026-09-27T00:00:00+00:00"}}
+    (repo.candidates / "outcome").mkdir(parents=True, exist_ok=True)
+    (repo.candidates / "outcome" / f"{TID}.jsonl").write_text(dumps_jsonl([prior]))
+    # VERIFY answers with no outcome: INTERPRET's stays
+    ans = verify_out(outcome=None)
+    result, _, _ = verify_native(repo, {("VERIFY", TID): [ans]}, {FACTS, EPISODES, RATINGS}, entry=ENTRY)
+    kept = read_candidates(repo, "outcome", TID)
+    assert kept and kept[0]["label"] == "mixed" and kept[0]["adaptation"]["status"] == "none"
+    assert any("kept from INTERPRET" in n for n in result.titles[0].notes)
+    # VERIFY answers with an outcome: the signal is carried over (a fresh cache, so the second answer is used)
+    shutil.rmtree(repo.cache)
+    (repo.candidates / "outcome" / f"{TID}.jsonl").write_text(dumps_jsonl([prior]))
+    result, _, _ = verify_native(repo, {("VERIFY", TID): [verify_out()]}, {FACTS, EPISODES, RATINGS}, entry=ENTRY)
+    [new] = read_candidates(repo, "outcome", TID)
+    assert new["label"] == "hit" and new["adaptation"]["status"] == "none"
+    _json.dumps(new)  # serializable
