@@ -25,6 +25,56 @@ _STOP = {
     "The", "A", "An", "And", "But", "Or", "If", "When", "While", "After", "Before", "His", "Her",
     "Their", "Its", "This", "That", "These", "Those", "Only", "Every", "Each", "One", "Two", "I",
 }
+# Capitalized words that are never a show's own name: number words, universal nouns, real places, the
+# calendar and everyday acronyms (D-039)
+COMMON_CAPITALS = frozenset(
+    "Three Four Five Six Seven Eight Nine Ten Eleven Twelve Hundred Thousand Million First Second Third Tenth "
+    "God Gods Heaven Hell Earth Moon Sun World Japan Japanese Tokyo Kyoto Osaka Shibuya America American Asian "
+    "Europe European China Chinese Korea Korean English Heian Edo Shaolin January February March April May June "
+    "July August September October November December Monday Tuesday Wednesday Thursday Friday Saturday Sunday "
+    "CIA FBI SAS NEET "
+    # generic nouns that shows capitalize inside their own names; the names themselves are caught as phrases
+    "Academy Arena Army Association Chief Clan Coalition Compound Corps Council Department East West North South "
+    "Eastern Western Northern Southern Election Empire Expansion Father Mother Fire Water Flash Globe Grade "
+    "Guardians Guild Helmet International Inventory Justice King Queen Kingdom Knights League Lord Lower Upper "
+    "Marshal Monarch Moons Nation Navy Note Oath Ocean Order Phantom Planets Realm Religion School Scars Selection "
+    "Shrine Sound Stone Temp Tribe Troupe Village Wrath Boys".split())
+_CAPITAL_RUN = re.compile(r"\b[A-Z][A-Za-z'-]+(?:\s+[A-Z][A-Za-z'-]+)+")
+
+
+def capital_runs(text: str) -> set[str]:
+    """Multi-word capitalized names ("Fire Nation", "Upper Moons"), lowercased, with leading stop words
+    dropped: a show's compound name is a leak even when each of its words is common (D-039)."""
+    out = set()
+    for m in _CAPITAL_RUN.finditer(text):
+        words = m.group(0).split()
+        before = text[:m.start()].rstrip()
+        if not before or before[-1] in ".!?;:":  # a sentence's first word is capitalized anyway
+            words = words[1:]
+        while words and words[0] in _STOP:
+            words = words[1:]
+        if len(words) >= 2:
+            out.add(" ".join(words).lower())
+    return out
+
+
+def _base(token: str) -> str:
+    """A token without its possessive or hyphenated tail: "Earth's" -> Earth, "League-style" -> League."""
+    return token.split("'")[0].split("-")[0]
+
+
+def _prose(state: State) -> list[str]:
+    """Every model-written sentence in the index: the lowercase evidence that a capitalized word is common."""
+    out: list[str] = []
+    for m in state.get("mechanism", []):
+        out += [str(v) for part in ("effect", "engine") for v in (m.get(part) or {}).values() if isinstance(v, str)]
+    for p in state.get("proof", []):
+        out += [str(c.get("difference") or "") for c in p.get("contrast") or []]
+        out += [str((p.get("explanation_test") or {}).get("note") or ""), str((p.get("ablation") or {}).get("if_removed") or "")]
+    for t in state.get("transfer", []):
+        out += [str(t.get(k) or "") for k in ("pattern", "mechanism", "principle", "anti_pattern")]
+        out += [str(x) for k in ("essential_conditions", "variable_details", "failure_conditions") for x in t.get(k) or []]
+    return out
 _SENTENCE_SPLIT = re.compile(r"(?<=[.!?;:])\s+")
 _WORD = re.compile(r"[A-Za-z][A-Za-z'-]+")
 
@@ -90,17 +140,25 @@ def name_list(state: State, vocab: Vocab) -> tuple[set[str], set[str]]:
         texts.extend([m.get("description", ""), m.get("why_it_hit", "")])
     for e in state.get("episode", []):
         texts.append(e.get("summary", ""))
+    names: set[str] = set()
     for c in state.get("character", []):
-        tokens |= _name_tokens(str(c.get("name") or ""))
+        names |= _name_tokens(str(c.get("name") or ""))
         texts.extend(_character_texts(c))
+    # a capitalized word the corpus also writes in lowercase ("become God" and "a god") is a common word,
+    # not a name; characters' own names always count (D-039)
+    lowercase = {w.lower() for text in [*texts, *_prose(state)] for w in _WORD.findall(text) if w[0].islower()}
+    phrases: set[str] = set()
     for text in texts:
-        tokens.update(proper_nouns(text))
-    return titles, tokens
+        tokens.update(w for w in proper_nouns(text) if _base(w).lower() not in lowercase)
+        phrases |= capital_runs(text)
+    # compound names join the full titles as phrases (matched case-insensitively as substrings)
+    return titles | phrases, {t for t in tokens | names if _base(t) not in COMMON_CAPITALS and len(_base(t)) >= 2}
 
 
 def name_leaks(pattern: str, titles: set[str], tokens: set[str]) -> list[str]:
     hits = [t for t in titles if t and t in pattern.lower()]
     words = set(_WORD.findall(pattern))
+    words |= {_base(w) for w in words}  # "Kirito's" and "Omni-Man's" still name Kirito and Omni-Man
     hits.extend(sorted(words & tokens))
     return sorted(set(hits))
 

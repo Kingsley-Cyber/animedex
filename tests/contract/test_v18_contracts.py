@@ -89,8 +89,11 @@ def test_list_and_group_phrases_feed_the_name_list():
     state = synthetic_state()
     state["title"][0]["core"]["institutions"]["value"] = [
         {"name": "the Meridian Relay Guild", "type": "guild_or_license", "role": "answers to the Grid Council"}]
-    _, tokens = name_list(state, get_vocab())
-    assert {"Meridian", "Relay", "Guild", "Grid", "Council"} <= tokens
+    phrases, tokens = name_list(state, get_vocab())
+    assert {"Meridian", "Relay"} <= tokens
+    # D-039: generic nouns (Guild, Council) and words the prose also writes in lowercase ("the city grid") are
+    # not names alone; the compound names they form are caught as phrases
+    assert {"meridian relay guild", "grid council"} <= phrases and not {"Guild", "Council", "Grid"} & tokens
 
 
 def test_premise_abstraction_names_are_caught_within_their_own_title():
@@ -252,3 +255,16 @@ def test_corpus_and_canonical_files_stay_readable(repo):
     repo.corpus_file.write_text(yaml.safe_dump({"titles": []}))
     write_state(repo, synthetic_state())
     assert read_jsonl(repo.canonical / "characters.jsonl")[0]["name"] == "Wren Halloway"
+
+
+def test_common_capitals_are_not_names_but_possessives_and_compound_names_are():
+    """D-039, from the live M5 canary: "God", "Earth" and "Ten" rejected original cards as reused names."""
+    from animedex.integrity import name_leaks
+
+    state = synthetic_state()
+    state["title"][0]["core"]["core_question"]["value"] = "Must the Lantern Wardens become God to save Earth?"
+    phrases, tokens = name_list(state, get_vocab())
+    assert "lantern wardens" in phrases and not {"God", "Earth"} & tokens
+    assert name_leaks("A healer defies God on a dying Earth.", phrases, tokens) == []
+    assert name_leaks("The lantern wardens return.", phrases, tokens) == ["lantern wardens"]
+    assert name_leaks("Wren's lamp", phrases, tokens | {"Wren"}) == ["Wren"]

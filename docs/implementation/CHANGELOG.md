@@ -1,5 +1,8 @@
 # Changelog — docs/implementation
 
+## Name-leak list: names, not capitals — 2026-09-27
+- **D-039.** The M5 canary lost original cards to "God", "Earth" and "Ten" (from "Group of Ten"). A capitalized word now counts as a name only when the index's own prose never writes it in lowercase, and it isn't a number word, universal noun, real place, calendar word, everyday acronym or generic institution noun. Compound names ("Fire Nation", "Upper Moons", "Philosopher's Stone") are caught as phrases, and a possessive ("Kirito's") still names its owner. Characters' own names always count.
+
 ## Provenance of winners — 2026-09-27
 - **Controls A6 (M5).** `animedex review --summary` / `make review-report` adds "Provenance of winners" to `build/reports/taste.md` once every card is rated: for each greenlit card, its arm, operator, the patterns it drew on with their source titles and principles, and whether each pattern reached the card's text (3 or more shared content words). It also counts greenlit cards that used no index material. It's hidden while any card is unrated, so the review stays blind.
 

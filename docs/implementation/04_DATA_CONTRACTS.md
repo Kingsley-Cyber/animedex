@@ -148,7 +148,7 @@ Enum values are exactly those of the request (`v1.8_request.md` §1–4, 6) and 
 | core | real_world_isomorphism, reacts_against | phrase | 12 |
 | core | core_fantasy | enum_multi | |
 
-The primary cost of power stays in the idea profile and the overlap gates; since D-028 it is no longer a grid axis (set_structure replaced it). The phrase parts of list and group values feed the name-leak list like any phrase.
+The primary cost of power stays in the idea profile and the overlap gates; since D-028 it is no longer a grid axis (set_structure replaced it). The phrase parts of list and group values feed the name-leak list like any phrase. Since D-039 the list holds names, not capitals: a capitalized word counts only when the index's prose never writes it in lowercase and it isn't a common capital (number words, universal nouns, real places, calendar, everyday acronyms, generic institution nouns); multi-word capitalized names count as phrases; characters' names always count.
 
 ## Moment — `moments.jsonl`
 ```json
