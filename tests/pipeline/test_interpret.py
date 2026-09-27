@@ -127,3 +127,23 @@ def test_an_agreement_run_skips_the_cast(repo):
     _, mock = run(repo, out_dir=out, params={"rerun": 2})
     assert len(mock.calls) == 1 and not (repo.candidates / "character").exists()
 
+
+def test_a_source_required_field_without_a_fact_goes_to_verify(repo):
+    flop = answer()
+    flop["core"]["outcome"]["value"] = "flop"
+    flop["core"]["promise_break"] = {"value": "the promised rise stalls halfway", "conf": 0.6,
+                                     "uncertainty_reason": "no review states it", "epistemic": "interpretive"}
+    flop["outcome"] = {**flop["outcome"], "label": "flop", "failure_reason": "pacing collapsed in the second half",
+                       "failure_level": "execution", "failure_evidence": None, "failure_evidence_fact": None}
+    (repo.candidates / "gathered").mkdir(parents=True, exist_ok=True)
+    (repo.candidates / "gathered" / f"{TID}.json").write_text(json.dumps(GATHERED))
+    mock = MockProvider(responses={("INTERPRET", TID): [flop], ("INTERPRET", f"{TID}.characters"): [cast()]})
+    client = LLMClient(provider=mock, provider_name="mock", spec=ModelSpec(provider="mock", model="o"),
+                       prompt_version="unset", schema_version=SCHEMA_VERSION, vocab_version=get_vocab().version,
+                       cache=ResponseCache(repo.cache), runlog=RunLog(repo.raw_runs, "run_f"))
+    result = run_interpret(repo, [CorpusEntry.model_validate(ENTRY)], client, get_vocab(), load_settings(repo),
+                           run_id="run_f")
+    assert result.titles and not result.quarantined  # held for VERIFY, not rejected at assembly
+    verify = json.loads((repo.candidates / "verify" / f"{TID}.json").read_text())["verify"]
+    [title] = read_jsonl(repo.candidates / "title" / f"{TID}.jsonl")
+    assert "core.promise_break" in verify and title["core"]["promise_break"]["verification"] == "unverified"

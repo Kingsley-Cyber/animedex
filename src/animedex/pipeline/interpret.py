@@ -293,6 +293,7 @@ def run_interpret(paths: Paths, entries: list[CorpusEntry], client: LLMClient, v
     threshold = float(settings.verify.get("conf_threshold", 0.7))
     title_model = title_profile_model(vocab)
     documented = gather_paths(vocab, settings)
+    needs_source = {f.path for f in vocab.lens_fields() if f.needs_source}
     result = InterpretResult()
     for entry in entries:
         tid = entry.title_id
@@ -355,7 +356,7 @@ def run_interpret(paths: Paths, entries: list[CorpusEntry], client: LLMClient, v
             sourced.append("core.outcome")
         # VERIFY checks documented facts only (v1.7): what GATHER could have sourced, the outcome, and the
         # sensory/moment items VERIFY's gold rule decides; analysis fields have no page that could confirm them
-        checkable = set(documented) | {"core.outcome"}
+        checkable = set(documented) | {"core.outcome"} | needs_source  # a source-required field goes to VERIFY
         to_verify = [p for p in to_verify if p not in set(sourced)
                      and (p in checkable or p.startswith(("sensory.", "moments.")))]
         for block, fields in record.items():
