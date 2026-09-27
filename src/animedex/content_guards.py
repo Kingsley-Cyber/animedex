@@ -28,6 +28,7 @@ _SPEECH = re.compile(r"(?i)(?<![\w'])(i|i'm|i'll|i've|i'd|me|my|mine|we|we're|we
 SKIP_KEYS = {
     "title", "source_ref", "run_id", "cache_key", "created_at", "model", "prompt_version", "schema_version",
     "vocab_version", "pass", "timestamp", "url", "cell_key", "grid_cell", "closest_existing", "version",
+    "queries",   # web search strings we sent (quote marks are the exact-phrase operator, not copied text; D-041)
 }
 ID_LISTS = {
     "evidence_refs", "moment_refs", "transfer_ids", "atoms_used", "borrowed_from", "parent_ids",

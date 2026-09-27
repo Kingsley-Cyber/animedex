@@ -31,3 +31,12 @@ def test_speaker_lines_are_dialogue(text):
 ])
 def test_a_label_and_a_description_is_not_dialogue(text):
     assert not dialogue_problems(text)
+
+
+def test_search_queries_are_not_checked_as_quotations():
+    """D-041, live M5: a prior-art record's exact-phrase queries were quarantined as quotations."""
+    from animedex.content_guards import GuardConfig, record_problems
+
+    rec = {"claim": "an original story where memory is the price", "queries": ['"only she remembers" anime']}
+    assert record_problems(rec, GuardConfig()) == []
+    assert record_problems({"claim": 'she said "only she remembers the night" once'}, GuardConfig())
