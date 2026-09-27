@@ -422,8 +422,10 @@ def run_p1(paths: Paths, entries: list[CorpusEntry], client: LLMClient, vocab: V
         draft = normalize_draft(completion.data, entry, vocab)
         long = [p for p in draft_problems(draft, entry, vocab, threshold, guards) if _is_length(p)]
         if long:
+            identity = client.identity
             if replay:  # its length repair replays from the cache too, keyed as it was then
                 client.prompt_version = origin.get("prompt_version", prompt.version)
+                client.identity = completion.identity or identity
             try:
                 draft = normalize_draft(shorten_phrases(client, entry, draft, long, params), entry, vocab)
             except InvalidOutput as exc:
@@ -438,7 +440,7 @@ def run_p1(paths: Paths, entries: list[CorpusEntry], client: LLMClient, vocab: V
                                            "model call" if replay else str(exc)))
                 continue
             finally:
-                client.prompt_version = prompt.version
+                client.prompt_version, client.identity = prompt.version, identity
             left = draft_problems(draft, entry, vocab, threshold, guards)
             if left:
                 quarantine(paths.quarantine, "P1", "title", tid, draft, left)

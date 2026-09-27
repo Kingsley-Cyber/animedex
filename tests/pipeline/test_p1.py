@@ -323,9 +323,10 @@ def test_replay_reuses_a_cached_length_repair_and_never_calls(repo):
     run(repo, {KEY: [long], ("P1", f"{KEY[1]}.shorten"): [short]})
     first = (repo.candidates / "title" / f"{KEY[1]}.jsonl").read_text()
     client, mock = client_for(repo, {})
+    client.identity = "replay"  # as in `animedex p1 --replay`: not the identity that made the draft
     result = run_p1(repo, [CorpusEntry.model_validate(ENTRY)], client, get_vocab(), load_settings(repo),
                     run_id="run_replay", replay=True)
-    assert not mock.calls and len(result.titles) == 1
+    assert not mock.calls and len(result.titles) == 1 and client.identity == "replay"
     assert (repo.candidates / "title" / f"{KEY[1]}.jsonl").read_text() == first
     (repo.cache / "P1").rename(repo.cache / "P1_gone")  # nothing stored: a clean refusal, still no call
     again = run_p1(repo, [CorpusEntry.model_validate(ENTRY)], client, get_vocab(), load_settings(repo),
