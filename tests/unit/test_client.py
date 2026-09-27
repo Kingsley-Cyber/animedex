@@ -165,3 +165,18 @@ def test_other_problems_or_a_failed_shortening_still_quarantine(tmp_path):
     # shorten (2 attempts), full repair, shorten again as the last resort (2 attempts)
     assert [c["record_id"] for c in mock.calls] == ["x_2020", *["x_2020.shorten"] * 2, "x_2020",
                                                     *["x_2020.shorten"] * 2]
+
+
+def test_judge_length_problems_name_a_path_the_length_repair_can_shorten():
+    from animedex.ideate.llm import judge_problems
+    from animedex.providers.length_repair import targets
+
+    long_reason = " ".join(["word"] * 27)
+    out = {"cards": [{"ref": "g0c00", "choices_reason": "fine", "runway_reason": long_reason,
+                      "taste": [{"criterion": "T2", "evidence": long_reason}]}]}
+    problems = judge_problems(out, ["g0c00"])
+    assert problems == ["cards[0].runway_reason: 27 words exceeds the 25-word limit",
+                        "cards[0].taste[0].evidence: 27 words exceeds the 25-word limit"]
+    found = targets(out, "; ".join(problems))
+    assert [(".".join(map(str, p)), c) for p, _, c in found] == [("cards.0.runway_reason", 25),
+                                                                  ("cards.0.taste.0.evidence", 25)]

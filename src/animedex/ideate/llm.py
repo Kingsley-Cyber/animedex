@@ -184,18 +184,22 @@ def judge_problems(out: dict[str, Any], refs: list[str], matched: list[str] | tu
     got = [c.get("ref") for c in out.get("cards") or []]
     if sorted(got) != sorted(refs):
         problems.append(f"judge every card exactly once: {refs}")
-    for c in out.get("cards") or []:
+    for i, c in enumerate(out.get("cards") or []):
+        # "cards[i].key: N words exceeds the 25-word limit" names the text by its path, so the client's
+        # length repair can shorten just that text (D-030)
         for key in ("choices_reason", "relationships_reason", "outcomes_reason", "coherence_reason", "runway_reason",
                     "why_different_reason"):
-            if word_count(str(c.get(key) or "")) > 25:
-                problems.append(f"{c.get('ref')}.{key}: 25 words max")
+            if (n := word_count(str(c.get(key) or ""))) > 25:
+                problems.append(f"cards[{i}].{key}: {n} words exceeds the 25-word limit")
         if c.get("ref") in matched:
             if c.get("why_different_verdict") not in ("pass", "fail"):
                 problems.append(f"{c.get('ref')}: it matches a premise-level flop; judge why_different pass or fail")
             elif not str(c.get("why_different_reason") or "").strip():
                 problems.append(f"{c.get('ref')}.why_different_reason: give the reason (1-25 words)")
-        for t in c.get("taste") or []:
-            if word_count(str(t.get("evidence") or "")) > 25 or not str(t.get("evidence") or "").strip():
+        for j, t in enumerate(c.get("taste") or []):
+            if (n := word_count(str(t.get("evidence") or ""))) > 25:
+                problems.append(f"cards[{i}].taste[{j}].evidence: {n} words exceeds the 25-word limit")
+            elif not str(t.get("evidence") or "").strip():
                 problems.append(f"{c.get('ref')}.taste {t.get('criterion')}: evidence of 1-25 words")
     return problems
 
