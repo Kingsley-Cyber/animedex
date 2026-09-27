@@ -158,10 +158,13 @@ def build_outcome(tid: str, oc: dict[str, Any] | None, facts: dict[str, dict[str
     """An outcome only from reception facts (A.. numbers, R.. verdicts); anything else stays unresolved."""
     if not oc or oc.get("label") not in ("hit", "mixed", "flop"):
         return None
+    from animedex.pipeline.verify import _copied
+
     signals = [{"metric": s["metric"], "value": s["value"], "source_ref": facts[s["fact_id"]]["source_url"]}
                for s in oc.get("signals") or []
                if facts.get(s.get("fact_id"), {}).get("kind") in ("reception", "verdict")
-               and facts[s["fact_id"]].get("source_url")]
+               and facts[s["fact_id"]].get("source_url")
+               and not _copied(s.get("metric"), s.get("value"))]
     hit = oc["label"] == "hit"
     reason = None if hit else oc.get("failure_reason")
     if not signals or (not hit and (not reason or word_count(reason) > 25)):

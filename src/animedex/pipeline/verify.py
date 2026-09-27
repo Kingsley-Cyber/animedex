@@ -223,6 +223,12 @@ def _value_problems(path: str, value: Any, vocab: Vocab, guards: GuardConfig | N
     return problems
 
 
+def _copied(*texts: Any, guards: GuardConfig | None = None) -> bool:
+    """True when any text quotes its source or reads as dialogue (paraphrase only, AC-11)."""
+    min_words = guards.min_quote_words if guards is not None else 3
+    return any(quote_problems(str(t), min_words) or dialogue_problems(str(t)) for t in texts if t)
+
+
 def _text_ok(text: Any, limit: int, guards: GuardConfig | None) -> bool:
     return bool(text) and word_count(str(text)) <= limit and not (
         guards is not None and quote_problems(str(text), guards.min_quote_words))
@@ -384,6 +390,8 @@ def apply(pending: Pending, out: dict[str, Any], pages: dict[str, TransientText]
             continue
         item = by_path.get(path) or {}
         status = item.get("status") if item.get("source_url") in pages else "unresolved"
+        if status == "confirmed" and fv.get("value") is None:
+            status = "unresolved"  # an unknown value can't be confirmed (it would carry conf with no value)
         if status == "corrected" and vocab is not None and _value_problems(path, item.get("value"), vocab, guards):
             status = "unresolved"
         status = status if status in ("confirmed", "corrected") else "unresolved"
@@ -424,7 +432,8 @@ def apply(pending: Pending, out: dict[str, Any], pages: dict[str, TransientText]
         moments.append(m)
     outcome = None
     oc = out.get("outcome") or {}
-    signals = [s for s in oc.get("signals") or [] if s.get("source_url") in pages]  # uncited metrics drop out
+    signals = [s for s in oc.get("signals") or [] if s.get("source_url") in pages  # uncited metrics drop out
+               and not _copied(s.get("metric"), s.get("value"), guards=guards)]  # so does copied text
     hit = oc.get("label") == "hit"
     reason_ok = hit or _text_ok(oc.get("failure_reason"), 25, guards)
     if oc.get("label") in ("hit", "mixed", "flop") and signals and reason_ok:
