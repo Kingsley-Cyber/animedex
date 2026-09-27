@@ -54,7 +54,7 @@ class MockProvider:
     def generate(self, system: str, user: str, json_schema: dict[str, Any], params: dict[str, Any]) -> ProviderResponse:
         meta = params.get("_meta") or {}
         pass_, record_id, attempt = meta.get("pass", ""), meta.get("record_id", ""), int(meta.get("attempt", 0))
-        self.calls.append({"pass": pass_, "record_id": record_id, "attempt": attempt, "user": user})
+        self.calls.append({"pass": pass_, "record_id": record_id, "attempt": attempt, "user": user, "system": system})
         value = self.responses.get((pass_, record_id))
         if isinstance(value, list):
             value = value[min(attempt, len(value) - 1)]

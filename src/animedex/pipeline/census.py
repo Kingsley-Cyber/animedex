@@ -83,6 +83,18 @@ def output_schema(vocab: Vocab, ids: list[str]) -> dict[str, Any]:
     return _obj({"titles": {"type": "array", "items": item}})
 
 
+def census_tests(vocab: Vocab) -> list[str]:
+    """The one-sentence value tests the corpus classification uses (vocab.json), for the census fields that
+    have them, so census counts and corpus profiles share one definition of each value."""
+    lines: list[str] = []
+    for key, path in CENSUS_FIELDS.items():
+        tests = vocab.tests(path) if path in vocab.fields else {}
+        if tests:
+            lines.append(f"- {key}:")
+            lines += [f"  - {v}: {tests[v]}" for v in vocab.enum(path) if v in tests]
+    return lines
+
+
 def render_user(batch: list[CensusItem]) -> str:
     """`titles: N`, then one `census_id: title; year: ...; format: ...; medium: ...` line per title
     (compact context, v1.7 §3)."""
@@ -93,7 +105,10 @@ def render_user(batch: list[CensusItem]) -> str:
 def run_census(paths: Paths, items: list[CensusItem], client: LLMClient, vocab: Vocab, settings: Settings, *,
                run_id: str, created_at: str | None = None) -> StageResult:
     prompt = read_prompt(paths.prompts / "census.md")
-    client.prompt_version = prompt.version
+    tests = census_tests(vocab)
+    system = prompt.body + ("\n\nValue tests (choose the value whose test holds; the corpus uses the same tests):\n"
+                            + "\n".join(tests) if tests else "")
+    client.prompt_version = f"{prompt.version}+tests-{vocab.version}" if tests else prompt.version
     done = {c["census_id"] for c in CanonicalStore(paths).read("census")}
     todo = [i for i in dict((i.census_id, i) for i in items).values() if i.census_id not in done]
     size = int((settings.model_extra or {}).get("census", {}).get("batch_size", 10))
@@ -109,7 +124,7 @@ def run_census(paths: Paths, items: list[CensusItem], client: LLMClient, vocab: 
             got = sorted(t.get("census_id") for t in out.get("titles") or [])
             raise_problems([] if got == sorted(_ids) else [f"answer every title exactly once: {_ids}"])
 
-        call = guarded_call(result, paths, "CENSUS", "census", batch_id, client, prompt.body, user,
+        call = guarded_call(result, paths, "CENSUS", "census", batch_id, client, system, user,
                             output_schema(vocab, ids), upstream=sha256_text(stable_json(ids)), validate=check,
                             record_id=batch_id, about_title=False)
         if call.stop:

@@ -137,6 +137,8 @@ def test_census_counts_titles_and_never_feeds_ideation(repo):
                        vocab_version=get_vocab().version, cache=ResponseCache(repo.cache), runlog=RunLog(repo.raw_runs, "c"))
     res = run_census(repo, items, client, get_vocab(), load_settings(repo), run_id="run_c")
     assert res.counts["titles"] == 12 and len(res.done) == 2  # 10 per call
+    system = client.provider.calls[0]["system"]  # the corpus's value tests reach the census (D-038)
+    assert "Value tests" in system and "- gate:" in system and "choose inherited" in system
     canonicalize(repo, "run_cc")
     census = CanonicalStore(repo).read("census")
     assert len(census) == 12 and all(c["trust"] == "recall" for c in census)
