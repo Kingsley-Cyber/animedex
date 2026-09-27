@@ -16,6 +16,15 @@ P1 splits into two calls.
 - **VERIFY shrinks** to fields still unsourced after GATHER. The M2 rules stay: `unresolved` is a result, there are no evidence retries, and visual details and moment episodes are checked for gold titles only.
 - **Contract changes:** 04 adds a `gathered` candidate (fact path, value, source URL, scope status), and each lens field is tagged `documented` or `interpretive` in the vocab. 05 gets the GATHER/INTERPRET pass contracts and the budgets: GATHER takes at most 4 searches and 8 fetches; INTERPRET takes one call.
 
+### Reception data (approved controls A1–A3, `CHANGE_PLAN_controls_validation_timing.md`)
+- GATHER's outcome signals come from APIs, not page scraping:
+  - MAL API v2 is primary (score, scorers, rank, popularity; client ID `MAL_CLIENT_ID` in `.env`), with Jikan as the fallback.
+  - AniList supplies its score and popularity.
+  - All of it is cached for 30 days.
+  - One critic source from the web completes the two-source label rule. MAL stays optional.
+- Only deep-indexed titles fetch reception data; the census never does.
+- AniList is paced at 30 requests/min and cached (already done).
+
 ## 2. Embeddings: Qwen3-Embedding-0.6B on local Ollama
 - Switch `embeddings` from `mxbai-embed-large` to `qwen3-embedding:0.6b` from the Ollama library (639 MB). It runs locally, so ANIMEDEX doesn't depend on Polymath's server. This is the one allowed local model; all generation and analysis stay on the subscriptions.
 - If Ollama isn't running, the command stops with: "Ollama is not running. Start it (open the Ollama app, or run `ollama serve`), then run the same command again."

@@ -180,3 +180,14 @@ Supersedes the provider, key and dollar-cap lines of the G1 rulings. The model c
 - **Batch runs:** up to 3 titles at once, as detached jobs with a status file; they pause on plan limits and resume on the next run. Run logs record per-stage timing, and the M2 report shows where the time goes.
 - **v1.7 (approved in principle):** plan now; land after the M2 report and before any M3 live run. Embeddings stay, switched to Qwen3-Embedding-0.6B on local Ollama (the one allowed local model).
 - **v1.8 (requested 2026-09-27, consolidated):** concept, character and abstract layers (`docs/implementation/proposals/v1.8_request.md`, plan `CHANGE_PLAN_v1.8.md`). Lands with v1.7 before any M3 live run. Then the 14 titles are re-extracted for the new fields (partial re-runs only), and `make backfill` captures everything for new titles. **Lean rule:** this completes the V1 lens; no further fields until blind review #1.
+
+## Owner ruling: data sources and risk controls (Kingsley, 2026-09-27, approved)
+- **Reception:** the MAL API v2 is primary (`MAL_CLIENT_ID` in `.env`), Jikan is the fallback, cached monthly. MAL stays optional in the label rule. Only deep-indexed titles fetch reception; the census never does.
+- **AniList:** stay under 30 requests/min (the degraded limit), cache everything, store only the fields used, no bulk mirroring.
+- **The `animedex` PyPI package:** evaluate it as a replacement for the catalog client. Finding (2026-09-27): no such package exists on PyPI; the hand-written client stays.
+- **Blind review fairness:** baselines get the same model, taste standard, steering rules and web search as ANIMEDEX; the only difference is index access.
+- **Reports and audit:** the M5 report gets a provenance-of-winners section. `make audit` (10 atoms with evidence trails, marked true/plausible/wrong in `eval/audit/`) tracks the wrong rate over time and the extractor–critic disagreement per run. Idea cards that lean on contested or contradicted atoms carry a visible flag.
+
+## Owner ruling: validation and timing (Kingsley, 2026-09-27, plan now)
+- The backtest runs before blind review #1; the timing layer, taste panel and serial readiness come after it; the Roblox demand signal is backlog. Plan: `docs/implementation/proposals/CHANGE_PLAN_controls_validation_timing.md`.
+- **Constraint:** snapshots and counts only. Each item is one command over stages that already exist. Demand signals are dated records from the existing AniList client, and every trend is a GROUP BY over them. No forecasting, no scoring models, no new services. The brief gets at most three lines of market context.
