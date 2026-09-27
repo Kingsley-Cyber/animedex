@@ -357,8 +357,10 @@ def analyze() -> None:
     paths = _paths()
     r = run_analyze(paths, load_settings(paths))
     typer.echo(f"analyzed: {r.answered} CQ answers -> build/cq_answers/; {r.empty_cells} empty gate x cost cells "
-               f"(zeros are {r.zeros_are}); graveyard {r.graveyard} title(s); lanes imported {r.lanes['imported']}, "
-               f"export {r.lanes['export']}; summary -> build/reports/analysis.md")
+               f"(zeros are {r.zeros_are}; {r.real_gaps} real gap(s) by expected count); graveyard {r.graveyard} "
+               f"title(s); lanes imported {r.lanes['imported']}, export {r.lanes['export']}; low-entropy fields "
+               f"{len(r.low_entropy)}; unreliable fields excluded {len(r.unreliable)}; summary -> "
+               "build/reports/analysis.md")
 
 
 @app.command()

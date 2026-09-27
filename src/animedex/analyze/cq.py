@@ -1,8 +1,14 @@
 """A query and a saved answer for every competency question (AC-21), deterministic (AC-24).
 
 Answers go to build/cq_answers/<CQ-ID>.json with sorted rows. Gap questions carry a
-coverage-adequacy flag (AC-22): a zero is "open" only when enough titles have the module active
-with good field completion (`coverage.min_titles_with_module`, `coverage.min_field_completion`).
+coverage-adequacy flag (AC-22). Statistics as gates (owner ruling 2026-09-27):
+- a zero is "open" only when the rule-of-three bound 3/n is below 0.02 (n >= 151), with n the titles that
+  have the module active and good field completion (`coverage.min_field_completion`), or the powered
+  census rows for census-backed questions; this replaced the old five-title minimum;
+- the grid-gap questions rank their empty cells by expected count under independence (n x p(x) x p(y)):
+  expected >= 3 with none observed is a real gap, the rest are unsurprising (`gap_ranking`);
+- a question whose zeros rest on a field the agreement eval flagged unreliable is excluded from the gap
+  reports (`zeros_are: excluded: unreliable field`).
 Questions whose data arrives later (ideas at M5, episodes at M6) have real queries that return no
 rows until then.
 """
@@ -10,15 +16,19 @@ rows until then.
 from __future__ import annotations
 
 import json
+from collections import Counter
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
 import duckdb
 
+from animedex import stats
 from animedex.config import Settings
 from animedex.models.ideation import BORROWED_SYSTEMS
 from animedex.ontology import CQSet, Vocab
+from animedex.statgates import MIN_OPEN_N, why_unreliable
+from animedex.statgates import adequacy as rule_of_three_adequacy
 from animedex.store.atomic import atomic_write_text
 from animedex.textutil import sha256_text, stable_json
 
@@ -55,6 +65,7 @@ class Query:
     params: tuple[str, ...] = ()   # names resolved by `_params`
     note: str = ""
     module: str | None = None      # adequacy flag for this module's zeros
+    census: bool = False           # zeros are census counts: adequacy over the powered census rows
 
 
 QUERIES: dict[str, Query] = {
@@ -108,7 +119,8 @@ QUERIES: dict[str, Query] = {
         "WITH m AS (SELECT unnest(?::VARCHAR[]) AS module) SELECT m.module, "
         "COUNT(c.title_id) FILTER (WHERE c.field_completion >= ?) AS n_adequate_titles "
         "FROM m LEFT JOIN coverage c ON c.modules_active LIKE '%\"' || m.module || '\"%' GROUP BY 1",
-        ("modules", "min_completion"), note="a zero is trustworthy only where n_adequate_titles >= the minimum"),
+        ("modules", "min_completion"),
+        note="a zero is trustworthy only where the rule-of-three bound 3/n_adequate_titles is below 0.02 (the minimum)"),
     "CQ-G08": Query(
         "SELECT a.title_id, a.value AS tone, b.value AS premise_engine FROM title_fields a JOIN title_fields b "
         "ON a.title_id = b.title_id AND a.path = 'core.tone' AND b.path = 'core.premise_engine' "
@@ -178,7 +190,7 @@ QUERIES: dict[str, Query] = {
         "SELECT g.gate, c.cost_of_power FROM g CROSS JOIN c LEFT JOIN p ON p.gate = g.gate "
         "AND p.cost_of_power = c.cost_of_power WHERE p.n IS NULL",
         ("enum:power_combat.gate", "enum:power_combat.cost_of_power"),
-        note="census counts only (v1.6): recall-based occupancy across the catalog"),
+        note="census counts only (v1.6): recall-based occupancy across the catalog", census=True),
     "CQ-I15": Query("SELECT claim_kind, verdict, COUNT(*) AS n FROM prior_art GROUP BY 1, 2"),
     "CQ-E01": Query(
         "SELECT mo.moment_type, COUNT(DISTINCT mo.moment_id) AS n_moments, COUNT(DISTINCT mo.title_id) AS n_titles, "
@@ -264,7 +276,7 @@ QUERIES: dict[str, Query] = {
         "GROUP BY 1, 2) SELECT v.field, v.value, COALESCE(n.n, 0) AS n_census_titles FROM v "
         "LEFT JOIN n USING (field, value)",
         ("enum:power_combat.set_structure", "enum:core.story_engine", "enum:core.mc_archetype"),
-        note="census counts only (v1.6): 0 = no catalog title recorded with that value"),
+        note="census counts only (v1.6): 0 = no catalog title recorded with that value", census=True),
     "CQ-G17": Query(
         "WITH s AS (SELECT unnest(?::VARCHAR[]) AS set_structure), m AS (SELECT unnest(?::VARCHAR[]) AS subset_mechanic), "
         "used AS (SELECT DISTINCT a.value AS set_structure, b.value AS subset_mechanic FROM v_incidence a "
@@ -326,7 +338,7 @@ QUERIES: dict[str, Query] = {
         "WHERE COALESCE(cn.n, 0) = 0 AND COALESCE(k.n, 0) = 0",
         ("borrowed_systems",),
         note="census counts plus a word match on the corpus's real_world_isomorphism phrases; M7 clusters map "
-             "the phrases properly"),
+             "the phrases properly", census=True),
     "CQ-I24": Query(
         "WITH p AS (SELECT title_id, list_distinct(list_filter(string_split(lower(regexp_replace(value, '[^A-Za-z ]', "
         "' ', 'g')), ' '), x -> length(x) > 3)) AS w FROM title_fields WHERE path = 'core.premise_abstraction' "
@@ -430,17 +442,83 @@ QUERIES: dict[str, Query] = {
 
 
 def adequacy(con: duckdb.DuckDBPyConnection, settings: Settings, modules: list[str]) -> dict[str, dict[str, Any]]:
-    """Per module: enough titles with it active and good completion? `core` (every title has it; v1.8
-    core-field gaps) counts titles with good completion."""
-    cov = settings.coverage
-    need, completion = int(cov.get("min_titles_with_module", 5)), float(cov.get("min_field_completion", 0.8))
+    """Per module: is a zero there open? n = the titles with the module active and good field completion
+    (`core`, which every title has, counts the titles with good completion). A zero is open only when the
+    rule-of-three bound 3/n is below 0.02 (statistics as gates; it replaced the five-title minimum)."""
+    completion = float(settings.coverage.get("min_field_completion", 0.8))
     out = {}
     for m in modules:
         pattern = "%" if m == "core" else f'%"{m}"%'
-        n = con.execute("SELECT COUNT(*) FROM coverage WHERE modules_active LIKE ? AND field_completion >= ?",
-                        [pattern, completion]).fetchone()[0]
-        out[m] = {"n_adequate_titles": int(n), "min_needed": need, "adequate": int(n) >= need}
+        n = int(con.execute("SELECT COUNT(*) FROM coverage WHERE modules_active LIKE ? AND field_completion >= ?",
+                            [pattern, completion]).fetchone()[0])
+        a = rule_of_three_adequacy(n)
+        out[m] = {"n_adequate_titles": n, "rule_of_three": a["rule_of_three"], "min_needed": MIN_OPEN_N,
+                  "adequate": a["open"]}
     return out
+
+
+def census_adequacy(con: duckdb.DuckDBPyConnection) -> dict[str, Any]:
+    """Census-backed zeros: the rule of three over the census rows with a power system."""
+    n = int(con.execute("SELECT COUNT(*) FROM census WHERE has_power_system").fetchone()[0])
+    a = rule_of_three_adequacy(n)
+    return {"n_powered_census_rows": n, "rule_of_three": a["rule_of_three"], "min_needed": MIN_OPEN_N,
+            "adequate": a["open"]}
+
+
+# The enum fields each gap question's zeros rest on: a field the agreement eval flagged unreliable takes its
+# questions out of the gap reports (owner ruling, statistics as gates, item 1).
+ZERO_DIMS: dict[str, tuple[str, ...]] = {
+    "CQ-G01": ("power_combat.gate", "power_combat.cost_of_power"),
+    "CQ-G04": ("power_combat.progression", "power_combat.fight_medium"),
+    "CQ-G10": ("power_combat.gate", "power_combat.cost_of_power"),
+    "CQ-G11": ("power_combat.gate", "power_combat.mc_edge"),
+    "CQ-G13": ("core.story_engine", "power_combat.power_embodiment"),
+    "CQ-G15": ("core.setting_type", "core.world_visibility", "core.conflict_scale"),
+    "CQ-G16": ("power_combat.set_structure", "core.story_engine", "core.mc_archetype"),
+    "CQ-G17": ("power_combat.set_structure", "power_combat.subset_mechanics"),
+    "CQ-I07": ("relationships.power_is",),
+}
+# Two-dimensional gap questions whose empty cells are ranked by expected count (item 3), and where their
+# counts come from: corpus titles (v_incidence) or census rows with a power system.
+GAP_RANK: dict[str, str] = {"CQ-G01": "corpus", "CQ-G04": "corpus", "CQ-G10": "census", "CQ-G17": "corpus"}
+
+
+def _gap_rows(con: duckdb.DuckDBPyConnection, px: str, py: str, source: str) -> list[tuple[str, str, str]]:
+    """(row id, x value, y value) for every row that has both fields."""
+    if source == "census":
+        cx, cy = px.split(".")[-1], py.split(".")[-1]
+        return con.execute(f'SELECT census_id, "{cx}", "{cy}" FROM census WHERE has_power_system '
+                           f'AND "{cx}" IS NOT NULL AND "{cy}" IS NOT NULL').fetchall()
+    return con.execute("SELECT DISTINCT a.title_id, a.value, b.value FROM v_incidence a JOIN v_incidence b "
+                       "ON a.title_id = b.title_id AND a.path = ? AND b.path = ?", [px, py]).fetchall()
+
+
+def gap_ranking(con: duckdb.DuckDBPyConnection, vocab: Vocab, cq_id: str, cells: list[list[Any]]) -> dict[str, Any]:
+    """The question's empty cells ranked by expected count under independence, n x p(x) x p(y), over the n rows
+    with both fields known (`stats.rank_gaps`): expected >= 3 with none observed is a real gap, the rest are
+    unsurprising. Ties by value, so the order is deterministic."""
+    px, py = ZERO_DIMS[cq_id][:2]
+    source = GAP_RANK[cq_id]
+    rows = _gap_rows(con, px, py, source)
+    xs: dict[str, set[str]] = {}
+    ys: dict[str, set[str]] = {}
+    joint: Counter = Counter()
+    for rid, x, y in set(rows):
+        xs.setdefault(x, set()).add(rid)
+        ys.setdefault(y, set()).add(rid)
+        joint[(x, y)] += 1
+    n = len({r[0] for r in rows})
+
+    def values(path: str) -> list[str]:
+        return [v for v in vocab.enum(vocab.lens_field(path).vocab or path) if v != "other"]
+
+    ranked = stats.rank_gaps(n, {v: len(xs.get(v, ())) for v in values(px)}, {v: len(ys.get(v, ())) for v in values(py)},
+                             dict(joint))
+    listed = {(c[0], c[1]) for c in cells}
+    ranked = [g for g in ranked if (g["x"], g["y"]) in listed]
+    return {"x": px, "y": py, "source": source, "n": n,
+            "real_gaps": [[g["x"], g["y"], g["expected"]] for g in ranked if g["real"]],
+            "unsurprising": [[g["x"], g["y"], g["expected"]] for g in ranked if not g["real"]]}
 
 
 def _params(names: tuple[str, ...], vocab: Vocab, settings: Settings) -> list[Any]:
@@ -465,8 +543,13 @@ def _clean(value: Any) -> Any:
     return value
 
 
-def answer_all(con: duckdb.DuckDBPyConnection, vocab: Vocab, cqs: CQSet, settings: Settings) -> dict[str, dict[str, Any]]:
+def answer_all(con: duckdb.DuckDBPyConnection, vocab: Vocab, cqs: CQSet, settings: Settings,
+               unreliable: dict[str, dict[str, Any]] | None = None) -> dict[str, dict[str, Any]]:
+    """`unreliable`: the fields the agreement eval flagged (statgates.unreliable_fields); their gap questions
+    are excluded from the gap reports."""
+    unreliable = unreliable or {}
     adequate = adequacy(con, settings, ["core", *vocab.module_names])
+    census = census_adequacy(con)
     answers = {}
     for cq in cqs.questions:
         q = QUERIES[cq.id]
@@ -474,11 +557,18 @@ def answer_all(con: duckdb.DuckDBPyConnection, vocab: Vocab, cqs: CQSet, setting
         columns = [d[0] for d in cur.description]
         rows = sorted((_clean(list(r)) for r in cur.fetchall()), key=stable_json)
         answer: dict[str, Any] = {"id": cq.id, "text": cq.text, "columns": columns, "rows": rows, "note": q.note}
-        if q.module:
-            answer["coverage"] = adequate[q.module]
-            answer["zeros_are"] = "open" if adequate[q.module]["adequate"] else "insufficient coverage"
+        if q.module or q.census:
+            cov = census if q.census else adequate[q.module]
+            answer["coverage"] = cov
+            answer["zeros_are"] = "open" if cov["adequate"] else "insufficient coverage"
+        bad = sorted(d for d in ZERO_DIMS.get(cq.id, ()) if d in unreliable)
+        if bad:
+            answer["zeros_are"] = "excluded: unreliable field"
+            answer["excluded_fields"] = [why_unreliable(d, unreliable[d]) for d in bad]
+        elif cq.id in GAP_RANK:
+            answer["gap_ranking"] = gap_ranking(con, vocab, cq.id, rows)
         if cq.id == "CQ-G07":
-            answer["min_needed"] = int(settings.coverage.get("min_titles_with_module", 5))
+            answer["min_needed"] = MIN_OPEN_N
         answers[cq.id] = answer
     return answers
 
