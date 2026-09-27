@@ -9,7 +9,8 @@
 ## Census uses the corpus's value tests — 2026-09-27
 - **D-038.** The census system prompt now carries the one-sentence value tests from `vocab.json` for its fields that have them (gate, cost_of_power, progression, visible_counter), so census counts and corpus profiles share one definition of each value. The prompt version records the vocab version (`1.1.0+tests-<vocab>`). The mock provider records the system prompt it was sent.
 
-## Length repair for every stage — 2026-09-27
+## M3 live fixes: length repair and CHECK — 2026-09-27
+- **Judge lengths.** The ideation judge's word-cap problems now name their text by path (`cards[i].runway_reason: N words exceeds the 25-word limit`), so the length repair shortens just that text instead of rerunning the judge.
 - **CHECK 1.3.0 (D-037).** A proof is judged by its reasoning: a partner detail its profile doesn't list is fine unless it contradicts the profile; a proof's REVISE changes only ablation_verdict or favors; REJECT only for a contradiction or a proof that can't test its atom. Canary (one title): proof rejects fell from 9 of 12 (no notes) to 1 (a stated contradiction).
 - **Shorten first (D-036).** When every problem in an answer is a text over its cap, the client shortens those texts before trying a full regeneration (a live P3 retry fixed the lengths and broke an explanation test). The last-resort shorten after the full repair stays.
 - **Explanation tests (D-036).** `via_partner` may be null when favors is both or neither: no partner decides it. because/rival still need the deciding partner. `schemas/proof.schema.json` regenerated; 04 updated.
