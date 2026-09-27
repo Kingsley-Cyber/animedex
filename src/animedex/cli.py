@@ -349,6 +349,116 @@ def migrate(to: str = typer.Option(..., "--to", help="Spec version to migrate ca
 
 
 @app.command()
+def backfill(list_file: str = typer.Option(..., "--list", help="One title per line; a version in parentheses is used as given."),
+             batch: int = typer.Option(8, "--batch", help="Titles deep-indexed per run (paced for the plan limits)."),
+             census_only: bool = typer.Option(False, "--census-only", help="Only add the titles to the census."),
+             no_run: bool = typer.Option(False, "--no-run", help="Resolve and add to the corpus; run nothing.")) -> None:
+    """Resolve a plain title list to scoped corpus entries, then run the full pipeline (counts only)."""
+    from pathlib import Path as _P
+
+    from animedex.catalog.anilist import AniList
+    from animedex.catalog.backfill import (
+        add_to_corpus,
+        census_items,
+        list_title_ids,
+        pending_titles,
+        plan_backfill,
+        read_list,
+        report,
+    )
+    from animedex.catalog.resolve import TvMaze
+    from animedex.guards import load_corpus
+    from animedex.ontology import get_vocab
+    from animedex.pipeline.orchestrate import run_batch
+    from animedex.store.atomic import atomic_write_text
+
+    paths = _paths()
+    settings, vocab = load_settings(paths), get_vocab(paths)
+    src = _P(list_file)
+    lines = read_list(src)
+    typer.echo(f"backfill: {len(lines)} line(s) from {src.name}; resolving with the catalog...")
+    plan = plan_backfill(AniList(), lines, load_corpus(paths), tvmaze=TvMaze())
+    batch_lines: list[str] = []
+    if census_only:
+        from animedex.pipeline.census import run_census
+        from animedex.providers.factory import build_client
+        from animedex.store.runlog import RunLog, new_run_id
+
+        run_id = new_run_id()
+        runlog = RunLog(paths.raw_runs, run_id)
+        client = build_client("census", paths=paths, settings=settings, env=environment(paths), runlog=runlog,
+                              prompt_version="unset")
+        result = run_census(paths, census_items(plan), client, vocab, settings, run_id=run_id)
+        runlog.write_ledger()
+        from animedex.pipeline.canonicalize import canonicalize as _canon
+
+        _canon(paths, new_run_id())
+        batch_lines = [f"census: {', '.join(f'{k} {v}' for k, v in sorted(result.counts.items())) or 'nothing new'}"]
+        if result.stopped:
+            batch_lines.append(f"STOPPED: {result.stopped}")
+        waiting = 0
+    else:
+        added = add_to_corpus(paths, plan, src.name)
+        typer.echo(f"  added {len(added)} title(s) to corpus/titles.yaml; skipped {len(plan.skipped)}; "
+                   f"not found {len(plan.unresolved)}")
+        todo = pending_titles(paths, list_title_ids(plan, lines))
+        if not no_run and todo:
+            now = todo[:batch]
+            typer.echo(f"  running the full pipeline on {len(now)} title(s) (of {len(todo)} waiting)")
+            rep = run_batch(paths, now, settings, environment(paths), vocab, echo=typer.echo)
+            batch_lines = rep.lines()
+            if rep.stopped:
+                batch_lines.append("Paused cleanly: finished calls are cached; run the same command later.")
+        waiting = len(pending_titles(paths, list_title_ids(plan, lines)))
+    text = report(plan, src.name, batch_lines, waiting, list_file)
+    atomic_write_text(paths.reports / "backfill.md", text)
+    for w in plan.warnings:
+        typer.echo(f"  note: {w}", err=True)
+    for line in batch_lines:
+        typer.echo(f"  {line}")
+    typer.echo(f"report -> build/reports/backfill.md ({waiting} title(s) still waiting)")
+
+
+@app.command()
+def census(top: int = typer.Option(0, "--top", help="Count the N most popular franchise roots (anime + donghua)."),
+           list_file: str = typer.Option(None, "--list", help="Count the titles in this list.")) -> None:
+    """v1.6 census: which power-system combinations already exist (counts only, never ideation input)."""
+    from pathlib import Path as _P
+
+    from animedex.catalog.anilist import AniList
+    from animedex.catalog.backfill import census_items, plan_backfill, read_list
+    from animedex.ontology import get_vocab
+    from animedex.pipeline.canonicalize import canonicalize as _canon
+    from animedex.pipeline.census import run_census, top_roots
+    from animedex.providers.factory import build_client
+    from animedex.store.runlog import RunLog, new_run_id
+
+    paths = _paths()
+    settings, vocab = load_settings(paths), get_vocab(paths)
+    cfg = (settings.model_extra or {}).get("census", {})
+    cat = AniList()
+    items = []
+    if top:
+        items += top_roots(cat, size=top, donghua=int(cfg.get("donghua", max(1, top // 10))),
+                           since=int(cfg.get("since", 1995)))
+    if list_file:
+        plan = plan_backfill(cat, read_list(_P(list_file)), {}, suggest=False)  # census counts every listed title
+        items += census_items(plan)
+    run_id = new_run_id()
+    runlog = RunLog(paths.raw_runs, run_id)
+    client = build_client("census", paths=paths, settings=settings, env=environment(paths), runlog=runlog,
+                          prompt_version="unset")
+    result = run_census(paths, items, client, vocab, settings, run_id=run_id)
+    runlog.write_ledger()
+    _canon(paths, new_run_id())
+    typer.echo(f"census: {len(items)} catalog title(s); " + (", ".join(f"{k} {v}" for k, v in
+               sorted(result.counts.items())) or "nothing new"))
+    if result.stopped:
+        typer.echo(f"Paused: {result.stopped}. Run the same command later; counted titles are kept.", err=True)
+        raise typer.Exit(3)
+
+
+@app.command()
 def canonicalize() -> None:
     """CANONICALIZE: data/candidates -> data/canonical (validate, normalize, quarantine, atomic write)."""
     from animedex.pipeline.canonicalize import canonicalize as run_canonicalize

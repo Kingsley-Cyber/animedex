@@ -99,7 +99,7 @@ def check_id(pattern: re.Pattern[str], value: str, what: str) -> str:
 
 # ---------------------------------------------------------------- provenance (every record)
 Pass = Literal[
-    "P1", "VERIFY", "P2", "P3", "CHECK", "P4", "CANONICALIZE", "EP", "ROLLUP", "PATTERNS", "IDEATE"
+    "P1", "VERIFY", "P2", "P3", "CHECK", "P4", "CANONICALIZE", "EP", "ROLLUP", "PATTERNS", "IDEATE", "CENSUS"
 ]
 
 

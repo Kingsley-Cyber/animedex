@@ -11,7 +11,7 @@ Pydantic models in `src/animedex/models/` are the source of truth for shapes. JS
 ```json
 {
   "run_id": "run_20260926_001",
-  "pass": "P1|VERIFY|P2|P3|CHECK|P4|CANONICALIZE|EP|ROLLUP|PATTERNS|IDEATE",
+  "pass": "P1|VERIFY|P2|P3|CHECK|P4|CANONICALIZE|EP|ROLLUP|PATTERNS|IDEATE|CENSUS",
   "model": "provider/model-id or null for deterministic stages",
   "prompt_version": "1.0.0",
   "schema_version": "1.1.0",

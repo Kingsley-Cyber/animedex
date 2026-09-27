@@ -132,9 +132,11 @@ class CallOutcome:
 def guarded_call(result: StageResult, paths: Paths, pass_: str, record_type: str, title_id: str, client: LLMClient,
                  system: str, user: str, schema: dict[str, Any], *, upstream: str,
                  validate: Callable[..., Any] | None = None, params: dict[str, Any] | None = None,
-                 record_id: str | None = None) -> CallOutcome:
-    """The standard call: guard -> budget -> call -> one repair -> quarantine/failed/stop bookkeeping."""
-    ctx = CallContext(pass_=pass_, record_id=record_id or title_id, title_id=title_id, upstream=upstream)
+                 record_id: str | None = None, about_title: bool = True) -> CallOutcome:
+    """The standard call: guard -> budget -> call -> one repair -> quarantine/failed/stop bookkeeping.
+    `about_title=False` (census batches) skips the per-title corpus/blind guard."""
+    ctx = CallContext(pass_=pass_, record_id=record_id or title_id, title_id=title_id if about_title else None,
+                      upstream=upstream)
     try:
         return CallOutcome(client.complete_ex(system, user, schema, params, ctx=ctx, validate=validate))
     except InvalidOutput as exc:

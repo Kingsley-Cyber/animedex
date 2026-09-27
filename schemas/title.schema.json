@@ -5151,7 +5151,8 @@
             "EP",
             "ROLLUP",
             "PATTERNS",
-            "IDEATE"
+            "IDEATE",
+            "CENSUS"
           ],
           "title": "Pass",
           "type": "string"

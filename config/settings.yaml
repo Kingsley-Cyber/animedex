@@ -113,6 +113,10 @@ gates:
   procedural_jaccard_reject: 0.75
   premise_cosine_reject: 0.90
   premise_cosine_with_structural: 0.55
+census:   # v1.6: counts only; the title list comes from AniList
+  batch_size: 10
+  donghua: 50
+  since: 1995
 ideate:
   target_domain: anime
   grid_dims: ["power_combat.gate", "power_combat.cost_of_power", "power_combat.progression"]
