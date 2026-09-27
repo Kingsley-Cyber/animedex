@@ -202,3 +202,62 @@ def test_cli_dry_run_makes_no_calls(repo):
     assert result.exit_code == 0, result.output
     assert "would call" in result.output and "Profile this title inside the scope." in result.output
     assert not repo.raw_runs.exists()
+
+
+# ---------------------------------------------------------------- P1 1.1.0: rules decide modules
+def entry_for(medium: str, fmt: str) -> CorpusEntry:
+    scope = {"version": "synthetic", "seasons": [] if fmt == "film" else [1], "numbering": None if fmt == "film" else "broadcast"}
+    return CorpusEntry.model_validate({"title_id": "lantern_debt_2019", "title": "Lantern Debt", "year": 2019,
+                                       "medium": medium, "format": fmt, "scope": scope})
+
+
+def test_schema_offers_only_modules_the_rules_allow():
+    from animedex.pipeline.p1 import output_schema
+
+    vocab = get_vocab()
+    west = output_schema(vocab, entry_for("western_animation", "episodic"))
+    assert "anime_production" not in west["properties"] and "film" not in west["properties"]
+    assert {"sensory", "series_engine"} <= set(west["required"]) and "modules_active" not in west["properties"]
+    film = output_schema(vocab, entry_for("film", "film"))
+    assert "film" in film["required"] and "series_engine" not in film["properties"]
+    live = output_schema(vocab, entry_for("live_action", "serialized"))
+    assert "sensory" in live["properties"] and "sensory" not in live["required"]  # allowed only with power_combat
+
+
+def test_normalize_drops_blank_and_forbidden_modules_and_derives_active():
+    from animedex.pipeline.p1 import UNKNOWN_REASON, normalize_draft
+
+    vocab = get_vocab()
+    draft = make_draft(("power_combat", "relationships", "sensory", "anime_production", "series_engine", "film"))
+    draft["modules_active"] = ["film"]  # the model's own list is ignored
+    for f in draft["relationships"].values():
+        f.update(value=None, conf=0, uncertainty_reason=None)
+    out = normalize_draft(draft, entry_for("western_animation", "episodic"), vocab)
+    assert out["modules_active"] == ["power_combat", "sensory", "series_engine"]
+    assert "anime_production" not in out and "film" not in out and "relationships" not in out
+    out["core"]["central_mystery"]["uncertainty_reason"] = None
+    out["core"]["central_mystery"].update(value=None, conf=0)
+    again = normalize_draft(out, entry_for("western_animation", "episodic"), vocab)
+    assert again["core"]["central_mystery"]["uncertainty_reason"] == UNKNOWN_REASON
+
+
+def test_sensory_outside_animation_follows_power_combat():
+    from animedex.pipeline.p1 import normalize_draft
+
+    vocab = get_vocab()
+    no_power = make_draft(("sensory", "series_engine"))
+    assert normalize_draft(no_power, entry_for("live_action", "serialized"), vocab)["modules_active"] == ["series_engine"]
+    with_power = make_draft(("power_combat", "sensory", "series_engine"))
+    assert normalize_draft(with_power, entry_for("live_action", "serialized"), vocab)["modules_active"] == [
+        "power_combat", "sensory", "series_engine"]
+
+
+def test_blank_placeholder_modules_no_longer_cost_a_repair(repo):
+    # the live failure: every module block returned, inactive ones all-null without reasons
+    draft = make_draft(("power_combat", "sensory", "anime_production", "series_engine", "comedy_satire", "film"))
+    for block in ("comedy_satire", "film"):
+        for f in draft[block].values():
+            f.update(value=None, conf=0, uncertainty_reason=None)
+    result, mock = run(repo, {KEY: [draft]})
+    assert len(result.titles) == 1 and len(mock.calls) == 1
+    assert result.titles[0]["modules_active"] == ["power_combat", "sensory", "anime_production", "series_engine"]

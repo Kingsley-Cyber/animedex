@@ -1,10 +1,10 @@
 ---
-version: 1.0.0
+version: 1.1.0
 pass: P1
 ---
 Worked example (a fictional title, shape only; never reuse its content):
 Title: Ironvale Circuit (2021), anime, serialized, scope: TV season 1.
-{"modules_active": ["power_combat", "sensory", "anime_production", "series_engine"],
+{
  "core": {"flaw": {"value": "refuses help until the grid fails", "condition": "shows when a district goes dark", "conf": 0.8, "uncertainty_reason": null, "epistemic": "interpretive"},
           "central_mystery": {"value": null, "conf": 0, "uncertainty_reason": "no open question is established in scope", "epistemic": "observed"}},
  "power_combat": {"gate": {"value": "other:grid inheritance by oath", "conf": 0.6, "uncertainty_reason": "gate mixes inheritance with a sworn oath", "epistemic": "observed"}},

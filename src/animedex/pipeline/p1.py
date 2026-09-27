@@ -86,7 +86,64 @@ def _field_schema(conditional: bool) -> dict[str, Any]:
     return {"type": "object", "properties": props, "required": list(props), "additionalProperties": False}
 
 
-def output_schema(vocab: Vocab) -> dict[str, Any]:
+def module_rules(vocab: Vocab, medium: str, fmt: str) -> tuple[set[str], set[str]]:
+    """(allowed, required) modules for a medium/format. Rule clauses on medium/format are decided
+    here; a clause on another module (sensory <- power_combat) leaves the module allowed, and
+    judgment modules are always allowed. Nothing else may appear in a P1 draft."""
+    allowed, required = set(), set()
+    for module, spec in vocab.module_activation.items():
+        if spec["kind"] != "rule":
+            allowed.add(module)
+            continue
+        for clause in spec["any"]:
+            if "module" in clause:
+                allowed.add(module)
+                continue
+            value = medium if clause["field"] == "medium" else fmt
+            if (value in clause["in"]) if "in" in clause else (value not in clause["not_in"]):
+                allowed.add(module)
+                required.add(module)
+    return allowed, required
+
+
+def _all_null(block: Any) -> bool:
+    return isinstance(block, dict) and all(isinstance(fv, dict) and fv.get("value") is None for fv in block.values())
+
+
+UNKNOWN_REASON = "no reliable recall"
+
+
+def normalize_draft(draft: dict[str, Any], entry: CorpusEntry, vocab: Vocab) -> dict[str, Any]:
+    """Deterministic clean-up before the checks (P1 1.1.0), so the one repair is spent on real errors:
+    - module blocks the rules forbid for this medium/format are dropped;
+    - a module that is not rule-required and whose every field is null is dropped (it does not apply);
+    - sensory outside animation stays only if power_combat does (activation rule);
+    - `modules_active` is derived from the blocks that remain, never taken from the model;
+    - a null field with conf 0 and no reason gets the reason 'no reliable recall' (what null means).
+    A non-null guess below the confidence floor without a reason is left for the checks to reject."""
+    d = {k: v for k, v in draft.items()}
+    allowed, required = module_rules(vocab, entry.medium, entry.format)
+    for m in vocab.module_names:
+        if d.get(m) is None:
+            d.pop(m, None)
+        elif m not in allowed or (m not in required and _all_null(d[m])):
+            d.pop(m)
+    active = {m for m in vocab.module_names if isinstance(d.get(m), dict)}
+    if "sensory" in active and "sensory" not in required and "power_combat" not in active:
+        d.pop("sensory")
+        active.discard("sensory")
+    d["modules_active"] = [m for m in vocab.module_names if m in active]
+    for block in ["core", *d["modules_active"]]:
+        for fv in (d.get(block) or {}).values():
+            if isinstance(fv, dict) and fv.get("value") is None and not fv.get("conf") \
+                    and not (fv.get("uncertainty_reason") or "").strip():
+                fv["uncertainty_reason"] = UNKNOWN_REASON
+    return d
+
+
+def output_schema(vocab: Vocab, entry: CorpusEntry | None = None) -> dict[str, Any]:
+    """Per title (P1 1.1.0): only the modules the activation rules allow are offered, rule-required
+    ones are required, and `modules_active` is derived afterwards (normalize_draft)."""
     def block(name: str) -> dict[str, Any]:
         fields = vocab.block_fields(name)
         return {"type": "object", "properties": {f.name: _field_schema(f.conditional) for f in fields},
@@ -97,14 +154,17 @@ def output_schema(vocab: Vocab) -> dict[str, Any]:
         "episode": {"type": ["integer", "null"]}, "timestamp": {"type": ["string", "null"]},
         "moment_type": {"type": "string"}, "why_it_hit": {"type": "string"}, "conf": {"type": "number"}}}
     moment["required"] = list(moment["properties"])
+    allowed, required = (module_rules(vocab, entry.medium, entry.format) if entry is not None
+                         else (set(vocab.module_names), set()))
+    modules = [m for m in vocab.module_names if m in allowed]
     props: dict[str, Any] = {
-        "modules_active": {"type": "array", "items": {"type": "string", "enum": vocab.module_names}},
         "core": block("core"),
-        **{m: block(m) for m in vocab.module_names},
+        **{m: block(m) for m in modules},
         "moments": {"type": "array", "items": moment},
         "verify": {"type": "array", "items": {"type": "string"}},
     }
-    return {"type": "object", "properties": props, "required": ["modules_active", "core", "moments", "verify"],
+    return {"type": "object", "properties": props,
+            "required": ["core", *[m for m in modules if m in required], "moments", "verify"],
             "additionalProperties": False}
 
 
@@ -242,15 +302,16 @@ def run_p1(paths: Paths, entries: list[CorpusEntry], client: LLMClient, vocab: V
     guards = guards or GuardConfig.from_settings(settings)
     prompt = render_prompt(paths, vocab, settings)
     client.prompt_version = prompt.version  # cache keys follow the rendered prompt
-    schema = output_schema(vocab)
     threshold = float(settings.verify.get("conf_threshold", 0.7))
     title_model = title_profile_model(vocab)
     result = P1Result()
     for entry in entries:
         tid = entry.title_id
 
+        schema = output_schema(vocab, entry)
+
         def check(draft: dict[str, Any], _entry: CorpusEntry = entry) -> None:
-            problems = draft_problems(draft, _entry, vocab, threshold, guards)
+            problems = draft_problems(normalize_draft(draft, _entry, vocab), _entry, vocab, threshold, guards)
             if problems:
                 raise ValueError("; ".join(problems[:25]))
 
@@ -273,7 +334,8 @@ def run_p1(paths: Paths, entries: list[CorpusEntry], client: LLMClient, vocab: V
             continue
         if completion.substituted:
             result.substituted.append((tid, completion.model))
-        record, moments, to_verify = assemble(completion.data, entry, vocab, settings, run_id=run_id,
+        record, moments, to_verify = assemble(normalize_draft(completion.data, entry, vocab), entry, vocab, settings,
+                                              run_id=run_id,
                                               prompt_version=prompt.version, completion=completion,
                                               created_at=created_at)
         try:  # candidates keep raw other:<phrase>; check the normalized form CANONICALIZE will store
