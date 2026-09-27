@@ -85,6 +85,17 @@
           "title": "Novel Combo",
           "type": "boolean"
         },
+        "pmi_key_pair": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/KeyPairPMI"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
         "premise_cosine_max": {
           "maximum": 1.0,
           "minimum": -1.0,
@@ -467,6 +478,61 @@
         "resolution"
       ],
       "title": "IdeaThematicArgument",
+      "type": "object"
+    },
+    "KeyPairPMI": {
+      "additionalProperties": false,
+      "properties": {
+        "adequate": {
+          "title": "Adequate",
+          "type": "boolean"
+        },
+        "basis": {
+          "enum": [
+            "enum",
+            "bridge"
+          ],
+          "title": "Basis",
+          "type": "string"
+        },
+        "n": {
+          "minimum": 0,
+          "title": "N",
+          "type": "integer"
+        },
+        "novel": {
+          "title": "Novel",
+          "type": "boolean"
+        },
+        "pair": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "title": "Pair",
+          "type": "array"
+        },
+        "pmi": {
+          "title": "Pmi",
+          "type": "number"
+        },
+        "together": {
+          "minimum": 0,
+          "title": "Together",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "basis",
+        "pair",
+        "pmi",
+        "together",
+        "n",
+        "adequate",
+        "novel"
+      ],
+      "title": "KeyPairPMI",
       "type": "object"
     },
     "KitTool": {

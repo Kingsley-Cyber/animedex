@@ -3,8 +3,9 @@
 While the gold blind is pending, gold titles appear only as "[gold title]" (owner ruling
 2026-09-27): no gold-title output is shown, only ideas. A card that leans on an atom now contested,
 rejected or (M6) contradicted carries a visible evidence flag (controls A8), computed from the
-current canonical state at every write. Only ANIMEDEX cards are listed; baseline cards exist only
-for the blind review.
+current canonical state at every write. Each card shows the PMI of the key pair the novelty gate
+judged it by (statistics as gates, item 4). Only ANIMEDEX cards are listed; baseline cards exist
+only for the blind review.
 """
 
 from __future__ import annotations
@@ -53,6 +54,21 @@ class Masker:
         return self.pattern.sub("[gold title]", text) if self.pattern else text
 
 
+def pair_words(item: str) -> str:
+    """`power_combat.gate=contract` -> `gate contract`; `bridge:core_tension` -> `pattern core_tension`."""
+    if item.startswith("bridge:"):
+        return f"pattern {item[7:]}"
+    path, _, value = item.partition("=")
+    return f"{path.split('.')[-1].replace('_', ' ')} {value}"
+
+
+def novelty_line(key: dict[str, Any]) -> str:
+    a, b = (pair_words(x) for x in key["pair"])
+    rows = "titles" if key["basis"] == "bridge" else "titles and census rows"
+    return (f"**Novelty.** {a} with {b}: together {key['together']} time(s) in {key['n']} {rows} (PMI "
+            f"{key['pmi']:+.2f}; -1 or lower means at most half as often as chance).")
+
+
 def _fitness_key(card: dict[str, Any], archive: dict[str, dict[str, Any]]) -> tuple:
     rec = archive.get(card["grid_cell"])
     fit = rec["fitness"] if rec and rec["idea_id"] == card["idea_id"] else []
@@ -95,6 +111,8 @@ def render(paths: Paths, limit: int = 60) -> str:
                   f"{m.text(c['why_not_a_clone'])}", "",
                   f"**How it plays differently.** Choices: {m.text(q['choices'])} Relationships: "
                   f"{m.text(q['relationships'])} Outcomes: {m.text(q['outcomes'])}", ""]
+        if c["gates"].get("pmi_key_pair"):
+            lines += [novelty_line(c["gates"]["pmi_key_pair"]), ""]
         if c["taste"]["criteria_met"]:
             lines += ["**Taste.** " + " ".join(f"{t} ({CRITERIA[t]}): {m.text(c['taste']['evidence'].get(t))}."
                                                for t in c["taste"]["criteria_met"]), ""]

@@ -105,7 +105,8 @@ p2:
   low_atom_alarm: 5
 p3: {load_bearing_alarm: 8, load_bearing_low_flag: 3}
 check: {reject_rate_alarm: 0.30}
-coverage: {min_titles_with_module: 5, min_field_completion: 0.8}
+coverage: {min_field_completion: 0.8}   # which titles count toward a zero; a zero is open only when 3/n < 0.02
+                                         # (rule of three, statistics as gates; replaced min_titles_with_module: 5)
 episodes:
   selection: [pilot, moment, finale, control]
   max_per_title: 6

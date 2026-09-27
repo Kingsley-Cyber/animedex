@@ -42,7 +42,7 @@ from animedex.store.jsonl import read_jsonl
 from animedex.store.runlog import RunLog
 from tests.conftest import make_census, make_title, prov, write_state
 from tests.pipeline import test_ideate as base
-from tests.pipeline.test_ideate import T1, T2, T3, responder, state
+from tests.pipeline.test_ideate import T1, T2, T3, census_for_novelty, responder, state
 
 pytestmark = pytest.mark.pipeline
 
@@ -205,28 +205,50 @@ def test_an_over_cap_brief_rejects_the_card_before_any_call(pool):
 
 
 # ---------------------------------------------------------------- item 5: novelty needs 200 powered census rows (AC-51)
+# Statistics as gates (item 4) replaced "unseen pair" with PMI: the key pair must co-occur at most half as often
+# as chance (PMI <= -1) over more than 150 rows (rule of three). The 200-row census floor stays: below it the
+# census rows do not count, and three corpus titles are never an adequate sample.
 def _one_title_card(ctx: Context) -> dict:
     atom = next(a for a in ctx.pool if a["title_id"] == T1)
     return {"logline": "A synthetic logline.", "premise": "A synthetic premise.", "why_different": None,
             "profile": {"gate": "contract", "cost_of_power": "lifespan", "progression": "linear",
-                        "visible_counter": "collectible_count", "fight_medium": "energy", "power_is": "collective"},
+                        "visible_counter": "numeric_level", "fight_medium": "energy", "power_is": "collective"},
             "bridge": sorted(atom["bridge"]), "_atoms": [atom]}
 
 
 @pytest.mark.parametrize("rows, trusted", [(199, False), (200, True)])
-def test_census_backed_zero_pairs_count_only_from_200_powered_rows(pool, rows, trusted):
-    CanonicalStore(pool).write("census", make_census(rows))
+def test_census_rows_count_for_novelty_only_from_200_powered_rows(pool, rows, trusted):
+    from animedex import stats
+
+    CanonicalStore(pool).write("census", census_for_novelty(rows))
     ctx = build_context(pool, load_settings(pool), get_vocab())
     assert ctx.powered_census == rows and ctx.census_zeros_trusted is trusted and ctx.adequate is trusted
     g = run_gates(_one_title_card(ctx), ctx, Similarity(MockEmbedder(), ctx), load_settings(pool).gates)
-    assert g.novel_combo is trusted  # atoms from one title: only a census-backed enum zero could make it novel
-    if trusted:
-        assert g.novelty_basis.startswith("never together")
+    assert g.novel_combo is trusted  # atoms from one title: only census-backed enum pairs could make it novel
+    if trusted:  # numeric_level (2 corpus titles) never meets energy (200 census rows) in 202 rows
+        assert g.novelty_basis.startswith("profile values rarer together than chance")
+        assert g.pmi_key_pair == {"basis": "enum", "pair": ["power_combat.fight_medium=energy",
+                                                            "power_combat.visible_counter=numeric_level"],
+                                  "pmi": stats.pmi(0, 200, 2, 202), "together": 0, "n": 202, "adequate": True,
+                                  "novel": True}
+        assert g.pmi_key_pair["pmi"] <= -1.0
     else:
-        assert g.fatal and "200 powered census rows (have 199)" in g.fatal[0]
+        assert g.fatal and "200 powered census rows (have 199)" in g.fatal[0] and "rule of three" in g.fatal[0]
+        assert g.pmi_key_pair and not g.pmi_key_pair["adequate"]
 
 
-def test_unpowered_census_rows_never_count_and_bridge_pairs_still_do(pool):
+def test_a_pair_seen_together_as_often_as_chance_is_not_novel(pool):
+    CanonicalStore(pool).write("census", census_for_novelty(200))
+    ctx = build_context(pool, load_settings(pool), get_vocab())
+    card = _one_title_card(ctx)
+    card["profile"].update(visible_counter="rank_tier", gate="artifact")  # the census cell's own values
+    g = run_gates(card, ctx, Similarity(MockEmbedder(), ctx), load_settings(pool).gates)
+    assert not g.novel_combo and g.fatal[0].startswith("novelty: no pair rarer than chance")
+
+
+def test_unpowered_census_rows_never_count_and_bridge_pairs_need_an_adequate_corpus(pool):
+    from animedex.ideate.gates import GateResult, novelty
+
     CanonicalStore(pool).write("census", make_census(250, powered=False))
     ctx = build_context(pool, load_settings(pool), get_vocab())
     assert ctx.census_size == 250 and ctx.powered_census == 0 and not ctx.census_zeros_trusted
@@ -234,7 +256,54 @@ def test_unpowered_census_rows_never_count_and_bridge_pairs_still_do(pool):
     two = [next(a for a in ctx.pool if a["title_id"] == T1), next(a for a in ctx.pool if a["title_id"] == T2)]
     card.update(_atoms=two, bridge=sorted({b for a in two for b in a["bridge"]}))
     g = run_gates(card, ctx, Similarity(MockEmbedder(), ctx), load_settings(pool).gates)
-    assert g.novel_combo and g.novelty_basis.startswith("patterns never combined")  # the bridge route stays open
+    assert not g.novel_combo and "rule of three" in g.fatal[0]  # two titles with patterns: never adequate
+    # 160 titles, 80 with each of two concepts and none with both: the bridge route opens by PMI
+    ctx.title_struct = {f"synthetic_title_{i:03d}_2020": {f"bridge:{'concept_a' if i < 80 else 'concept_b'}"}
+                        for i in range(160)}
+    r = GateResult()
+    novelty({"profile": {}, "bridge": ["concept_a", "concept_b"], "_atoms": two}, ctx, r)
+    assert r.novel_combo and r.novelty_basis.startswith("patterns from 2+ titles rarer together than chance")
+    assert (r.pmi_key_pair["basis"], r.pmi_key_pair["together"], r.pmi_key_pair["n"]) == ("bridge", 0, 160)
+    r = GateResult()
+    novelty({"profile": {}, "bridge": ["concept_a", "concept_b"], "_atoms": two[:1]}, ctx, r)
+    assert not r.novel_combo and "bridge pairs need atoms from 2+ titles" in r.fatal[0]
+
+
+@pytest.mark.parametrize("together, kept", [(0, True), (1, False)])
+def test_t1_needs_the_key_pair_never_seen_together(pool, together, kept):
+    from animedex.ideate.gates import GateResult
+    from animedex.ideate.run import Cand, Plan, _taste_evidence
+
+    CanonicalStore(pool).write("census", census_for_novelty(200))
+    ctx = build_context(pool, load_settings(pool), get_vocab())
+    key = {"basis": "enum", "pair": ["a=x", "b=y"], "pmi": -1.5, "together": together, "n": 202, "adequate": True,
+           "novel": True}
+    gates = GateResult(novel_combo=True, novelty_basis="rare", pmi_key_pair=key)
+    card = {"bridge": [], "gates": {"coherence": "pass"}}
+    c = Cand(Plan(ref="g0c01", theme="t", operator="change_rule", target={}, atoms=[]), idea_id="idea.x.001",
+             card=card, gates=gates, judged={"taste": [{"criterion": "T1", "evidence": "never done"}]})
+    _taste_evidence(ctx, [c])
+    assert ("T1" in card["taste"]["criteria_met"]) is kept  # "never done" needs zero co-occurrence, not just rarity
+
+
+def test_unreliable_fields_never_form_a_novelty_pair(pool):
+    CanonicalStore(pool).write("census", census_for_novelty(200))
+    f = pool.root / "eval" / "agreement" / "reliability.json"
+    f.parent.mkdir(parents=True)
+    f.write_text(json.dumps({"fields": {"power_combat.fight_medium": {"n": 14, "raw": 0.6, "kappa": 0.45,
+                                                                      "unreliable": True, "pass": False}}}))
+    ctx = build_context(pool, load_settings(pool), get_vocab())
+    assert set(ctx.unreliable) == {"power_combat.fight_medium"}
+    g = run_gates(_one_title_card(ctx), ctx, Similarity(MockEmbedder(), ctx), load_settings(pool).gates)
+    assert not g.novel_combo  # the only rare pair used fight_medium
+    assert "fight_medium" not in json.dumps(g.pmi_key_pair)
+    dims = load_settings(pool).ideate["grid_dims"]
+    ctx.unreliable = {"power_combat.progression": {"kappa": 0.4}}
+    line = build_brief(ctx, load_settings(pool), theme="t?", operator="change_rule",
+                       target={"gate": "innate", "cost_of_power": "memory", "progression": "linear"},
+                       atoms=[]).text.splitlines()
+    cell = next(x for x in line if x.startswith("cell:"))
+    assert "zeros untrusted" in cell and "unreliable: progression" in cell and ctx.unreliable_dims(dims)
 
 
 # ---------------------------------------------------------------- item 6: the judge weighs why_different (AC-52)
@@ -311,6 +380,8 @@ def _flop_pool(pool):
 @pytest.mark.parametrize("passes", [False, True])
 def test_why_different_is_judged_against_the_flops_recorded_failure(pool, passes):
     _flop_pool(pool)
+    # novelty by PMI: 200 census rows on linear progression, which the flop (contract, lateral) never uses
+    CanonicalStore(pool).write("census", make_census(200, progression="linear"))
     seen: list[dict] = []
     res, _ = run(pool, f"run_wd{int(passes)}", answer=_flop_answer(passes), seen=seen)
     judged = [c["user"] for c in seen if c["kind"] == "judge" and "graveyard match " in c["user"]]
@@ -350,7 +421,7 @@ def _write_rules(paths):
 
 def test_steering_rules_reach_every_arm_and_no_arm_searches_while_generating(pool):
     _write_rules(pool)
-    CanonicalStore(pool).write("census", make_census(200))
+    CanonicalStore(pool).write("census", census_for_novelty())
     lines = rule_lines(load_rules(pool))
     assert lines == [f"rule rule.001 (hard): {RULES[0]['rule']}", f"rule rule.002 (soft): {RULES[1]['rule']}"]
     seen: list[dict] = []
@@ -381,7 +452,7 @@ def test_a_malformed_rules_file_stops_the_run(repo):
 
 
 def test_baseline_loop_cards_never_enter_the_archive(pool):
-    CanonicalStore(pool).write("census", make_census(200))
+    CanonicalStore(pool).write("census", census_for_novelty())
     run(pool, "run_arch")
     before = CanonicalStore(pool).state()
     res, cs = run(pool, "run_bl", index=False, generations=2)
@@ -403,7 +474,7 @@ def test_baseline_loop_cards_never_enter_the_archive(pool):
 
 
 def test_a_card_triggers_only_its_own_atoms_failure_conditions(pool):
-    CanonicalStore(pool).write("census", make_census(200))
+    CanonicalStore(pool).write("census", census_for_novelty())
 
     def inventive(system, user, schema, params):
         out = responder(system, user, schema, params)
@@ -423,6 +494,7 @@ def test_baseline_rework_notes_carry_no_title_ids(pool):
 
 # ---------------------------------------------------------------- item 8: 60 calls per ideation run (AC-54)
 def test_ideation_runs_get_60_calls_other_runs_keep_40(pool):
+    CanonicalStore(pool).write("census", census_for_novelty())  # cards pass novelty, so the judge is called too
     settings = load_settings(pool)
     assert Budget.from_settings(settings).calls_per_run == 40 and ideation_budget(settings).calls_per_run == 60
     budget = ideation_budget(settings)
@@ -436,7 +508,7 @@ def test_ideation_runs_get_60_calls_other_runs_keep_40(pool):
 
 # ---------------------------------------------------------------- controls A8: contested-evidence flags (AC-55)
 def test_cards_on_contested_atoms_carry_a_flag_in_ideas_md_but_never_in_the_packet(pool):
-    CanonicalStore(pool).write("census", make_census(200))
+    CanonicalStore(pool).write("census", census_for_novelty())
     run(pool, "run_fl")
     run(pool, "run_flb", index=False)
     store = CanonicalStore(pool)

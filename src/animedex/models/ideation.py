@@ -17,6 +17,7 @@ from animedex.models.common import (
     VocabEnum,
     check_id,
 )
+from animedex.models.novelty import KeyPairPMI
 from animedex.textutil import (
     Words6,
     Words15,
@@ -80,6 +81,7 @@ class Gates(StrictModel):
     failure_conditions_triggered: list[str] = Field(default_factory=list)
     consequence_test: ConsequenceTest
     coherence: Literal["pass", "fail"]
+    pmi_key_pair: KeyPairPMI | None = None  # statistics as gates (item 4): the pair novelty judged, with its PMI
 
 
 class Taste(StrictModel):

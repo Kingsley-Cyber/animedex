@@ -3,11 +3,14 @@
 1. Clone: structural Jaccard >= structural_jaccard_reject, procedural Jaccard >= procedural_jaccard_reject,
    or (premise cosine >= premise_cosine_reject and structural >= premise_cosine_with_structural)
    -> rework once, then reject.
-2. Novelty: a pair of bridge concepts that no single title's load-bearing patterns combine (atoms
-   from 2+ titles), or an enum pair with zero co-occurrence across corpus + census -> else reject.
-   Enum zeros are census-backed, so they count only once the census holds at least
-   `ideate.census_novelty_min_rows` (200) powered rows (owner ruling 2026-09-27); until then
-   novelty rests on bridge-concept pairs only. (Zero is not novel when coverage is thin.)
+2. Novelty (statistics as gates, item 4: PMI replaced "unseen pair"): the card's key pair is the pair
+   of its profile values (enum) or of its bridge concepts (atoms from 2+ titles) with the lowest PMI on
+   an adequate subset. It is novel when it co-occurs at most half as often as chance (PMI <= -1.0,
+   D-021) over more than 150 rows that could show it (rule of three, 3/n < 0.02) -> else reject.
+   Enum rows are the corpus titles plus, once the census holds `ideate.census_novelty_min_rows` (200)
+   powered rows, the census rows (owner ruling 2026-09-27); bridge rows are the corpus titles. Fields
+   the agreement eval flagged unreliable never form a pair. The key pair and its PMI are recorded
+   on the card (`gates.pmi_key_pair`).
 3. Graveyard: a match with a PREMISE-level flop combination needs "why this time is different",
    else rework once, then reject. Execution-level matches are T5 evidence, not warnings (v1.3).
 """
@@ -15,11 +18,11 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from itertools import combinations
 from typing import Any
 
 from animedex.embeddings.base import Embedder, cosine
 from animedex.ideate.context import Context, jaccard, profile_set
+from animedex.statgates import describe_pair, key_pair
 
 
 @dataclass
@@ -31,6 +34,7 @@ class GateResult:
     cosine_nearest: str | None = None   # highest premise cosine
     novel_combo: bool = False
     novelty_basis: str = ""
+    pmi_key_pair: dict[str, Any] | None = None   # the pair novelty judged (basis, pair, PMI, n, adequate, novel)
     graveyard_hits: list[str] = field(default_factory=list)
     execution_matches: list[str] = field(default_factory=list)
     clone: bool = False
@@ -90,21 +94,7 @@ def run_gates(card: dict[str, Any], ctx: Context, sim: Similarity, gates_cfg: di
     if r.cosine_max >= c_rej and r.structural_max >= c_with:
         r.failures.append(f"clone: premise similarity {r.cosine_max:.2f} with structural overlap {r.structural_max:.2f}")
     r.clone = bool(r.failures)
-    # novelty: census-backed enum zeros only with enough powered census rows (M5 ruling)
-    enums = sorted(profile_set(card["profile"]))
-    zero = [p for p in combinations(enums, 2) if ctx.pair_counts.get(tuple(sorted(p)), 0) == 0]
-    if zero and ctx.adequate and ctx.census_zeros_trusted:
-        r.novel_combo, r.novelty_basis = True, f"never together: {zero[0][0]} + {zero[0][1]}"
-    else:
-        concepts = sorted(set(card.get("bridge", [])))
-        fresh = [p for p in combinations(concepts, 2) if tuple(sorted(p)) not in ctx.concept_pairs]
-        if fresh and len({a['title_id'] for a in card.get('_atoms', [])}) >= 2:
-            r.novel_combo, r.novelty_basis = True, f"patterns never combined in one title: {fresh[0][0]} + {fresh[0][1]}"
-    if not r.novel_combo:
-        why = ("thin coverage makes empty cells untrustworthy" if ctx.census_zeros_trusted else
-               f"enum zeros need {ctx.census_novelty_min_rows} powered census rows (have {ctx.powered_census}), "
-               "so only bridge-concept pairs from 2+ titles count")
-        r.fatal.append(f"novelty: no untried pair ({why})")
+    novelty(card, ctx, r)  # PMI of the key pair on an adequate subset (statistics as gates, item 4)
     # graveyard (premise-level flops warn; execution-level are T5 evidence)
     for g in ctx.graveyard:
         flop = set(g["structural"]) | {f"bridge:{b}" for b in g["bridge"]}
@@ -114,3 +104,34 @@ def run_gates(card: dict[str, Any], ctx: Context, sim: Similarity, gates_cfg: di
     if r.graveyard_hits and not (card.get("why_different") or "").strip():
         r.failures.append(f"graveyard: matches premise-level flop(s) {r.graveyard_hits}; say why this time is different")
     return r
+
+
+def novelty(card: dict[str, Any], ctx: Context, r: GateResult) -> None:
+    """Statistics as gates, item 4: the card's key pair must co-occur at most half as often as chance
+    (PMI <= -1.0) over an adequate subset (rule of three). Unreliable fields never form a pair."""
+    enums = [e for e in profile_set(card["profile"]) if e.split("=", 1)[0] not in ctx.unreliable]
+    two_titles = len({a["title_id"] for a in card.get("_atoms", [])}) >= 2
+    keys = {"enum": key_pair(ctx.enum_rows(), enums),
+            "bridge": key_pair(ctx.concept_rows(), [f"bridge:{b}" for b in card.get("bridge", [])]) if two_titles
+            else None}
+    measured = [(basis, k) for basis, k in keys.items() if k]
+    novel = [(basis, k) for basis, k in measured if k["novel"]]
+    if novel:
+        basis, k = novel[0]
+        r.novel_combo, r.pmi_key_pair = True, {"basis": basis, **k}
+        what = "profile values" if basis == "enum" else "patterns from 2+ titles"
+        r.novelty_basis = f"{what} rarer together than chance: {describe_pair(k)}"
+        return
+    if measured:
+        basis, k = min(measured, key=lambda bk: (not bk[1]["adequate"], bk[1]["pmi"]))
+        r.pmi_key_pair = {"basis": basis, **k}
+        found = f"key pair {describe_pair(k)}"
+    else:
+        found = "no pair to measure"
+    why = [found, "a novel pair needs PMI <= -1 over more than 150 rows (rule of three)"]
+    if not ctx.census_zeros_trusted:
+        why.append(f"census-backed pairs need {ctx.census_novelty_min_rows} powered census rows "
+                   f"(have {ctx.powered_census})")
+    if not two_titles:
+        why.append("bridge pairs need atoms from 2+ titles")
+    r.fatal.append("novelty: no pair rarer than chance on an adequate sample (" + "; ".join(why) + ")")
