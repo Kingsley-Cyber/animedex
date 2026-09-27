@@ -96,7 +96,12 @@ def test_propose_keeps_a_narrow_gap_and_reports_overlap(tmp_path):
 
 
 def test_recalibration_reports_both_backends_and_never_changes_config(repo, tmp_path):
+    import re
+
     pairs_file = write_pairs(tmp_path / "pairs.yaml")
+    # pin "today's" threshold in this test's own config, so the scenario doesn't follow production config
+    repo.config_file.write_text(re.sub(r"premise_cosine_reject: [0-9.]+", "premise_cosine_reject: 0.90",
+                                       repo.config_file.read_text()))
     config_before = repo.config_file.read_bytes()
     shifted = {**{k: v + 0.01 for k, v in PAIRS.items()}, "d3": 0.60}
     primary, fallback = Exact(pairs_file, PAIRS), Exact(pairs_file, shifted, name="fake/fallback")
