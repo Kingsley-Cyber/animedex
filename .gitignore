@@ -29,3 +29,12 @@ graft/
 
 # Generated ontology proposals (canonicalize): model values, gold ones included, so never committed while the blind test is pending. Hand-written plans stay as top-level .md files.
 ontology/proposals/*/
+
+# Model outputs never go to git: canonical profiles, agreement reruns, blind packets (blind and partner
+# rules while annotations are pending; the repo is public). The folders stay via .gitkeep.
+data/canonical/*
+!data/canonical/.gitkeep
+eval/agreement/*
+!eval/agreement/.gitkeep
+eval/blind/*
+!eval/blind/.gitkeep
