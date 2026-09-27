@@ -51,7 +51,7 @@ models:   # G1a, approved 2026-09-26; routed to subscription CLIs 2026-09-26. Co
   rollup_match:    {provider: claude_cli, model: claude-haiku-4-5-20251001}
   ideate_generate: {provider: claude_cli, model: claude-opus-5-5, params: {effort: high}}
   ideate_judge:    {provider: codex_cli, model: gpt-5.6-terra, strict_model: true}   # owner: an older model is enough
-  embeddings:      {provider: local, model: "<embedding-model>"}              # Ollama; pull a model before M5
+  embeddings:      {provider: local, model: mxbai-embed-large}               # Ollama, local (pulled 2026-09-27)
   eval_match:      {provider: claude_cli, model: claude-haiku-4-5-20251001}   # PROPOSED (not in the G1a list); AC-17, M3
 # USD per 1M tokens for API-billed "<provider>/<model>" pairs (local models: 0). Subscription CLI
 # calls are not priced here: each call's own reported cost is logged as a shadow cost.
@@ -114,7 +114,10 @@ gates:
 ideate:
   target_domain: anime
   grid_dims: ["power_combat.gate", "power_combat.cost_of_power", "power_combat.progression"]
-  operators: [reverse_incentive, redistribute_knowledge, transfer_cost, change_rule, combine_mechanisms, import_lane]
+  operators: [reverse_incentive, redistribute_knowledge, transfer_cost, change_rule, combine_mechanisms, import_lane,
+              revive_execution_flop, borrow_system]   # v1.6: the last two run only with their evidence
+  judge_batch: 4
+  seed: 7
   h1_min_changed_dimensions: 2
   generations: 3
   candidates_per_generation: 12

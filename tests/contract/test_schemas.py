@@ -16,7 +16,7 @@ from tests.conftest import REPO, synthetic_state
 pytestmark = pytest.mark.contract
 
 CONTRACTS_04 = {"title", "moment", "outcome", "mechanism", "proof", "check", "transfer", "episode", "link",
-                "pattern", "coverage", "idea", "archive"}
+                "pattern", "coverage", "idea", "archive", "prior_art", "census"}  # v1.6 adds the last two
 
 
 def test_every_04_record_type_has_a_model():

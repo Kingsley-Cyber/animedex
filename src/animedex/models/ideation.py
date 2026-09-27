@@ -87,6 +87,39 @@ class Taste(StrictModel):
         return self
 
 
+class PremortemItem(StrictModel):
+    """v1.6: a way this idea could fail, drawn from a mixed/flop title's recorded failure."""
+
+    risk: Words25
+    source_title_id: str
+    mitigation: Words25
+
+    @field_validator("source_title_id")
+    @classmethod
+    def _src(cls, value: str) -> str:
+        return check_id(TITLE_ID, value, "source_title_id")
+
+
+class RevivalRef(StrictModel):
+    """v1.6: an execution-level flop whose premise this idea keeps (T5 'retold better')."""
+
+    title_id: str
+    failure_evidence_ref: str | None = None
+    improvement: Words25
+
+    @field_validator("title_id")
+    @classmethod
+    def _tid(cls, value: str) -> str:
+        return check_id(TITLE_ID, value, "title_id")
+
+
+class Runway(StrictModel):
+    """v1.6 judge question: does the engine's cost still hurt by arc 5?"""
+
+    hurts_by_arc5: bool
+    reason: Words25
+
+
 class HumanRating(StrictModel):
     """Kingsley's blind-review verdict. 'Elite' is his call, never the pipeline's."""
 
@@ -113,6 +146,10 @@ class IdeaCard(StrictModel):
     appetite: str = ""
     closest_existing: str
     why_not_a_clone: Words40
+    why_different: Words40 | None = None  # required when a premise-level graveyard combination matches
+    premortem: list[PremortemItem] = Field(default_factory=list)
+    revival_of: RevivalRef | None = None
+    runway: Runway | None = None
     gates: Gates
     taste: Taste
     status: Literal["candidate", "champion", "rejected"]
@@ -178,3 +215,51 @@ class CoverageLedger(StrictModel):
     @classmethod
     def _id(cls, value: str) -> str:
         return check_id(TITLE_ID, value, "title_id")
+
+
+# ---------------------------------------------------------------- v1.6: prior art and census
+class Counterexample(StrictModel):
+    title: str = Field(min_length=1)
+    url: str = Field(min_length=1)
+    match_note: Words25
+
+
+class PriorArtCheck(StrictModel):
+    """A web check of an absence claim (T1 'never done', T4 zero occurrence, an imported/export lane)."""
+
+    check_id: str = Field(min_length=1)
+    claim_kind: Literal["T1", "T4", "lane"]
+    subject_id: str = Field(min_length=1)   # idea_id, or lane:<concept>
+    claim: str = Field(min_length=1)
+    queries: list[str] = Field(default_factory=list)
+    verdict: Literal["clear", "counterexample", "inconclusive"]
+    counterexamples: list[Counterexample] = Field(default_factory=list)
+    provenance: Provenance
+
+
+BORROWED_SYSTEMS = ("game", "exam_or_school", "job_or_bureaucracy", "market_or_economy", "sport", "social_rating",
+                    "law_or_contract", "card_or_collection", "crafting_or_cooking", "military_rank", "ritual_or_religion",
+                    "none", "other")
+
+
+class CensusEntry(StrictModel):
+    """v1.6 census: counts only (trust: recall). Never an atom, evidence, or ideation input."""
+
+    census_id: str = Field(pattern=r"^[a-z]+:\d+$")   # catalog:id, e.g. anilist:127401
+    title: str = Field(min_length=1)
+    year: int | None = None
+    medium: Annotated[str, VocabEnum("medium")]
+    format: str = Field(min_length=1)
+    popularity: int | None = None
+    has_power_system: bool | None = None
+    gate: Annotated[str, VocabEnum("power_combat.gate")] | None = None
+    cost_of_power: Annotated[str, VocabEnum("power_combat.cost_of_power")] | None = None
+    progression: Annotated[str, VocabEnum("power_combat.progression")] | None = None
+    visible_counter: Annotated[str, VocabEnum("power_combat.visible_counter")] | None = None
+    fight_medium: Annotated[str, VocabEnum("power_combat.fight_medium")] | None = None
+    power_is: Annotated[str, VocabEnum("relationships.power_is")] | None = None
+    borrowed_system: Literal[BORROWED_SYSTEMS] | None = None  # type: ignore[valid-type]
+    trust: Literal["recall"] = "recall"
+    batch_id: str = Field(min_length=1)
+    provenance: Provenance
+

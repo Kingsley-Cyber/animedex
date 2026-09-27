@@ -311,7 +311,9 @@
         "transfer_cost",
         "change_rule",
         "combine_mechanisms",
-        "import_lane"
+        "import_lane",
+        "revive_execution_flop",
+        "borrow_system"
       ],
       "alternate_labels": {},
       "cq_refs": [

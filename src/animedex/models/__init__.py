@@ -9,7 +9,13 @@ from typing import Any
 from animedex.models.atoms import CheckRecord, MechanismAtom, PatternCard, ProofRecord, TransferAtom
 from animedex.models.common import FieldValue, Provenance, Scope, StrictModel
 from animedex.models.evidence import Episode, Link, Moment, Outcome
-from animedex.models.ideation import ArchiveRecord, CoverageLedger, IdeaCard
+from animedex.models.ideation import (
+    ArchiveRecord,
+    CensusEntry,
+    CoverageLedger,
+    IdeaCard,
+    PriorArtCheck,
+)
 from animedex.models.title import CorpusEntry, TitleProfileBase, title_profile_model
 
 
@@ -51,6 +57,8 @@ RECORD_TYPES: dict[str, RecordType] = {
         RecordType("coverage", "coverage.jsonl", lambda: CoverageLedger, _field("title_id")),
         RecordType("idea", "ideas.jsonl", lambda: IdeaCard, _field("idea_id")),
         RecordType("archive", "archive.jsonl", lambda: ArchiveRecord, _field("cell_key")),
+        RecordType("prior_art", "prior_art.jsonl", lambda: PriorArtCheck, _field("check_id")),
+        RecordType("census", "census.jsonl", lambda: CensusEntry, _field("census_id")),
     )
 }
 
@@ -81,6 +89,7 @@ def record_paths() -> set[str]:
 __all__ = [
     "RECORD_TYPES",
     "ArchiveRecord",
+    "CensusEntry",
     "CheckRecord",
     "CorpusEntry",
     "CoverageLedger",
@@ -92,6 +101,7 @@ __all__ = [
     "Moment",
     "Outcome",
     "PatternCard",
+    "PriorArtCheck",
     "ProofRecord",
     "Provenance",
     "RecordType",

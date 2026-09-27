@@ -62,3 +62,18 @@ class MockEmbedder:
 
     def embed(self, texts: list[str]) -> list[list[float]]:
         return [self._vector(t) for t in texts]
+
+
+def build_embedder(settings, env: dict[str, str]) -> Embedder:
+    """The `models.embeddings` slot: a local OpenAI-compatible endpoint (Ollama) or the mock."""
+    from animedex.config import resolve_base_url
+
+    spec = settings.models["embeddings"]
+    profile = settings.providers[spec.provider]
+    if profile.type == "mock":
+        return MockEmbedder()
+    base = resolve_base_url(profile, env)
+    if not base:
+        raise ValueError(f"providers.{spec.provider}: no base_url for embeddings")
+    key = env.get(profile.api_key_env) if profile.api_key_env else None
+    return LocalEmbedder(base, spec.model, api_key=key or None)

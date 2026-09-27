@@ -23,7 +23,7 @@ from animedex.store.jsonl import JsonlError, read_jsonl
 from animedex.store.quarantine import quarantine
 
 ORDER = ["title", "moment", "outcome", "coverage", "mechanism", "proof", "check", "transfer",
-         "episode", "link", "pattern", "idea", "archive"]
+         "episode", "link", "pattern", "idea", "archive", "prior_art", "census"]
 HELD_UNTIL_CHECKED = ("mechanism", "proof")
 M3_TYPES = ("mechanism", "proof", "check", "transfer")
 

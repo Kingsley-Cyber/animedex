@@ -318,7 +318,7 @@ Corpus-level coverage is derived in DuckDB. A zero-count gap is reportable as "o
     "dramatic_question": ""
   },
   "transformation": {
-    "operator": "reverse_incentive|redistribute_knowledge|transfer_cost|change_rule|combine_mechanisms|import_lane",
+    "operator": "reverse_incentive|redistribute_knowledge|transfer_cost|change_rule|combine_mechanisms|import_lane|revive_execution_flop|borrow_system",
     "source_transfer_ids": [],
     "what_changed": "≤25 words"
   },
@@ -343,6 +343,10 @@ Corpus-level coverage is derived in DuckDB. A zero-count gap is reportable as "o
     "coherence": "pass|fail"
   },
   "taste": {"criteria_met": ["T1"], "evidence": {"T1": "..."}, "hard_fail": false},
+  "why_different": "≤40 words; required when a premise-level graveyard combination matches (v1.6)",
+  "premortem": [{"risk": "≤25 words", "source_title_id": "a mixed/flop title", "mitigation": "≤25 words"}],
+  "revival_of": {"title_id": "an execution-level flop", "failure_evidence_ref": "URL or null", "improvement": "≤25 words"},
+  "runway": {"hurts_by_arc5": true, "reason": "≤25 words"},
   "status": "candidate|champion|rejected",
   "generation": 0, "parent_ids": [],
   "human_rating": null,
@@ -352,6 +356,34 @@ Corpus-level coverage is derived in DuckDB. A zero-count gap is reportable as "o
 - `champion` means the card holds its MAP-Elites cell. "Elite" is reserved for Kingsley's verdict (`human_rating`, `eval/blind/`).
 - The `profile` uses the same enums as titles so overlap is computable.
 - `consequence_test` records, per dimension, whether the idea's consequences differ from what happens in `closest_existing`. `h1_pass` requires at least `ideate.h1_min_changed_dimensions` of 3.
+
+## Prior-art check (v1.6) — `prior_art.jsonl`
+```json
+{
+  "check_id": "", "claim_kind": "T1|T4|lane", "subject_id": "idea_id or lane:<concept>",
+  "claim": "the absence being claimed, paraphrased",
+  "queries": ["searches run"],
+  "verdict": "clear|counterexample|inconclusive",
+  "counterexamples": [{"title": "", "url": "a page retrieved in the same call", "match_note": "≤25 words"}],
+  "provenance": {}
+}
+```
+- Every T1 claim, T4 zero-occurrence claim, and imported/export lane claim carries one.
+- `counterexample` downgrades the claim: T1 falls back to T2 if the idea still differs on a load-bearing pattern; otherwise the claim is dropped.
+- `inconclusive` counts as not cleared.
+
+## Census entry (v1.6) — `census.jsonl`
+```json
+{
+  "census_id": "anilist:127401", "title": "", "year": 0, "medium": "anime|donghua", "format": "",
+  "popularity": 0, "has_power_system": true,
+  "gate": "", "cost_of_power": "", "progression": "", "visible_counter": "", "fight_medium": "", "power_is": "",
+  "borrowed_system": "game|exam_or_school|job_or_bureaucracy|market_or_economy|sport|social_rating|law_or_contract|card_or_collection|crafting_or_cooking|military_rank|ritual_or_religion|none|other",
+  "trust": "recall", "batch_id": "", "provenance": {}
+}
+```
+- **Counts only.** The census measures how occupied the grid is, which decides whether a zero is trustworthy. It gates `borrow_system`. No atom, transfer, idea, or ideation prompt ever references a census entry.
+- **Catalog.** The title list comes from a real catalog (AniList); model recall never supplies it.
 
 ## Archive — `archive.jsonl`
 One record per occupied grid cell: `{cell_key, idea_id, fitness, replaced_idea_id, generation}`.
@@ -394,7 +426,7 @@ Structure:
 | episode.end_hook | threat_cliffhanger, reveal_cliffhanger, open_question, power_tease, emotional_resolution, none, other |
 | info_shift.gap_change | widens, narrows, flips, none |
 | link.type | sets_up, pays_off, reveals, reframes, advances, supports, contradicts, enables, prevents |
-| transformation.operator | reverse_incentive, redistribute_knowledge, transfer_cost, change_rule, combine_mechanisms, import_lane |
+| transformation.operator | reverse_incentive, redistribute_knowledge, transfer_cost, change_rule, combine_mechanisms, import_lane, revive_execution_flop, borrow_system |
 | anime_production.demographic | shonen, seinen, shojo, josei, kodomo, other |
 | anime_production.source_medium | manga, light_novel, web_novel, webtoon, manhua, original, game, other |
 

@@ -32,7 +32,15 @@ from animedex.providers.cli_common import (
 
 CLI = "claude_cli"
 WEB_TOOLS = ("WebSearch", "WebFetch")
-_URL = re.compile(r"https?://[^\s\"'<>()\[\]{}\\]+")
+_URL = re.compile(r"https?://[^\s\"'<>\[\]{}\\]+")
+
+
+def clean_url(url: str) -> str:
+    """Trim trailing punctuation; keep parentheses that belong to the URL (Wikipedia titles)."""
+    url = url.rstrip(".,;:")
+    while url.endswith(")") and url.count(")") > url.count("("):
+        url = url[:-1].rstrip(".,;:")
+    return url
 
 
 def _block_text(content: Any) -> str:
@@ -64,7 +72,7 @@ def web_evidence(events: list[dict[str, Any]]) -> dict[str, Any]:
             if name == "WebFetch" and inp.get("url"):
                 fetched.add(str(inp["url"]))
             elif name == "WebSearch":
-                found.update(u.rstrip(".,;:") for u in _URL.findall(_block_text(block.get("content"))))
+                found.update(clean_url(u) for u in _URL.findall(_block_text(block.get("content"))))
     queries = [str(inp.get("query", "")) for name, inp in uses.values() if name == "WebSearch"]
     return {"searches": len(queries), "fetches": sum(1 for name, _ in uses.values() if name == "WebFetch"),
             "queries": queries, "fetched": sorted(fetched), "found": sorted(found), "urls": sorted(fetched | found)}

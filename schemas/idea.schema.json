@@ -298,6 +298,31 @@
       "title": "IdeaProfile",
       "type": "object"
     },
+    "PremortemItem": {
+      "additionalProperties": false,
+      "description": "v1.6: a way this idea could fail, drawn from a mixed/flop title's recorded failure.",
+      "properties": {
+        "mitigation": {
+          "title": "Mitigation",
+          "type": "string"
+        },
+        "risk": {
+          "title": "Risk",
+          "type": "string"
+        },
+        "source_title_id": {
+          "title": "Source Title Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "risk",
+        "source_title_id",
+        "mitigation"
+      ],
+      "title": "PremortemItem",
+      "type": "object"
+    },
     "Provenance": {
       "additionalProperties": false,
       "properties": {
@@ -384,6 +409,58 @@
       "title": "Provenance",
       "type": "object"
     },
+    "RevivalRef": {
+      "additionalProperties": false,
+      "description": "v1.6: an execution-level flop whose premise this idea keeps (T5 'retold better').",
+      "properties": {
+        "failure_evidence_ref": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Failure Evidence Ref"
+        },
+        "improvement": {
+          "title": "Improvement",
+          "type": "string"
+        },
+        "title_id": {
+          "title": "Title Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "title_id",
+        "improvement"
+      ],
+      "title": "RevivalRef",
+      "type": "object"
+    },
+    "Runway": {
+      "additionalProperties": false,
+      "description": "v1.6 judge question: does the engine's cost still hurt by arc 5?",
+      "properties": {
+        "hurts_by_arc5": {
+          "title": "Hurts By Arc5",
+          "type": "boolean"
+        },
+        "reason": {
+          "title": "Reason",
+          "type": "string"
+        }
+      },
+      "required": [
+        "hurts_by_arc5",
+        "reason"
+      ],
+      "title": "Runway",
+      "type": "object"
+    },
     "Taste": {
       "additionalProperties": false,
       "properties": {
@@ -427,7 +504,9 @@
             "transfer_cost",
             "change_rule",
             "combine_mechanisms",
-            "import_lane"
+            "import_lane",
+            "revive_execution_flop",
+            "borrow_system"
           ],
           "title": "Operator",
           "type": "string",
@@ -553,11 +632,40 @@
       "title": "Premise",
       "type": "string"
     },
+    "premortem": {
+      "items": {
+        "$ref": "#/$defs/PremortemItem"
+      },
+      "title": "Premortem",
+      "type": "array"
+    },
     "profile": {
       "$ref": "#/$defs/IdeaProfile"
     },
     "provenance": {
       "$ref": "#/$defs/Provenance"
+    },
+    "revival_of": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/RevivalRef"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "runway": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Runway"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
     },
     "status": {
       "enum": [
@@ -583,6 +691,18 @@
     },
     "transformation": {
       "$ref": "#/$defs/Transformation"
+    },
+    "why_different": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Why Different"
     },
     "why_not_a_clone": {
       "title": "Why Not A Clone",

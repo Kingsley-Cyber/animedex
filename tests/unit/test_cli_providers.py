@@ -523,3 +523,26 @@ def test_milestone_smoke_in_tests_stops_before_any_real_call(repo, monkeypatch):
     result = CliRunner().invoke(app, ["smoke", "--stage", "m2"])
     assert result.exit_code == 1 and "blocked" in result.output + (result.stderr if result.stderr_bytes else "")
 
+
+
+def test_urls_with_parentheses_survive_extraction():
+    from animedex.providers.claude_cli import clean_url, web_evidence
+
+    stream = [
+        {"type": "assistant", "message": {"content": [
+            {"type": "tool_use", "id": "s1", "name": "WebSearch", "input": {"query": "the boys episode list"}}]}},
+        {"type": "user", "message": {"content": [{"type": "tool_result", "tool_use_id": "s1", "content":
+            'Links: [{"title":"List","url":"https://en.wikipedia.org/wiki/The_Boys_(TV_series)"}] '
+            "see (https://example.org/a_(b)_c)."}]}},
+    ]
+    urls = web_evidence(stream)["urls"]
+    assert "https://en.wikipedia.org/wiki/The_Boys_(TV_series)" in urls
+    assert "https://example.org/a_(b)_c" in urls
+    assert clean_url("https://x.org/page).") == "https://x.org/page"
+
+
+def test_citations_match_by_page_not_spelling():
+    from animedex.pipeline.common import norm_url
+
+    a = norm_url("https://www.Example.org/wiki/Page_(x)/#section")
+    assert a == norm_url("https://example.org/wiki/Page_(x)") and a != norm_url("https://example.org/wiki/Other")

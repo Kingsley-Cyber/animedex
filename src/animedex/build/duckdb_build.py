@@ -183,6 +183,20 @@ def _ideas(s: State, v: Vocab) -> list[Row]:
     return out
 
 
+def _prior_art(s: State, v: Vocab) -> list[Row]:
+    return [(p["check_id"], p["claim_kind"], p["subject_id"], p["verdict"], len(p.get("counterexamples", [])))
+            for p in s.get("prior_art", [])]
+
+
+_CENSUS = ("gate", "cost_of_power", "progression", "visible_counter", "fight_medium", "power_is")
+
+
+def _census(s: State, v: Vocab) -> list[Row]:
+    return [(c["census_id"], c["title"], c.get("year"), c["medium"], c["format"], c.get("popularity"),
+             c.get("has_power_system"), *(c.get(k) for k in _CENSUS), c.get("borrowed_system"))
+            for c in s.get("census", [])]
+
+
 def _archive(s: State, v: Vocab) -> list[Row]:
     return [(a["cell_key"], a["idea_id"], _j(a["fitness"]), a.get("replaced_idea_id"), a["generation"])
             for a in s.get("archive", [])]
@@ -234,6 +248,9 @@ TABLES: tuple[Table, ...] = (
                          "premise_cosine_max:d novel_combo:b h1_pass:b coherence criteria_met hard_fail:b "
                          "human_rating:i greenlight:b graveyard_hits"), _ideas),
     Table("archive", _cols("cell_key idea_id fitness replaced_idea_id generation:i"), _archive),
+    Table("prior_art", _cols("check_id claim_kind subject_id verdict n_counterexamples:i"), _prior_art),
+    Table("census", _cols("census_id title year:i medium format popularity:i has_power_system:b gate cost_of_power "
+                          "progression visible_counter fight_medium power_is borrowed_system"), _census),
 )
 
 VIEWS: tuple[tuple[str, str], ...] = (

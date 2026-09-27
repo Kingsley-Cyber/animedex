@@ -29,6 +29,7 @@ from animedex.guards import LiveRunRefused
 from animedex.models import CorpusEntry
 from animedex.ontology import Vocab
 from animedex.paths import Paths
+from animedex.pipeline.common import norm_url, url_set
 from animedex.prompts import RenderedPrompt, read_prompt
 from animedex.providers.base import ProviderError
 from animedex.providers.cli_common import CliAuthError, RateLimited
@@ -199,7 +200,7 @@ CITE_NATIVE = "cite a URL your searches returned or you opened in this session"
 def output_problems(out: dict[str, Any], pending: Pending, vocab: Vocab, pages: dict[str, TransientText] | set[str],
                     guards: GuardConfig, *, cite: str = CITE_PAGES) -> list[str]:
     problems = []
-    urls = set(pages)
+    urls = url_set(pages)
     fields_to_check = {p for p in pending.verify if not p.startswith("moments.")}
     enum_paths = {f.path: f for f in vocab.lens_fields() if f.kind == "enum"}
     for item in out.get("fields", []):
@@ -207,7 +208,7 @@ def output_problems(out: dict[str, Any], pending: Pending, vocab: Vocab, pages: 
         if path not in fields_to_check:
             problems.append(f"fields: {path!r} was not asked for")
             continue
-        if status in ("confirmed", "corrected") and item.get("source_url") not in urls:
+        if status in ("confirmed", "corrected") and norm_url(item.get("source_url")) not in urls:
             problems.append(f"{path}: {cite}, or mark unresolved")
         if status == "corrected":
             value = item.get("value")
@@ -227,14 +228,14 @@ def output_problems(out: dict[str, Any], pending: Pending, vocab: Vocab, pages: 
     for item in out.get("moments", []):
         if item.get("moment_id") not in moment_ids:
             problems.append(f"moments: unknown moment_id {item.get('moment_id')!r}")
-        elif item.get("status") in ("confirmed", "corrected", "not_found") and item.get("source_url") not in urls:
+        elif item.get("status") in ("confirmed", "corrected", "not_found") and norm_url(item.get("source_url")) not in urls:
             problems.append(f"{item['moment_id']}: {cite}, or mark unresolved")
     oc = out.get("outcome")
     if oc:
         if not oc.get("signals"):
             problems.append("outcome needs at least one metric with its page URL")
         for s in oc.get("signals", []):
-            if s.get("source_url") not in urls:
+            if norm_url(s.get("source_url")) not in urls:
                 problems.append(f"outcome signal {s.get('metric')!r}: {cite}")
         reason = oc.get("failure_reason")
         if oc.get("label") in ("mixed", "flop") and not reason:
@@ -250,7 +251,7 @@ def output_problems(out: dict[str, Any], pending: Pending, vocab: Vocab, pages: 
             elif level != "unknown":
                 if not evidence:
                     problems.append(f"outcome: failure_level {level} needs failure_evidence (25 words max)")
-                if oc.get("failure_evidence_url") not in urls:
+                if norm_url(oc.get("failure_evidence_url")) not in urls:
                     problems.append(f"outcome.failure_evidence_url: {cite}")
         if evidence:
             if word_count(evidence) > 25:
@@ -260,6 +261,15 @@ def output_problems(out: dict[str, Any], pending: Pending, vocab: Vocab, pages: 
 
 
 # ---------------------------------------------------------------- apply
+class _Sources:
+    """`url in sources` by normalized page identity (fetched pages or native web evidence)."""
+
+    def __init__(self, urls: Any):
+        self._urls = url_set(urls)
+
+    def __contains__(self, url: object) -> bool:
+        return norm_url(url) in self._urls
+
 @dataclass
 class VerifyTitleResult:
     title_id: str
@@ -275,6 +285,7 @@ def apply(pending: Pending, out: dict[str, Any], pages: dict[str, TransientText]
           threshold: float) -> tuple[dict[str, Any], list[dict[str, Any]], dict[str, Any] | None, VerifyTitleResult]:
     record = json.loads(json.dumps(pending.record))
     res = VerifyTitleResult(record["title_id"])
+    pages = _Sources(pages)
     by_path = {i["path"]: i for i in out.get("fields", [])}
     for path in pending.verify:
         if path.startswith("moments."):

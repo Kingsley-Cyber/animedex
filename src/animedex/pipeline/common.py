@@ -157,3 +157,20 @@ def raise_problems(problems: list[str]) -> None:
 
 def stable(value: Any) -> str:
     return json.dumps(value, sort_keys=True, ensure_ascii=False)
+
+
+def norm_url(url: Any) -> str:
+    """Compare citations by the page, not its spelling: no fragment, no trailing slash, host lowercased."""
+    from urllib.parse import urlsplit, urlunsplit
+
+    text = str(url or "").strip()
+    if not text:
+        return ""
+    parts = urlsplit(text)
+    path = parts.path.rstrip("/") or ""
+    return urlunsplit((parts.scheme.lower(), parts.netloc.lower().removeprefix("www."), path, parts.query, ""))
+
+
+def url_set(urls: Any) -> set[str]:
+    return {norm_url(u) for u in (urls or []) if norm_url(u)}
+
