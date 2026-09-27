@@ -313,6 +313,12 @@ def run_ideate(paths: Paths, settings: Settings, vocab: Vocab, *, clients: dict[
     ctx = build_context(paths, settings, vocab)
     if index:
         existing = CanonicalStore(paths).state()
+        passing = [i for i in existing.get("idea", []) if i["status"] != "rejected"]
+        if passing and not existing.get("archive"):  # the archive never persisted: rebuild it, and say so
+            rebuilt = rebuild_archive(paths, f"{run_id}_archive")
+            res.notes.append(f"rebuilt the missing archive from {len(passing)} passing card(s): "
+                             f"{rebuilt['cells']} cell(s)")
+            existing = CanonicalStore(paths).state()
         archive = {a["cell_key"]: a for a in existing.get("archive", [])}
         ideas = {i["idea_id"]: i for i in existing.get("idea", [])}
         if not ctx.pool:
@@ -633,6 +639,41 @@ def _fitness(card: dict[str, Any], ctx: Context) -> list[float]:
     return card_fitness(card, sum(1 for a in card.get("_atoms", []) if a.get("support") == "episode_backed"))
 
 
+def rebuild_archive(paths: Paths, run_id: str) -> dict[str, Any]:
+    """The MAP-Elites archive rebuilt from the canonical ideas (D-041): in each grid cell the passing card
+    with the best fitness wins (the earliest on a tie, as placement never replaces an equal); statuses become
+    champion or candidate. Archive candidates still pending were written against an archive that never
+    persisted, so they move to candidates/archive/superseded/<run_id>/ (kept, not deleted). No model calls."""
+    import shutil
+
+    store = CanonicalStore(paths)
+    ideas = store.read("idea")
+    best: dict[str, dict[str, Any]] = {}
+    for idea in sorted(ideas, key=lambda i: (i["generation"], i["idea_id"])):
+        if idea["status"] == "rejected" or not idea.get("grid_cell"):
+            continue
+        inc = best.get(idea["grid_cell"])
+        if inc is None or better(card_fitness(idea), card_fitness(inc)):
+            best[idea["grid_cell"]] = idea
+    champions = {i["idea_id"] for i in best.values()}
+    changed = [{**i, "status": "champion" if i["idea_id"] in champions else "candidate"} for i in ideas
+               if i["status"] != "rejected" and i["status"] != ("champion" if i["idea_id"] in champions else "candidate")]
+    if changed:
+        store.write("idea", changed, run_id)
+    rows = [{"cell_key": cell, "idea_id": i["idea_id"], "fitness": card_fitness(i), "replaced_idea_id": None,
+             "generation": i["generation"], "provenance": i["provenance"]} for cell, i in sorted(best.items())]
+    if rows:
+        store.write("archive", rows, run_id)
+    moved = []
+    folder = paths.candidates / "archive"
+    for f in sorted(folder.glob("*.jsonl")) if folder.is_dir() else []:
+        target = folder / "superseded" / run_id / f.name
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.move(str(f), target)
+        moved.append(f.name)
+    return {"cells": len(rows), "champions": len(champions), "status_changes": len(changed), "superseded": moved}
+
+
 def _finish_generation(r: _Run, cands: list[Cand], archive: dict, ideas: dict[str, dict[str, Any]], gen: int,
                        art_records: list[dict[str, Any]], stopped: bool = False) -> None:
     res, ctx, dims = r.res, r.ctx, r.dims
@@ -720,5 +761,5 @@ def diversity_alarm(archive: dict, dims: list[str], settings: Settings) -> str |
     return None
 
 
-__all__ = ["IdeateResult", "PROFILE_PATHS", "baseline_file", "card_fitness", "cell_key", "grid_cells",
+__all__ = ["IdeateResult", "PROFILE_PATHS", "baseline_file", "card_fitness", "cell_key", "grid_cells", "rebuild_archive",
            "ideation_budget", "run_ideate", "build_context"]

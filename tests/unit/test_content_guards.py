@@ -26,6 +26,8 @@ def test_speaker_lines_are_dialogue(text):
     "Card duel mechanics: decks, mana, turn limits, and ranked ladders",
     "Echo Theft: steals others' skills and their memories",
     "focus on the user's wallet",                      # 'us'/'user' are not the pronoun 'us'
+    # D-041, live M5: a sentence-case label is a description even when the text says "your"
+    "Iyashikei safety: cozy club comedies never kill main characters, and sacrifice gives your death meaning.",
 ])
 def test_a_label_and_a_description_is_not_dialogue(text):
     assert not dialogue_problems(text)

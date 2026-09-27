@@ -130,7 +130,15 @@ def canonicalize(paths: Paths, run_id: str) -> CanonicalizeResult:
         if not files:
             continue
         good_raw = []
+        known_ideas = {i["idea_id"] for i in store.read("idea")} if record_type == "archive" else set()
         for raw in records:  # pass raw (not normalized) records on, so the store writes their proposals
+            if record_type == "archive" and raw.get("idea_id") not in known_ideas:
+                # its idea was quarantined or never written: drop this row alone, never the whole archive (D-041)
+                rid = RECORD_TYPES[record_type].key(raw)
+                msg = f"archive row for {raw.get('idea_id')}: that idea is not in the canonical ideas"
+                quarantine(paths.quarantine, "CANONICALIZE", record_type, rid, raw, [msg])
+                result.quarantined.append((record_type, rid, msg))
+                continue
             _, bad_one = store.validate_each(record_type, [raw], run_id)
             for rid, msg, _raw in bad_one:
                 quarantine(paths.quarantine, "CANONICALIZE", record_type, rid, raw, [msg])

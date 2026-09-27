@@ -12,6 +12,7 @@ from typing import Any
 
 from pydantic import ValidationError
 
+from animedex.content_guards import GuardConfig, record_problems
 from animedex.ideate.context import PROFILE_PATHS, Context
 from animedex.integrity import name_leaks
 from animedex.models import IdeaCard
@@ -124,6 +125,9 @@ def generate_problems(out: dict[str, Any], ctx: Context, atoms: list[dict[str, A
         IdeaCard.model_validate(draft)
     except ValidationError as exc:
         problems += [f"{'.'.join(str(x) for x in err['loc'])}: {err['msg']}" for err in exc.errors()[:6]]
+    # the canonical store's content guards, checked here so the model repairs the card instead of the card
+    # (and its archive row) failing later at canonicalize (D-041)
+    problems += [f"content guard: {p}" for p in record_problems(draft, GuardConfig())]
     return problems
 
 

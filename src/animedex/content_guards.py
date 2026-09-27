@@ -17,7 +17,9 @@ DEFAULT_FRAMING_TERMS = (
     "montage", "shot composition", "storyboard", "cinematography", "pov shot",
 )
 _QUOTED = re.compile(r'["“”„«»]([^"“”„«»]{1,400})["“”„«»]|‘([^‘’]{1,400})’')
-_SPEAKER = re.compile(r"^\s*[A-Z][A-Za-z .'-]{0,30}:\s+(\S.*)$", re.MULTILINE)
+# a speaker label is a name: one to four Title Case words ("Kira:", "Killua Zoldyck:", "Mr. Smith:"); a
+# sentence-case label ("Iyashikei safety: ...") introduces a description, not speech (D-041)
+_SPEAKER = re.compile(r"^\s*[A-Z][\w.'-]*(?: [A-Z][\w.'-]*){0,3}:\s+(\S.*)$", re.MULTILINE)
 # what makes the text after a speaker label read as speech: first/second person, an exclamation or
 # question, or an opening quote mark
 _SPEECH = re.compile(r"(?i)(?<![\w'])(i|i'm|i'll|i've|i'd|me|my|mine|we|we're|we'll|us|our|ours|you|you're|"

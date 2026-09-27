@@ -388,8 +388,22 @@ ARM_HELP = ("animedex (the index), or baseline_loop: baseline 1 of the blind rev
 
 @app.command()
 def ideate(generations: int = typer.Option(None, "--generations", help="Default: ideate.generations"),
-           arm: str = typer.Option("animedex", "--arm", help=ARM_HELP)) -> None:
+           arm: str = typer.Option("animedex", "--arm", help=ARM_HELP),
+           rebuild_archive: bool = typer.Option(False, "--rebuild-archive",
+                                                help="Rebuild the archive from the canonical ideas (no model calls).")
+           ) -> None:
     """IDEATE: MAP-Elites idea cards -> data/canonical/ideas.jsonl and build/reports/ideas.md."""
+    if rebuild_archive:
+        from animedex.ideate.report import write_report as _write_report
+        from animedex.ideate.run import rebuild_archive as _rebuild
+        from animedex.store.runlog import new_run_id as _new_run_id
+
+        _p = _paths()
+        out = _rebuild(_p, _new_run_id())
+        _write_report(_p)
+        typer.echo(f"archive rebuilt: {out['cells']} cell(s), {out['champions']} champion(s), "
+                   f"{out['status_changes']} status change(s); superseded candidates: {len(out['superseded'])}")
+        return
     from animedex.embeddings.base import EmbedderUnavailable, build_embedder
     from animedex.ideate.report import write_report
     from animedex.ideate.run import ideation_budget, run_ideate

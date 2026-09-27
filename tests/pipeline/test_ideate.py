@@ -298,3 +298,61 @@ def test_a_changed_corpus_never_serves_a_stale_cached_card(pool):
     run_ideate(pool, settings, get_vocab(), clients=second, embedder=MockEmbedder(), run_id="run_y", generations=1)
     assert second["ideate_generate"].provider.calls  # same plans, new corpus list: generated again, not cached
 
+
+
+# ---------------------------------------------------------------- D-041: the archive persists and repairs itself
+def test_a_generated_card_faces_the_canonical_content_guards(pool):
+    from animedex.ideate.context import build_context
+    from animedex.ideate.llm import generate_problems, generate_schema
+
+    ctx = build_context(pool, load_settings(pool), get_vocab())
+    out = responder("", "", generate_schema(get_vocab(), [], sorted(ctx.titles), []), {})
+    out["source_transfer_ids"] = []
+    cell = "gate=innate|set_structure=none|progression=none"
+    assert not [p for p in generate_problems(out, ctx, [], "change_rule", cell, prov("IDEATE"), aliases={})
+                if p.startswith("content guard:")]
+    out["broken_rule"] = 'The old rule said "never trust a stranger with your name" and this breaks it.'
+    problems = generate_problems(out, ctx, [], "change_rule", cell, prov("IDEATE"), aliases={})
+    assert any(p.startswith("content guard:") for p in problems)
+
+
+def test_an_archive_row_whose_idea_is_missing_is_dropped_alone(pool):
+    from animedex.pipeline.canonicalize import canonicalize
+    from animedex.pipeline.common import write_candidates
+
+    st = CanonicalStore(pool).state()
+    idea = st["idea"][0] if st["idea"] else None
+    if idea is None:
+        from tests.conftest import make_idea
+        idea = make_idea(7)
+        CanonicalStore(pool).write("idea", [idea])
+    rows = [{"cell_key": idea["grid_cell"], "idea_id": idea["idea_id"], "fitness": [0.0, 1.0, 1.0, 0.0, -0.3],
+             "replaced_idea_id": None, "generation": 1, "provenance": prov("IDEATE")},
+            {"cell_key": "gate=none|set_structure=none|progression=none", "idea_id": "idea.run_gone_001.001",
+             "fitness": [0.0, 1.0, 0.0, 0.0, -0.1], "replaced_idea_id": None, "generation": 1,
+             "provenance": prov("IDEATE")}]
+    write_candidates(pool, "archive", "run_arch_g1", rows)
+    res = canonicalize(pool, "run_arch")
+    assert [a["idea_id"] for a in CanonicalStore(pool).read("archive")] == [idea["idea_id"]]
+    assert any(q[1] == "gate=none|set_structure=none|progression=none" for q in res.quarantined)
+
+
+def test_rebuild_archive_keeps_the_best_card_per_cell_and_fixes_statuses(pool):
+    from animedex.ideate.run import rebuild_archive
+    from tests.conftest import make_idea
+
+    cell = "gate=inherited|set_structure=unique_to_few|progression=none"
+    weak = make_idea(11, generation=1, status="champion", grid_cell=cell)
+    strong = make_idea(12, generation=2, status="champion", grid_cell=cell,
+                       taste={"criteria_met": ["T2", "T3"], "evidence": {"T2": "shares a concept", "T3": "two media"},
+                              "hard_fail": False})
+    CanonicalStore(pool).write("idea", [weak, strong])
+    stale = pool.candidates / "archive"
+    stale.mkdir(parents=True, exist_ok=True)
+    (stale / "run_old_g1.jsonl").write_text("")
+    out = rebuild_archive(pool, "run_rebuild")
+    archive = {a["cell_key"]: a["idea_id"] for a in CanonicalStore(pool).read("archive")}
+    ideas = {i["idea_id"]: i["status"] for i in CanonicalStore(pool).read("idea")}
+    assert archive[cell] == strong["idea_id"] and ideas[strong["idea_id"]] == "champion"
+    assert ideas[weak["idea_id"]] == "candidate" and out["superseded"] == ["run_old_g1.jsonl"]
+    assert (stale / "superseded" / "run_rebuild" / "run_old_g1.jsonl").is_file()  # kept, not deleted

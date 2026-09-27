@@ -1,5 +1,12 @@
 # Changelog — docs/implementation
 
+## The idea archive persists — 2026-09-27
+- **D-041.** Live M5 finding: one canary card's `broken_rule` ("Iyashikei safety: …") tripped the dialogue guard at canonicalize. Its dangling archive row then failed the whole archive transaction on every run, so the archive never persisted: every passing card stayed "champion" and no card was ever displaced.
+  - A speaker label must now be Title Case (a name), so a sentence-case label introduces a description, not speech.
+  - Card generation applies the canonical content guards, so the model repairs a card instead of losing it at canonicalize.
+  - An archive row whose idea is missing is quarantined alone.
+  - `animedex ideate --rebuild-archive` rebuilds the archive from the canonical ideas (best fitness per cell; ties keep the earliest), fixes statuses, and moves stale archive candidates to `candidates/archive/superseded/` (kept). An ANIMEDEX run whose archive is missing rebuilds it first and says so.
+
 ## Name-leak list: names, not capitals — 2026-09-27
 - **D-039.** The M5 canary lost original cards to "God", "Earth" and "Ten" (from "Group of Ten"). A capitalized word now counts as a name only when the index's own prose never writes it in lowercase, and it isn't a number word, universal noun, real place, calendar word, everyday acronym or generic institution noun. Compound names ("Fire Nation", "Upper Moons", "Philosopher's Stone") are caught as phrases, and a possessive ("Kirito's") still names its owner. Characters' own names always count.
 
