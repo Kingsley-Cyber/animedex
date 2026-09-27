@@ -136,3 +136,27 @@ def test_review_report_hides_the_arms_until_every_card_is_rated(repo):
     report = (repo.reports / "taste.md").read_text()
     assert not res.complete and res.rated == 3 and res.card_strength == {} and res.arm_strength == {}
     assert "1 card(s) still unrated" in report and "animedex" not in report and "baseline" not in report
+
+
+def test_provenance_of_winners_lists_greenlit_cards_after_the_review_only(repo):
+    """Controls A6: arm, patterns and source titles, principles, and greenlit cards with no index material."""
+    import yaml as _yaml
+
+    from animedex.ideate.review import taste_summary
+
+    _review(repo, {"C01": 5, "C02": 2, "C03": 3, "C04": 4})
+    f = repo.root / "eval" / "blind" / f"ratings_{DATE}.yaml"
+    data = _yaml.safe_load(f.read_text())
+    data["cards"]["C01"]["greenlight"] = True   # ANIMEDEX
+    data["cards"]["C03"]["greenlight"] = True   # baseline 2: no idea record, no patterns
+    f.write_text(_yaml.safe_dump(data))
+    res = taste_summary(repo)
+    rows = {r["card"]: r for r in res.provenance}
+    assert set(rows) == {"C01", "C03"}
+    assert rows["C01"]["arm"] == "animedex" and rows["C01"]["patterns"]
+    assert all(u["title_id"] == "ironvale_circuit_2021" for u in rows["C01"]["patterns"])
+    assert rows["C03"] == {"card": "C03", "arm": "baseline_single", "operator": None, "patterns": [],
+                           "index_material": False}
+    report = (repo.reports / "taste.md").read_text()
+    assert "## Provenance of winners (greenlit cards)" in report and "| C01 | animedex |" in report
+    assert "used no index material in their text" in report

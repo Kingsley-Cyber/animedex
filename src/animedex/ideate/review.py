@@ -19,6 +19,7 @@ rated the report gives counts only, so no arm is revealed mid-review.
 from __future__ import annotations
 
 import json
+import re
 import threading
 from dataclasses import dataclass, field
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -276,13 +277,14 @@ class TasteResult:
     arm_record: dict[str, list[int]] = field(default_factory=dict)   # arm -> [wins, losses] against other arms
     judge_agreement: float | None = None
     judge_pairs: int = 0
+    provenance: list[dict[str, Any]] = field(default_factory=list)   # A6: greenlit cards, after the review only
     report: str = ""
 
     def to_dict(self) -> dict[str, Any]:
         return {"date": self.date, "cards": self.cards, "rated": self.rated, "complete": self.complete,
                 "picks": self.picks, "card_strength": self.card_strength, "arm_strength": self.arm_strength,
                 "arm_record": self.arm_record, "judge_agreement": self.judge_agreement,
-                "judge_pairs": self.judge_pairs}
+                "judge_pairs": self.judge_pairs, "provenance": self.provenance}
 
 
 def taste_summary(paths: Paths, date: str | None = None) -> TasteResult:
@@ -320,7 +322,9 @@ def taste_summary(paths: Paths, date: str | None = None) -> TasteResult:
         judge = judge_scores(key, ideas)
         res.judge_agreement = stats.ranking_agreement(res.card_strength, judge)
         res.judge_pairs = compared_pairs(res.card_strength, judge)
-        text = _taste_md(res, key, ratings, judge)
+        transfers = {t["transfer_id"]: t for t in CanonicalStore(paths).read("transfer")}
+        res.provenance = winners_provenance(key, ratings, ideas, transfers)
+        text = _taste_md(res, key, ratings, judge, res.provenance)
     else:
         text = _taste_md(res, {}, {}, {})
     out = paths.reports / "taste.md"
@@ -330,8 +334,59 @@ def taste_summary(paths: Paths, date: str | None = None) -> TasteResult:
     return res
 
 
+REACH_MIN_WORDS = 3   # a pattern reached a card's text when they share this many content words (A6)
+_STOP = frozenset("that this with from into their them they have when what which while where because every "
+                  "each only more than then over under about after before".split())
+
+
+def _content_words(text: str) -> set[str]:
+    return {w for w in re.findall(r"[a-z]+", text.lower()) if len(w) > 3 and w not in _STOP}
+
+
+def card_text(idea: dict[str, Any]) -> str:
+    e = idea.get("engine") or {}
+    return " ".join([str(idea.get("logline") or ""), str(idea.get("premise") or ""), *(str(v) for v in e.values())])
+
+
+def winners_provenance(key: dict[str, dict[str, Any]], ratings: dict[str, dict[str, Any]],
+                       ideas: dict[str, dict[str, Any]], transfers: dict[str, dict[str, Any]]) -> list[dict[str, Any]]:
+    """Controls A6: for each greenlit card, its arm, the patterns it drew on with their source titles and
+    principles, and whether any of them reached the card's text (REACH_MIN_WORDS shared content words)."""
+    out = []
+    for cid in sorted(c for c, r in ratings.items() if r.get("greenlight") is True):
+        k = key.get(cid) or {}
+        idea = ideas.get(str(k.get("source"))) or {}
+        text = _content_words(card_text(idea))
+        used = []
+        for tid in idea.get("atoms_used") or []:
+            t = transfers.get(tid) or {}
+            shared = len(text & _content_words(str(t.get("pattern") or "")))
+            used.append({"transfer_id": tid, "title_id": str(t.get("source_atom_id") or tid).split(".")[0],
+                         "principle": t.get("principle"), "reached": shared >= REACH_MIN_WORDS})
+        out.append({"card": cid, "arm": k.get("arm", "?"), "operator": (idea.get("transformation") or {}).get("operator"),
+                    "patterns": used, "index_material": any(u["reached"] for u in used)})
+    return out
+
+
+def _provenance_md(rows: list[dict[str, Any]]) -> list[str]:
+    lines = ["## Provenance of winners (greenlit cards)", ""]
+    if not rows:
+        return [*lines, "No card was greenlit.", ""]
+    lines += ["| Card | Arm | Operator | Patterns drawn on (source title; in the text?) | Principles |", "|---|---|---|---|---|"]
+    for r in rows:
+        pats = "; ".join(f"{u['transfer_id']} ({u['title_id']}; {'yes' if u['reached'] else 'no'})"
+                         for u in r["patterns"]) or "none"
+        principles = "; ".join(str(u["principle"]) for u in r["patterns"] if u.get("principle")) or "none"
+        lines.append(f"| {r['card']} | {r['arm']} | {r['operator'] or 'n/a'} | {pats} | {principles} |")
+    none = [r["card"] for r in rows if not r["index_material"]]
+    lines += ["", f"{len(none)} of {len(rows)} greenlit card(s) used no index material in their text "
+              f"({', '.join(none) or 'none'}): the baseline cards, plus any ANIMEDEX card whose patterns share fewer "
+              f"than {REACH_MIN_WORDS} content words with its logline, premise and engine.", ""]
+    return lines
+
+
 def _taste_md(res: TasteResult, key: dict[str, dict[str, Any]], ratings: dict[str, dict[str, Any]],
-              judge: dict[str, float]) -> str:
+              judge: dict[str, float], provenance: list[dict[str, Any]] | None = None) -> str:
     p = res.picks
     lines = ["# Taste: Bradley-Terry strengths from pairwise picks", "",
              f"Packet {res.date}: {res.cards} cards, {res.rated} rated. Picks: {p['kingsley']} from Kingsley's ratings "
@@ -358,4 +413,5 @@ def _taste_md(res: TasteResult, key: dict[str, dict[str, Any]], ratings: dict[st
               "puts the same way as the strengths (ties in either are skipped). The judge's ordering is each card's "
               "fitness without the human rating (gates passed, taste criteria kept, lower structural overlap), from "
               "the idea records; baseline 2 cards have none. Judge rank: higher is better.", ""]
+    lines += _provenance_md(provenance or [])
     return "\n".join(lines) + "\n"
