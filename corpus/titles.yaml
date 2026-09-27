@@ -48,6 +48,17 @@ titles:
       seasons: [1]
       numbering: broadcast
       exclude: ["Extra Edition", "Sword Art Offline shorts", "SAO II onward", "films", "manga versions", "light novels volume 5 onward"]
+    role_tags: [mixed]   # non-gold since 2026-09-27: Btooom! took the gold mixed slot (Kingsley has watched it)
+  - title_id: btooom_2012   # gold mixed from 2026-09-27: MAL 7.26 (519k), AniList 68, ANN B- (all mixed)
+    title: Btooom!
+    year: 2012
+    medium: anime
+    format: serialized
+    scope:
+      version: "Madhouse TV anime (12 eps, 2012-10 to 2012-12)"   # anilist.co/anime/14345
+      seasons: [1]
+      numbering: broadcast
+      exclude: ["manga material beyond the anime's 12 episodes"]
     role_tags: [gold, mixed]
   - title_id: big_order_2016
     title: Big Order
