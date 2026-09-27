@@ -447,6 +447,7 @@ Corpus-level coverage is derived in DuckDB. A zero-count gap is reportable as "o
   "revival_of": {"title_id": "an execution-level flop", "failure_evidence_ref": "URL or null", "improvement": "≤25 words"},
   "runway": {"hurts_by_arc5": true, "reason": "≤25 words"},
   "status": "candidate|champion|rejected",
+  "arm": "animedex|baseline_loop|baseline_single (M5; default animedex)",
   "generation": 0, "parent_ids": [],
   "human_rating": null,
   "provenance": {},
@@ -466,6 +467,7 @@ Corpus-level coverage is derived in DuckDB. A zero-count gap is reportable as "o
 - **v1.8 concept layer:** every field from `mc` on is optional, so earlier cards stay valid. Power-kit tools (at most 3) each name one of the kit's functions. `core_fantasy` lists a value once. A rule is listed as satisfied or failed, not both.
 - The clone check embeds `premise_abstraction`, not the surface premise (IDEATE, M5).
 - `champion` means the card holds its MAP-Elites cell. "Elite" is reserved for Kingsley's verdict (`human_rating`, `eval/blind/`).
+- `arm` (M5, controls decision 1) names the blind-review arm that wrote the card. Only `animedex` cards must list atoms (`atoms_used`, `source_transfer_ids` ≥ 1). `baseline_loop` cards (the same loop with an empty brief) are stored in `data/blind/baseline_loop/`, never in `ideas.jsonl` or the archive.
 - The `profile` uses the same enums as titles so overlap is computable.
 - `consequence_test` records, per dimension, whether the idea's consequences differ from what happens in `closest_existing`. `h1_pass` requires at least `ideate.h1_min_changed_dimensions` of 3.
 

@@ -45,12 +45,12 @@ Metrics:
 - **Operator stats:** which operators produce champions, and which mostly fail gates.
 - **Grid coverage:** occupied cells / total cells, and the distribution across cells.
 - **Blind review protocol:**
-  1. Generate three arms of 15 (v1.6, replacing 20 vs 20; `make packet`):
+  1. Generate three arms of 15 (v1.6, replacing 20 vs 20; arms per the M5 fair-baseline ruling, controls decision 1; `make ideas ARM=baseline_loop`, then `make packet`):
      - ANIMEDEX champions;
-     - a plain prompt with the taste standard;
-     - the same model with its own web search, asked to find gaps first.
+     - baseline 1: the same ideation loop with an empty brief (no atoms, titles or flops), its best card per cell;
+     - baseline 2: one "write N premises" call.
 
-     All arms use the same model and the same length limits. Never loosen a gate to reach 15; with fewer champions, every arm shrinks to N.
+     All arms use the same model, the same taste standard text, the same steering rules and the same length limits. No arm searches the web while generating; every packet card gets the same prior-art check, recorded in the answer key. Never loosen a gate to reach 15; with fewer cards in any arm, every arm shrinks to N.
   2. Strip metadata; format identically (logline + premise only).
   3. Shuffle. Kingsley rates each 1–5, marks "would greenlight" y/n, and tags any taste criterion met (T1–T5).
   4. Unblind and compare. Record in `eval/blind/<date>.json`.

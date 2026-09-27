@@ -16,7 +16,11 @@
 | `animedex analyze` | Coverage, gaps, lanes, graveyard, episode analytics |
 | `animedex patterns` | Pattern cards (M7) |
 | `animedex ideate --generations N` / `make ideas` | MAP-Elites; cards in `build/reports/ideas.md` |
-| `animedex packet` / `make packet` | Blind review packet: ANIMEDEX + plain baseline + web baseline (v1.6) |
+| `animedex ideate --arm baseline_loop` / `make ideas ARM=baseline_loop` | Baseline 1 for the blind review: the same loop with an empty brief (M5) |
+| `animedex packet` / `make packet` | Blind review packet: ANIMEDEX + baseline 1 (the same loop, empty brief) + baseline 2 (one call) (M5) |
+| `animedex audit [--date D]` / `make audit` | 10 eligible atoms with evidence trails to `eval/audit/audit_<date>.yaml`, for Kingsley to mark (M5) |
+| `animedex audit-report` / `make audit-report` | Wrong rate per audit date and extractor–critic disagreement per P2 run, `build/reports/audit.md` (M5) |
+| `animedex diagnose --file PATH \| --text "…"` / `make diagnose FILE=… \| TEXT="…"` | Check your own concept: every gate, the judge and an ablation pass, with prescriptions (M5) |
 | `animedex census --top N` / `make census` | Census of catalog titles, counts only (v1.6) |
 | `animedex backfill --list <file>` / `make backfill LIST=<file>` | Resolve a title list, add it to the corpus, run the full pipeline in paced batches |
 | `animedex migrate --to <version>` | Mechanical data migration |
@@ -192,6 +196,27 @@ Deterministic except steps 3 and 5, which call a model.
 - **Prior art:** every T1 and T4 claim gets a prior-art web check, using the model's own web tools and the same evidence rule as VERIFY. A counterexample or an unclear result removes the claim.
 - **Call cap:** runs respect the per-run call cap and continue from the archive.
 
+### IDEATE additions (M5; owner rulings 2026-09-27, "before M5 live runs")
+- **Call brief (item 4).** Each generate call gets a small brief, not every title and flop (`ideate/brief.py`). It is compact `key: value` lines, not Markdown:
+  - `theme`, `operator` (with its definition), `target` (the cell);
+  - `atom A1`, `atom A2`…: the plan's atoms under opaque aliases, with bridge concepts and essential, variable and failure conditions. No source title and no transfer id is shown. The model lists aliases in `source_transfer_ids`, and the card maps them back to the real transfer ids;
+  - `revive` / `borrowed_system` for those two operators;
+  - `cell`: corpus titles and census rows in the target cell (counts only, AC-44) and whether zeros there are trusted;
+  - `lanes`: imported/export lane concepts among the atoms' bridges; `prior_art`: verdicts already recorded for earlier cards in the cell;
+  - `title`: the nearest `ideate.brief_titles` (10) titles, by the clone gate's structural Jaccard between the target profile + the atoms' bridge concepts and each title's structural set (ties by id). `closest_existing` may still be any corpus id;
+  - `flop`: mixed/flop titles in the target region, meaning their structural set overlaps the target set (most overlap first, up to `ideate.brief_graveyard_max`, 5). If none overlaps, the first two rows by id stand in so the pre-mortem keeps sources (AC-46); the call meta records `graveyard_region: fallback`. Pre-mortem sources are limited to the flops shown;
+  - `rule`: every steering rule; `rework`: the failed checks on a retry.
+  - **Cap:** `ideate.brief_max_words` (600). Optional lines go first (farthest titles, extra flops, prior art, lanes, the last flop). A brief whose required lines alone pass the cap is refused before any call (`brief:` rejection). Each call's run-log entry carries `meta.brief`: words, estimated tokens (characters / 4), and counts per slot.
+- **Novelty (item 5).** Enum zero pairs are census-backed: they count only once the census holds at least `ideate.census_novelty_min_rows` (200) rows with `has_power_system: true`. Until then novelty rests on bridge-concept pairs only (atoms from 2+ titles). Census-backed coverage adequacy uses the same 200-row floor.
+- **Judge on `why_different` (item 6).** On a premise-level graveyard match the judge sees the card's `why_different` and each matched flop's recorded failure (reason and level). It returns `why_different_verdict` pass | fail | not_applicable with a reason of 25 words or fewer. "Not blank" is no longer a pass: a blank answer still fails the gate, and a judged fail gets one rework, then rejection (like runway). A card with a match must get pass or fail (one repair).
+- **Fair baselines (item 7; controls A5, decision 1).** The blind review has three arms, and only index access differs:
+  - `animedex`: the champions;
+  - `baseline_loop` (baseline 1): `run_ideate(..., index=False)`, the same loop (prompt, operators, gates, judge, prior-art check) with an empty brief: theme, operator, target, steering rules and rework notes (title ids redacted). No atoms, titles, flops, cell counts, lanes or prior art. It never runs `revive_execution_flop` or `borrow_system`, which need index evidence. It sees no title ids, so its `closest_existing` is the title the clone gate measures (structural nearest, else premise-cosine nearest). Its cards carry `arm: baseline_loop`, may have no atoms, and live in `data/blind/baseline_loop/`. They never enter the canonical ideas, the archive or the champions, and the packet takes its best card per cell by the same fitness;
+  - `baseline_single` (baseline 2): one "write N premises" call (`prompts/baseline_single.md`).
+  - All arms use the `ideate_generate` slot and the same taste standard text (`prompts/taste_standard.md`, included in the generate and baseline prompts). They get the same steering rules (`steering/rules.yaml`, a list of `{id, rule, strength: hard|soft}`, rendered as `rule <id> (<strength>): <text>`; no file means no rules; a malformed file stops the run). No arm uses web tools while generating: the web baseline and `prompts/baseline_web.md` are retired. Every packet card then gets the same prior-art check, recorded in the answer key only (`data/blind/key_<date>.json`: arm, source, prior-art verdict).
+- **Call cap (item 8).** Ideation runs (`make ideas`, either arm) share one cap across generate, judge and prior art: `ideate.calls_per_run` (60), so one run covers three generations. Other runs keep `budget.calls_per_run` (40).
+- **Contested-evidence flag (controls A8).** When `ideas.md` is written, a card whose `atoms_used` lean on an atom now CONTESTED or REJECTed by its latest CHECK, with `explanation: contested`, gone from the index, or (M6 hook) `support.status: contradicted` shows an **Evidence flag** line. It is computed from the current canonical state every time and never shown in the blind packet.
+
 ### CENSUS (v1.6)
 - **In:**
   - catalog titles: AniList's popular franchise roots since 1995, anime + donghua;
@@ -206,6 +231,45 @@ Deterministic except steps 3 and 5, which call a model.
 - **Pairing:** two versions of the same story become each other's nearest neighbor.
 - **Mix warning:** an all-hit or all-anime list gets a warning and suggestions, never a block.
 - **Running:** the full pipeline runs in paced batches, and the report shows counts only.
+
+### AUDIT (controls A7, M5)
+- **`animedex audit [--date D] [--size 10]`:** samples 10 load-bearing-eligible atoms at random, seeded by the date, and writes `eval/audit/audit_<date>.yaml`. The folder is git-ignored and backed up to the private data repo. Per atom the sheet holds:
+  - the atom's text and its P2 run;
+  - each evidence ref (and the effect's `element_ref`) resolved to the profile field, moment or episode it names, with value or text, verification status and source URL;
+  - the CHECK verdict history (target, verdict, reasons, run);
+  - a blank `mark:` for Kingsley: `true` | `plausible` | `wrong`.
+- **Guards:** while `eval/gold/BLIND.yaml` is `pending`, gold titles are never sampled; partner titles are (owner ruling 2026-09-27). An existing sheet is never overwritten, since it may hold marks.
+- **`animedex audit-report`:** reads every sheet and writes `build/reports/audit.md` (counts only, no atom text):
+  - the wrong rate per audit date (wrong / marked), followed over time;
+  - the extractor–critic disagreement per P2 run: the share of checked atoms whose first CHECK verdict was not ACCEPT, grouped by the run that extracted them. Atoms CHECK rejected are counted from quarantine.
+
+### DIAGNOSE (owner ruling 2026-09-27, M5; reuses the M5 gates and judge)
+- **In:** a concept as text, `--file PATH` or `--text "…"` (up to `diagnose.max_concept_words`, 800). **Out:** `data/diagnose/<id>.json` (the concept, the card, every result) and `data/diagnose/<id>.md`, both private (git-ignored, backed up to the private data repo, never in the public repo), plus printed lines. The id is `diag_<yyyymmdd>_<sha8 of the text>`.
+- **Steps (3 calls under `diagnose.calls_per_run`, 6, since each call may spend its one repair):**
+  1. **Structure** (slot `ideate_generate`, `prompts/diagnose_structure.md` 1.0.0): the concept becomes a card (`models/diagnose.py`): logline, premise, theme, engine (7 parts), twist (`what_changed`), consequences, profile (6 enums), closest existing title, why not a clone, broken rule, appetite, why different. The model structures and does not improve. While the gold blind is pending it sees no gold title.
+  2. **Gates**, exactly as on generated cards: clone, novelty, graveyard, name leak. A concept has no atoms, so novelty can only come from census-backed enum zeros (item 5).
+  3. **Judge**: the IDEATE judge prompt and call shape, one card: H1, coherence, runway, and `why_different` on a premise-level match. Taste claims are listed, unverified (diagnose runs no prior-art check).
+  4. **Ablation** (slot `ideate_judge`, `prompts/diagnose_ablation.md` 1.0.0): for each part (the 7 engine parts, the twist, the broken rule when present, the 6 profile values), `load_bearing` | `supporting` | `decoration` with a reason of 20 words or fewer. The check fails when the twist is decoration or when no part is load-bearing.
+- **Output:** one line per check (PASS, FAIL or SKIP, and why). No reworks, and the full rebuild (`amplify`) stays after blind review #1. Each FAIL gets a prescription from this fixed table (in code, `ideate/diagnose.py`):
+
+| Failure | Prescription | Kind |
+|---|---|---|
+| structure (no valid card) | kit | rung |
+| clone: structural overlap | change_rule | operator |
+| clone: procedural overlap | kit | rung |
+| clone: premise similarity | redistribute_knowledge | operator |
+| novelty | combine_mechanisms | operator |
+| graveyard (blank why different) | promise and hooks | rung |
+| why different (judged fail) | promise and hooks | rung |
+| name leak | world | rung |
+| H1 consequence test | transfer_cost | operator |
+| coherence | villain and thematic argument | rung |
+| runway | engine and escalation | rung |
+| ablation: the twist is decoration | change_rule | operator |
+| ablation: no load-bearing part | reverse_incentive | operator |
+
+  The concept ladder: kit → set → MC → villain and thematic argument → world → engine and escalation → promise and hooks → pilot hook → three key frames → storyboard.
+- **Gold blind:** gold names are masked, and a judge reason written against a gold title is withheld while the blind is pending.
 
 ## Caching and idempotency
 `cache_key = sha256(id | pass | prompt_version | schema_version | vocab_version | model | params | upstream_hash)`, where `upstream_hash` hashes the canonical inputs the pass reads.
@@ -293,6 +357,12 @@ ideate:
   generations: 3
   candidates_per_generation: 12
   diversity_alarm: {champion_share: 0.40, cell_share: 0.10}
+  calls_per_run: 60              # M5: ideation runs; other runs keep budget.calls_per_run
+  brief_max_words: 600           # M5 call brief
+  brief_titles: 10
+  brief_graveyard_max: 5
+  census_novelty_min_rows: 200   # M5: census-backed zeros need this many powered census rows
+diagnose: {calls_per_run: 6, max_concept_words: 800}
 ```
 Gate and episode thresholds are initial calibration values, not truths. Recalibrate in M7.
 
@@ -385,6 +455,9 @@ dramatic question) and its consequences for characters' choices, relationships, 
 
 JUDGE: For each consequence dimension, does it differ from what happens in closest_existing?
 (yes/no + reason). Does the idea trigger any failure_condition of the atoms it uses? Does the
-dilemma follow from the cost, and does the mechanic express the theme? Then evaluate each taste
-criterion only with the required evidence.
+dilemma follow from the cost, and does the mechanic express the theme? On a premise-level graveyard
+match, does why_different answer the matched flop's recorded failure (pass/fail + reason; not blank
+is not a pass)? Then evaluate each taste criterion only with the required evidence.
 ```
+M5: the generate prompt (2.0.0) reads the call brief and carries the shared taste standard; the
+judge prompt is 1.1.0.

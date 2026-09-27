@@ -3,9 +3,11 @@
 1. Clone: structural Jaccard >= structural_jaccard_reject, procedural Jaccard >= procedural_jaccard_reject,
    or (premise cosine >= premise_cosine_reject and structural >= premise_cosine_with_structural)
    -> rework once, then reject.
-2. Novelty: an enum pair with zero co-occurrence under adequate coverage, or a pair of bridge
-   concepts that no single title's load-bearing patterns combine -> else reject. (Zero is not novel
-   when coverage is thin.)
+2. Novelty: a pair of bridge concepts that no single title's load-bearing patterns combine (atoms
+   from 2+ titles), or an enum pair with zero co-occurrence across corpus + census -> else reject.
+   Enum zeros are census-backed, so they count only once the census holds at least
+   `ideate.census_novelty_min_rows` (200) powered rows (owner ruling 2026-09-27); until then
+   novelty rests on bridge-concept pairs only. (Zero is not novel when coverage is thin.)
 3. Graveyard: a match with a PREMISE-level flop combination needs "why this time is different",
    else rework once, then reject. Execution-level matches are T5 evidence, not warnings (v1.3).
 """
@@ -25,7 +27,8 @@ class GateResult:
     structural_max: float = 0.0
     procedural_max: float = 0.0
     cosine_max: float = 0.0
-    nearest: str | None = None
+    nearest: str | None = None          # highest structural Jaccard (ties: lowest id)
+    cosine_nearest: str | None = None   # highest premise cosine
     novel_combo: bool = False
     novelty_basis: str = ""
     graveyard_hits: list[str] = field(default_factory=list)
@@ -75,7 +78,7 @@ def run_gates(card: dict[str, Any], ctx: Context, sim: Similarity, gates_cfg: di
         if s > r.structural_max:
             r.structural_max, r.nearest = round(s, 6), tid
         r.procedural_max = max(r.procedural_max, round(p, 6))
-    r.cosine_max, _ = sim.max_cosine(card)
+    r.cosine_max, r.cosine_nearest = sim.max_cosine(card)
     s_rej = float(gates_cfg.get("structural_jaccard_reject", 0.70))
     p_rej = float(gates_cfg.get("procedural_jaccard_reject", 0.75))
     c_rej = float(gates_cfg.get("premise_cosine_reject", 0.90))
@@ -87,10 +90,10 @@ def run_gates(card: dict[str, Any], ctx: Context, sim: Similarity, gates_cfg: di
     if r.cosine_max >= c_rej and r.structural_max >= c_with:
         r.failures.append(f"clone: premise similarity {r.cosine_max:.2f} with structural overlap {r.structural_max:.2f}")
     r.clone = bool(r.failures)
-    # novelty
+    # novelty: census-backed enum zeros only with enough powered census rows (M5 ruling)
     enums = sorted(profile_set(card["profile"]))
     zero = [p for p in combinations(enums, 2) if ctx.pair_counts.get(tuple(sorted(p)), 0) == 0]
-    if zero and ctx.adequate:
+    if zero and ctx.adequate and ctx.census_zeros_trusted:
         r.novel_combo, r.novelty_basis = True, f"never together: {zero[0][0]} + {zero[0][1]}"
     else:
         concepts = sorted(set(card.get("bridge", [])))
@@ -98,7 +101,10 @@ def run_gates(card: dict[str, Any], ctx: Context, sim: Similarity, gates_cfg: di
         if fresh and len({a['title_id'] for a in card.get('_atoms', [])}) >= 2:
             r.novel_combo, r.novelty_basis = True, f"patterns never combined in one title: {fresh[0][0]} + {fresh[0][1]}"
     if not r.novel_combo:
-        r.fatal.append("novelty: no untried pair (thin coverage makes empty cells untrustworthy)")
+        why = ("thin coverage makes empty cells untrustworthy" if ctx.census_zeros_trusted else
+               f"enum zeros need {ctx.census_novelty_min_rows} powered census rows (have {ctx.powered_census}), "
+               "so only bridge-concept pairs from 2+ titles count")
+        r.fatal.append(f"novelty: no untried pair ({why})")
     # graveyard (premise-level flops warn; execution-level are T5 evidence)
     for g in ctx.graveyard:
         flop = set(g["structural"]) | {f"bridge:{b}" for b in g["bridge"]}

@@ -708,7 +708,6 @@
           "items": {
             "type": "string"
           },
-          "minItems": 1,
           "title": "Source Transfer Ids",
           "type": "array"
         },
@@ -719,7 +718,6 @@
       },
       "required": [
         "operator",
-        "source_transfer_ids",
         "what_changed"
       ],
       "title": "Transformation",
@@ -733,11 +731,20 @@
       "title": "Appetite",
       "type": "string"
     },
+    "arm": {
+      "default": "animedex",
+      "enum": [
+        "animedex",
+        "baseline_loop",
+        "baseline_single"
+      ],
+      "title": "Arm",
+      "type": "string"
+    },
     "atoms_used": {
       "items": {
         "type": "string"
       },
-      "minItems": 1,
       "title": "Atoms Used",
       "type": "array"
     },
@@ -1023,7 +1030,6 @@
     "consequences",
     "profile",
     "grid_cell",
-    "atoms_used",
     "closest_existing",
     "why_not_a_clone",
     "gates",

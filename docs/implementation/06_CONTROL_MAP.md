@@ -44,8 +44,10 @@
 | IDEATE | Eligible atoms only | Preventive | Load-bearing, settled, not mixed/contradicted | Atom excluded |
 | IDEATE | Engine complete | Preventive | All engine parts + dramatic question | Rework once → reject |
 | IDEATE | Clone gate | Preventive | Structural J ≥ .70, procedural J ≥ .75, or (cosine ≥ .90 and structural J ≥ .55) | Rework once → reject |
-| IDEATE | Novelty gate | Preventive | No novel pair/triple/inversion | Reject |
-| IDEATE | Graveyard gate | Detective | Premise-level flop combination match (v1.3) | Require "why this time is different," else reject |
+| IDEATE | Novelty gate | Preventive | No novel pair/triple/inversion; census-backed enum zeros count only with ≥200 powered census rows (M5) | Reject |
+| IDEATE | Graveyard gate | Detective | Premise-level flop combination match (v1.3) | Require "why this time is different," else rework once → reject |
+| IDEATE | Why different judged (M5) | Preventive | Judge: `why_different` does not answer the matched flop's recorded failure | Rework once → reject |
+| IDEATE | Call brief cap (M5) | Budget | Brief over `ideate.brief_max_words` after trimming optional lines | Refused before the call; size logged per call |
 | IDEATE | H1 consequence test | Preventive | <2 of choices/relationships/outcomes differ from closest title | Reject (surface change) |
 | IDEATE | Failure-condition check | Preventive | Idea triggers an atom's failure condition | Rework once → reject |
 | IDEATE | Coherence gate | Preventive | Theme ↔ mechanic; dilemma follows from cost | Reject |
@@ -54,8 +56,11 @@
 | IDEATE | Prior art (v1.6) | Preventive | Every T1/T4 and lane claim | Counterexample or unclear → claim removed |
 | IDEATE | Revival evidence (v1.6) | Preventive | revive_execution_flop without an execution-level flop backed by evidence | Operator not offered |
 | IDEATE | Borrowed system (v1.6) | Preventive | borrow_system when the census shows the system as a power | Operator not offered |
+| IDEATE | Fair baselines (M5) | Preventive | An arm with another model, standard text, rule set, or web access while generating | Contract test fails; baseline 1 never enters the archive |
+| IDEATE | Contested evidence (M5) | Detective | A card leans on an atom now CONTESTED/REJECTed, contested, missing, or contradicted (M6) | Evidence flag in `ideas.md`; never in the packet |
+| AUDIT | Human audit (M5) | Detective | 10 date-seeded eligible atoms per sheet; gold skipped while the blind is pending | Wrong rate per date; extractor–critic disagreement per P2 run |
 | CENSUS | Counts only (v1.6) | Preventive | A census value reaching an atom, idea, or ideation prompt | Contract test fails |
-| ALL | Budget cap | Budget | Subscription CLIs: calls per run and per title. API-billed: per-run, per-title, per-episode dollar caps | Stop cleanly after current unit; report |
+| ALL | Budget cap | Budget | Subscription CLIs: calls per run (40; ideation runs 60, M5) and per title. API-billed: per-run, per-title, per-episode dollar caps | Stop cleanly after current unit; report |
 | ALL (live) | Plan usage limit | Budget | CLI reports a usage/rate limit | Stop the run cleanly, no retries; finished calls stay cached; resume later |
 | ALL (live) | CLI isolation | Preventive | Allowlisted env (no `ANTHROPIC_*`/`OPENAI_*`/`CLAUDE*`/`CODEX_*`), empty scratch dir, tools off, no user settings/skills/MCP/memory | Refuse an API-key login; log each call's init metadata; report user-level leaks |
 | ALL (live) | Gold blind guard | Preventive | Live run on a gold title needs filled, committed `eval/gold/<title_id>/` annotations | Refuse to start |

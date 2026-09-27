@@ -43,7 +43,7 @@ class IdeaEngine(StrictModel):
 
 class Transformation(StrictModel):
     operator: Annotated[str, VocabEnum("transformation.operator")]
-    source_transfer_ids: list[str] = Field(min_length=1)
+    source_transfer_ids: list[str] = Field(default_factory=list)  # >=1 on animedex cards (IdeaCard._arm_atoms)
     what_changed: Words25
 
 
@@ -204,7 +204,7 @@ class IdeaCard(StrictModel):
     profile: IdeaProfile
     bridge: list[Annotated[str, BridgeConcept()]] = Field(default_factory=list)
     grid_cell: str = Field(min_length=1)
-    atoms_used: list[str] = Field(min_length=1)
+    atoms_used: list[str] = Field(default_factory=list)  # >=1 on animedex cards (IdeaCard._arm_atoms)
     borrowed_from: list[str] = Field(default_factory=list)
     broken_rule: str = ""
     appetite: str = ""
@@ -217,6 +217,8 @@ class IdeaCard(StrictModel):
     gates: Gates
     taste: Taste
     status: Literal["candidate", "champion", "rejected"]
+    # M5 fair baselines (controls A5, decision 1): which blind-review arm wrote the card
+    arm: Literal["animedex", "baseline_loop", "baseline_single"] = "animedex"
     generation: int = Field(ge=0)
     parent_ids: list[str] = Field(default_factory=list)
     human_rating: HumanRating | None = None
@@ -247,6 +249,13 @@ class IdeaCard(StrictModel):
             raise ValueError("core_fantasy lists a value twice")
         if self.premise_abstraction and (found := medium_words(self.premise_abstraction)):
             raise ValueError(f"premise_abstraction uses medium words {found}")
+        return self
+
+    @model_validator(mode="after")
+    def _arm_atoms(self) -> IdeaCard:
+        """ANIMEDEX cards draw on >=1 index atom (AC-26); a baseline arm writes without the index."""
+        if self.arm == "animedex" and not (self.atoms_used and self.transformation.source_transfer_ids):
+            raise ValueError("an animedex card uses at least one transfer atom (atoms_used, source_transfer_ids)")
         return self
 
 

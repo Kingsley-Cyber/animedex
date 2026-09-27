@@ -39,6 +39,27 @@ Cards appear in `build/reports/ideas.md`, best first. Each card shows:
 
 Run `make ideas` again to keep improving. Each run adds a generation and keeps the best card in each slot of the idea grid.
 
+## 3. Check your own idea
+
+Have a concept of your own? ANIMEDEX can check it the same way it checks its own cards.
+
+```bash
+make diagnose TEXT="A courier borrows strangers' courage for one night, and they forget they were ever brave."
+```
+
+For a longer idea, put it in a text file and run `make diagnose FILE=my_idea.txt`.
+
+You get one line per check: PASS or FAIL, and why. The checks ask:
+- Is it a copy of an existing show?
+- Is any part of it new?
+- Did a show like it flop, and does your idea avoid that failure?
+- Does it reuse names from existing shows?
+- Do the hero's choices, relationships and outcomes really change?
+- Does the dilemma follow from the cost, and does the cost still hurt five arcs in?
+- Which parts carry the idea, and which are decoration?
+
+Every FAIL comes with a fix. The fix names either one of the idea moves (for example "move the cost onto someone else") or the step to work on next (for example "world", or "engine and escalation"). The full report is in `data/diagnose/`. It stays on your computer and in your private backup, never in the public repo. A check takes 3 model calls.
+
 ## Long runs
 
 - `make batch FILE=my_batch.yaml` runs a batch file (titles and their steps; Claude can write one for you) in the background, up to 3 titles at once. It keeps running if you close the chat or the terminal.
@@ -47,13 +68,14 @@ Run `make ideas` again to keep improving. Each run adds a generation and keeps t
 
 ## Optional
 
-- **Blind review:** `make packet` writes a review packet to `eval/blind/`. It mixes ANIMEDEX cards with two baselines so you can rate them blind.
+- **Blind review:** first run `make ideas ARM=baseline_loop`. This makes the first baseline: the same idea loop, but without the index. Then `make packet` writes a review packet to `eval/blind/`. It mixes ANIMEDEX cards with that baseline and with a second one, a single plain request. Both baselines get the same model, taste standard and rules, so you can rate everything blind.
+- **Audit:** `make audit` picks 10 facts the index learned and shows the evidence behind each. Mark each one true, plausible or wrong in `eval/audit/`, then run `make audit-report` to see how often it is wrong over time.
 - **Census:** `make census` counts which power-system ideas already exist across about 500 popular anime and donghua, so "never done" claims hold up.
 - **Gold titles:** their details stay hidden until you say "annotations done" or "annotations waived".
 
 ## Cost
 
-Everything runs on your Claude and ChatGPT subscriptions. No API keys are used. Each run is capped at 40 model calls, with a pause between calls. The "cost" figures in the logs are the plans' own estimates, not bills.
+Everything runs on your Claude and ChatGPT subscriptions. No API keys are used. Each run is capped at 40 model calls (60 for `make ideas`), with a pause between calls. The "cost" figures in the logs are the plans' own estimates, not bills.
 
 ## If something goes wrong
 

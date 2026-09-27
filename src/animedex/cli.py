@@ -367,28 +367,37 @@ def patterns() -> None:
     _stub("patterns")
 
 
-def _ideate_clients(paths: Any, settings: Any, keys: tuple[str, ...]) -> tuple[dict, Any]:
+def _ideate_clients(paths: Any, settings: Any, keys: tuple[str, ...], budget: Any = None) -> tuple[dict, Any]:
     from animedex.budget import Budget
     from animedex.providers.factory import build_client
     from animedex.store.runlog import RunLog, new_run_id
 
     runlog = RunLog(paths.raw_runs, new_run_id())
-    budget = Budget.from_settings(settings)  # one cap for the whole run, across every model it uses
+    budget = budget or Budget.from_settings(settings)  # one cap for the whole run, across every model it uses
     env = environment(paths)
     clients = {k: build_client(k, paths=paths, settings=settings, env=env, runlog=runlog, prompt_version="unset",
                                budget=budget) for k in keys}
     return clients, runlog
 
 
+ARM_HELP = ("animedex (the index), or baseline_loop: baseline 1 of the blind review, the same loop with an empty "
+            "brief; its cards stay out of the archive (data/blind/baseline_loop/)")
+
+
 @app.command()
-def ideate(generations: int = typer.Option(None, "--generations", help="Default: ideate.generations")) -> None:
+def ideate(generations: int = typer.Option(None, "--generations", help="Default: ideate.generations"),
+           arm: str = typer.Option("animedex", "--arm", help=ARM_HELP)) -> None:
     """IDEATE: MAP-Elites idea cards -> data/canonical/ideas.jsonl and build/reports/ideas.md."""
     from animedex.embeddings.base import EmbedderUnavailable, build_embedder
     from animedex.ideate.report import write_report
-    from animedex.ideate.run import run_ideate
+    from animedex.ideate.run import ideation_budget, run_ideate
+    from animedex.ideate.steering import SteeringError
     from animedex.ontology import get_vocab
     from animedex.store.runlog import new_run_id
 
+    if arm not in ("animedex", "baseline_loop"):
+        typer.echo(f"unknown arm {arm!r}: use animedex or baseline_loop", err=True)
+        raise typer.Exit(2)
     paths = _paths()
     settings, vocab = load_settings(paths), get_vocab(paths)
     try:  # one embeddings backend for the whole run (v1.7): Polymath's embedder, else the Ollama copy
@@ -397,39 +406,125 @@ def ideate(generations: int = typer.Option(None, "--generations", help="Default:
         typer.echo(str(exc), err=True)
         raise typer.Exit(1) from exc
     typer.echo(f"embeddings: {embedder.name}")
-    clients, runlog = _ideate_clients(paths, settings, ("ideate_generate", "ideate_judge", "prior_art"))
-    result = run_ideate(paths, settings, vocab, clients=clients, embedder=embedder,
-                        run_id=new_run_id(), generations=generations)
+    # ideation runs: one 60-call cap shared by generate, judge and prior art (owner ruling 2026-09-27)
+    clients, runlog = _ideate_clients(paths, settings, ("ideate_generate", "ideate_judge", "prior_art"),
+                                      budget=ideation_budget(settings))
+    try:
+        result = run_ideate(paths, settings, vocab, clients=clients, run_id=new_run_id(), generations=generations,
+                            embedder=embedder, index=arm == "animedex")
+    except SteeringError as exc:  # a malformed steering/rules.yaml stops the run before any call
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(1) from exc
     runlog.write_ledger()
-    write_report(paths)
     rejected = ", ".join(f"{k} {v}" for k, v in sorted(result.rejected.items())) or "none"
-    typer.echo(f"ideate: generations {result.generations or 'none'}; {result.candidates} cards, {result.placed} placed; "
-               f"{result.champions} champions in the archive; reworks {result.reworks}; rejected: {rejected}; "
-               f"prior-art {dict(result.prior_art) or 'none'}")
+    if arm == "animedex":
+        write_report(paths)
+        typer.echo(f"ideate: generations {result.generations or 'none'}; {result.candidates} cards, {result.placed} "
+                   f"placed; {result.champions} champions in the archive; reworks {result.reworks}; rejected: "
+                   f"{rejected}; prior-art {dict(result.prior_art) or 'none'}")
+    else:
+        typer.echo(f"baseline loop: generations {result.generations or 'none'}; {result.candidates} cards, "
+                   f"{result.passed} passed every gate (kept out of the archive, in data/blind/baseline_loop/); "
+                   f"reworks {result.reworks}; rejected: {rejected}; prior-art {dict(result.prior_art) or 'none'}")
     for note in result.notes:
         typer.echo(f"  note: {note}", err=True)
     if result.diversity_alarm:
         typer.echo(f"  diversity alarm: {result.diversity_alarm}", err=True)
-    typer.echo("cards -> build/reports/ideas.md")
+    if arm == "animedex":
+        typer.echo("cards -> build/reports/ideas.md")
     if result.stopped:
-        typer.echo(f"Paused: {result.stopped}. Run `make ideas` again later; it continues from the archive.", err=True)
+        again = "make ideas" + ("" if arm == "animedex" else " ARM=baseline_loop")
+        typer.echo(f"Paused: {result.stopped}. Run `{again}` again later; it continues where it stopped.", err=True)
         raise typer.Exit(3)
 
 
 @app.command()
 def packet() -> None:
-    """Blind review packet: champions + plain baseline + web baseline, shuffled, logline and premise only."""
+    """Blind review packet: ANIMEDEX champions + baseline 1 (the same loop, empty brief) + baseline 2 (one
+    call), shuffled, logline and premise only. Every card gets the same prior-art check (answer key only)."""
+    from animedex.budget import BudgetExceeded
     from animedex.ideate.packet import build_packet
     from animedex.ontology import get_vocab
+    from animedex.providers.cli_common import CliAuthError, RateLimited
 
     paths = _paths()
     settings, vocab = load_settings(paths), get_vocab(paths)
-    clients, runlog = _ideate_clients(paths, settings, ("ideate_generate",))
-    web, _ = _ideate_clients(paths, settings, ("ideate_generate",))
-    result = build_packet(paths, settings, vocab, plain=clients["ideate_generate"], web=web["ideate_generate"])
+    clients, runlog = _ideate_clients(paths, settings, ("ideate_generate", "prior_art"))
+    try:
+        result = build_packet(paths, settings, vocab, single=clients["ideate_generate"], prior_art=clients["prior_art"])
+    except ValueError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(1) from exc
+    except (BudgetExceeded, RateLimited, CliAuthError) as exc:
+        runlog.write_ledger()
+        typer.echo(f"Paused: {exc}. Run `make packet` again later; finished calls are cached.", err=True)
+        raise typer.Exit(3) from exc
     runlog.write_ledger()
     typer.echo(f"blind packet: {result.per_arm} cards per arm x 3 -> {result.packet}; ratings -> {result.ratings}; "
                f"answer key kept out of view in {result.key}")
+
+
+@app.command()
+def audit(date: str = typer.Option(None, "--date", help="Audit date (default today); it seeds the sample."),
+          size: int = typer.Option(10, "--size", help="Atoms to sample.")) -> None:
+    """Audit sheet: random eligible atoms with evidence trails -> eval/audit/audit_<date>.yaml (you mark them)."""
+    from animedex.audit import AuditError, run_audit
+
+    paths = _paths()
+    try:
+        result = run_audit(paths, date=date, size=size)
+    except AuditError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(1) from exc
+    skipped = f"; {result.gold_excluded} on gold titles skipped (blind pending)" if result.gold_excluded else ""
+    typer.echo(f"audit: {result.sampled} atom(s) from {result.eligible} eligible{skipped} -> {result.path}")
+    typer.echo("Mark each atom true, plausible or wrong, then run `make audit-report`.")
+
+
+@app.command("audit-report")
+def audit_report() -> None:
+    """Wrong rate per audit date and extractor-critic disagreement per P2 run -> build/reports/audit.md."""
+    from animedex.audit import write_audit_report
+
+    paths = _paths()
+    out, rows, runs = write_audit_report(paths)
+    marked = sum(r["marked"] for r in rows)
+    typer.echo(f"audit report: {len(rows)} sheet(s), {marked} marked atom(s), {len(runs)} P2 run(s) -> "
+               f"{out.relative_to(paths.root)}")
+
+
+@app.command()
+def diagnose(file: str = typer.Option(None, "--file", help="A text file holding your concept."),
+             text: str = typer.Option(None, "--text", help="Your concept, pasted in quotes.")) -> None:
+    """Check your own concept: structure it into a card, run every gate, the judge and an ablation pass;
+    one line per check with a prescription for each failure (data/diagnose/, private)."""
+    from pathlib import Path as _P
+
+    from animedex.budget import Budget
+    from animedex.embeddings.base import build_embedder
+    from animedex.ideate.diagnose import DiagnoseError, run_diagnose
+    from animedex.ontology import get_vocab
+
+    if bool(file) == bool(text):
+        typer.echo("give your concept with --file PATH or --text \"...\" (one of them)", err=True)
+        raise typer.Exit(2)
+    concept = _P(file).read_text(encoding="utf-8") if file else text
+    paths = _paths()
+    settings, vocab = load_settings(paths), get_vocab(paths)
+    budget = Budget.from_settings(settings)
+    budget.calls_per_run = int(((settings.model_extra or {}).get("diagnose") or {}).get("calls_per_run", 6))
+    clients, runlog = _ideate_clients(paths, settings, ("ideate_generate", "ideate_judge"), budget=budget)
+    try:
+        result = run_diagnose(paths, settings, vocab, text=concept, clients=clients, run_id=runlog.run_id,
+                              embedder=build_embedder(settings, environment(paths)), source="file" if file else "text")
+    except DiagnoseError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(1) from exc
+    runlog.write_ledger()
+    for line in result.lines:
+        typer.echo(line)
+    if result.stopped:
+        raise typer.Exit(3)
 
 
 @app.command()
