@@ -798,6 +798,7 @@ def eval_() -> None:
         state = "READY" if st.ready else "blocked"
         typer.echo(f"{title_id}: {state}" + ("" if st.ready else " - " + "; ".join(st.problems)))
     _eval_agreement(paths, settings, vocab, {e.title_id for e in gold})
+    _eval_interpret_reliability(paths, settings, vocab)
     _eval_verify_rates(paths, vocab)
 
 
@@ -823,6 +824,32 @@ def _eval_agreement(paths: Any, settings: Any, vocab: Any, gold_ids: set[str]) -
     typer.echo(f"P1 enum agreement (AC-12): {report['overall']} over {report['comparisons']} comparisons, "
                f"{len(gold_ids) - len(missing)}/{len(gold_ids)} gold titles "
                f"({'PASS' if report['pass'] else 'BELOW BAR or incomplete'} vs {bar})")
+
+
+def _eval_interpret_reliability(paths: Any, settings: Any, vocab: Any) -> None:
+    import json
+
+    from animedex.evaluation import interpret_reliability
+    from animedex.store.atomic import atomic_write_text
+
+    root = paths.root / "eval" / "agreement" / "interpret"
+    first = {f.stem: json.loads(f.read_text())["record"] for f in sorted((root / "first").glob("*.json"))}
+    second: dict[str, Any] = {}
+    for run in sorted(d for d in root.glob("run_*") if d.is_dir()):  # the newest second run per title wins
+        second.update({f.stem: json.loads(f.read_text())["record"] for f in sorted(run.glob("*.json"))})
+    if not first or not second:
+        typer.echo("gather-first agreement (AC-12): needs `animedex interpret` and `animedex interpret --agreement` runs")
+        return
+    grid = list(settings.ideate.get("grid_dims") or [])
+    report = interpret_reliability(first, second, vocab, grid)
+    atomic_write_text(paths.root / "eval" / "agreement" / "reliability.json", json.dumps(report, indent=2, sort_keys=True) + "\n")
+    typer.echo(f"gather-first agreement (AC-12, kappa gate) over {len(report['titles'])} title(s): "
+               f"{'PASS' if report['grid_pass'] else 'FAIL'} on the grid")
+    for path in grid:
+        r = report["fields"].get(path, {})
+        typer.echo(f"  {path}: raw {r.get('raw')}, kappa {r.get('kappa')} ({'pass' if r.get('pass') else 'FAIL'}) {r.get('note', '')}")
+    if report["unreliable"]:
+        typer.echo(f"  unreliable (kappa < 0.60; excluded from gaps): {', '.join(report['unreliable'])}")
 
 
 def _eval_verify_rates(paths: Any, vocab: Any) -> None:

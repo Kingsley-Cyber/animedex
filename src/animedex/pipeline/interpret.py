@@ -29,6 +29,7 @@ from animedex.guards import LiveRunRefused
 from animedex.models import CorpusEntry, Moment, title_profile_model
 from animedex.ontology import Vocab
 from animedex.paths import Paths
+from animedex.pipeline.common import render_profile, supersede
 from animedex.pipeline.gather import load_gathered
 from animedex.pipeline.p1 import (
     _is_length,
@@ -52,11 +53,14 @@ from animedex.store.quarantine import quarantine
 from animedex.textutil import word_count
 
 CONFOUNDERS = ("studio", "budget_signal", "source_popularity", "platform", "release_context")
+SHARED_SLOT = ("mentor", "deuteragonist")
 
 
 @dataclass
 class InterpretResult:
     titles: list[dict[str, Any]] = field(default_factory=list)
+    characters: dict[str, int] = field(default_factory=dict)    # title -> characters written
+    notes: dict[str, list[str]] = field(default_factory=dict)
     sourced: dict[str, int] = field(default_factory=dict)       # title -> fields settled by gathered facts
     outcomes: list[str] = field(default_factory=list)
     skipped: list[tuple[str, str]] = field(default_factory=list)
@@ -177,6 +181,107 @@ def build_outcome(tid: str, oc: dict[str, Any] | None, facts: dict[str, dict[str
             "failure_level_source": "verify" if level is not None else None, "provenance": prov}
 
 
+def characters_schema(vocab: Vocab, ids: list[str]) -> dict[str, Any]:
+    def enum(name: str, nullable: bool = True) -> dict[str, Any]:
+        values = list(vocab.enum(name))
+        return {"type": ["string", "null"], "enum": [*values, None]} if nullable else {"type": "string", "enum": values}
+
+    s, sn = {"type": "string"}, {"type": ["string", "null"]}
+    fid, fidn = {"type": "string", "enum": ids or ["none"]}, {"type": ["string", "null"], "enum": [*(ids or ["none"]), None]}
+
+    def obj(props: dict[str, Any], nullable: bool = False) -> dict[str, Any]:
+        return {"type": ["object", "null"] if nullable else "object", "additionalProperties": False,
+                "required": list(props), "properties": props}
+
+    trait = obj({"value": s, "condition": s}, nullable=True)
+    kit = obj({"power_kind": enum("character.power_kind", nullable=False), "medium": sn,
+               "functions": {"type": "array", "items": s}, "tools": {"type": "array", "items": obj({"tool": s, "function": s})},
+               "limits": {"type": "array", "items": s},
+               "forms": {"type": "array", "items": obj({"name": s, "trigger": s, "cost": s})},
+               "creativity_level": enum("character.creativity_level"),
+               "creativity_moves": {"type": "array", "items": obj({"move": s, "fact_id": fid})},
+               "drama_source": enum("character.drama_source"), "evolution": sn}, nullable=True)
+    villain = obj({"villain_type": enum("character.villain_type", False), "villain_reveal": enum("character.villain_reveal", False),
+                   "relation_to_mc": enum("character.relation_to_mc", False)}, nullable=True)
+    character = obj({"role": enum("character.role", False), "name": s, "origin": sn, "wound": sn, "want": sn, "need": sn,
+                     "flaw": trait, "moral_line": trait, "relationship_to_power": enum("power_combat.mc_edge"),
+                     "origin_power_link": enum("character.origin_power_link"), "arc_type": enum("character.arc_type"),
+                     "backstory_reveal": enum("character.backstory_reveal"),
+                     "turning_points": {"type": "array", "items": obj({"event": s, "season": {"type": ["integer", "null"]},
+                                                                       "episode": {"type": ["integer", "null"]},
+                                                                       "fact_id": fidn})},
+                     "power_kit": kit, "villain": villain, "fact_ids": {"type": "array", "items": fid}})
+    return obj({"characters": {"type": "array", "items": character, "maxItems": 4}})
+
+
+def build_characters(entry: CorpusEntry, out: dict[str, Any], facts: dict[str, dict[str, Any]], vocab: Vocab,
+                     prov: dict[str, Any]) -> tuple[list[dict[str, Any]], list[str]]:
+    """Records that pass the model and the cast rules (04); anything else is dropped with a note, never
+    left to hold the title's profile at CANONICALIZE (per-title transactions)."""
+    from animedex.integrity import character_errors
+    from animedex.models.characters import CharacterRecord
+
+    notes: list[str] = []
+    tid, film = entry.title_id, entry.format == "film"
+    seasons = set(entry.scope.seasons or [])
+
+    def ok_fact(fid: Any) -> dict[str, Any] | None:
+        f = facts.get(fid or "")
+        return f if f and f.get("scope") == "in_scope" and f.get("source_url") else None
+
+    seen, cast = set(), []
+    for ch in out.get("characters") or []:
+        slot = "mentor|deuteragonist" if ch.get("role") in SHARED_SLOT else ch.get("role")
+        if slot in seen or len(cast) >= 4:
+            notes.append(f"character {ch.get('name')}: a second {slot} (dropped)")
+            continue
+        seen.add(slot)
+        cast.append(ch)
+    if not any(c.get("role") == "protagonist" for c in cast):
+        return [], [*notes, "no protagonist: no characters written"]
+    protagonist_kit = any(c.get("role") == "protagonist" and c.get("power_kit") for c in cast)
+    records, kits = [], 0
+    for n, ch in enumerate(sorted(cast, key=lambda c: c.get("role") != "protagonist"), start=1):
+        kit = ch.get("power_kit")
+        if kit and (not protagonist_kit or kits >= 3):
+            notes.append(f"character {ch.get('name')}: power kit dropped (the protagonist's comes first; 3 at most)")
+            kit = None
+        if kit:
+            kits += 1
+            moves = [{"move": m["move"], "source_ref": ok_fact(m.get("fact_id"))["source_url"]}
+                     for m in kit.get("creativity_moves") or [] if ok_fact(m.get("fact_id"))]
+            level = kit.get("creativity_level")
+            if level in ("inventive", "transcendent") and not moves:
+                level = "literal"  # a creative reading needs a sourced move
+            if kit.get("power_kind") == "none":
+                kit = {"power_kind": "none"}
+            else:
+                kit = {**{k: v for k, v in kit.items() if k != "creativity_moves"}, "creativity_moves": moves,
+                       "creativity_level": level if kit.get("power_kind") != "stat_block" else None}
+        tps = [{"event": tp["event"], "locator": {"season": tp.get("season"), "episode": tp.get("episode")}}
+               for tp in ch.get("turning_points") or []
+               if film or (tp.get("episode") is not None and (not seasons or tp.get("season") in seasons))]
+        cited = [ok_fact(i) for i in ch.get("fact_ids") or []]
+        rec = {"character_id": f"{tid}.c.{n:02d}", "title_id": tid, "name": ch.get("name"), "role": ch.get("role"),
+               **{k: ch.get(k) for k in ("origin", "wound", "want", "need", "flaw", "moral_line", "relationship_to_power",
+                                         "origin_power_link", "arc_type", "backstory_reveal")},
+               "turning_points": tps[:3], "power_kit": kit,
+               "villain": ch.get("villain") if ch.get("role") == "main_antagonist" else None,
+               "source_refs": sorted({c["source_url"] for c in cited if c}), "provenance": prov}
+        try:
+            CharacterRecord.model_validate(normalize_record("character", rec, vocab)[0])
+        except (ValidationError, ValueError) as exc:
+            if rec["role"] == "protagonist":
+                return [], [*notes, f"the protagonist's record is invalid ({str(exc)[:120]}): no characters written"]
+            notes.append(f"character {rec['name']}: dropped ({str(exc)[:120]})")
+            continue
+        records.append(rec)
+    title = {"title_id": tid, "format": entry.format, "scope": entry.scope.model_dump(mode="json")}
+    if errors := character_errors({"character": records}, {tid: title}):
+        return [], [*notes, f"cast rules failed ({errors[0]}): no characters written"]
+    return records, notes
+
+
 def run_interpret(paths: Paths, entries: list[CorpusEntry], client: LLMClient, vocab: Vocab, settings: Settings, *,
                   run_id: str, guards: GuardConfig | None = None, created_at: str | None = None,
                   params: dict[str, Any] | None = None, out_dir: Path | None = None) -> InterpretResult:
@@ -263,10 +368,43 @@ def run_interpret(paths: Paths, entries: list[CorpusEntry], client: LLMClient, v
         if out_dir is not None:
             atomic_write_text(out_dir / f"{tid}.json", json.dumps({"record": record, "outcome": outcome}, indent=2) + "\n")
             continue
+        # the raw profile before VERIFY: the first run of the AC-12 pair (eval/agreement is git-ignored)
+        atomic_write_text(paths.root / "eval" / "agreement" / "interpret" / "first" / f"{tid}.json",
+                          json.dumps({"record": record, "outcome": outcome}, indent=2) + "\n")
         atomic_write_text(paths.candidates / "title" / f"{tid}.jsonl", dumps_jsonl([record]))
         atomic_write_text(paths.candidates / "moment" / f"{tid}.jsonl", dumps_jsonl(moments))
         atomic_write_text(paths.candidates / "verify" / f"{tid}.json",
                           json.dumps({"title_id": tid, "run_id": run_id, "verify": to_verify}, indent=2) + "\n")
         if outcome:
             atomic_write_text(paths.candidates / "outcome" / f"{tid}.jsonl", dumps_jsonl([outcome]))
+        # characters (v1.8): a second call from the same facts plus the interpreted profile
+        cprompt = read_prompt(paths.prompts / "interpret_characters.md")
+        cuser = "\n".join([*render_profile(record, vocab, verification=False), "", render_facts(gathered)])
+        cctx = CallContext(pass_="INTERPRET", record_id=f"{tid}.characters", title_id=tid,
+                           upstream=upstream_hash([record, {"facts": sorted(facts.items())}]))
+        version, client.prompt_version = client.prompt_version, f"{cprompt.meta['version']}+{prompt.version}"
+        chars: list[dict[str, Any]] = []
+        try:
+            done = client.complete_ex(cprompt.body, cuser, characters_schema(vocab, sorted(facts)), params, ctx=cctx,
+                                      validate=None)
+            chars, notes = build_characters(entry, done.data, facts, vocab, record["provenance"])
+            result.notes[tid] = notes
+        except (InvalidOutput, ProviderError) as exc:
+            if isinstance(exc, (RateLimited, CliAuthError)):
+                result.stopped = str(exc)
+            result.notes[tid] = [f"characters not written: {str(exc)[:160]}"]
+        except (BudgetExceeded, LiveRunRefused) as exc:
+            result.notes[tid] = [f"characters not written: {exc}"]
+            if isinstance(exc, BudgetExceeded):
+                result.stopped = str(exc)
+        finally:
+            client.prompt_version = version
+        cfile = paths.candidates / "character" / f"{tid}.jsonl"
+        if chars:
+            atomic_write_text(cfile, dumps_jsonl(chars))
+        else:
+            supersede(cfile, run_id)  # an older run's cast no longer stands
+        result.characters[tid] = len(chars)
+        if result.stopped:
+            break
     return result

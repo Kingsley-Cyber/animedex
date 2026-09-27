@@ -125,3 +125,26 @@ def latest_per_title(run_files: list[Any], ids: set[str]) -> tuple[list[dict[str
                 latest[t["title_id"]] = (f.parent.name, t)
     return [t for _, t in latest.values()], sorted({r for r, _ in latest.values()})
 
+
+def interpret_reliability(first: dict[str, dict[str, Any]], second: dict[str, dict[str, Any]], vocab: Vocab,
+                          grid: list[str]) -> dict[str, Any]:
+    """AC-12 for gather-first (owner rules): raw agreement and Cohen's kappa per enum field between two
+    INTERPRET runs of the same titles; grid fields need both >= 0.80, any field under kappa 0.60 is
+    unreliable (excluded from gaps). Fields a record lacks (older vocab) are skipped."""
+    from animedex.stats import reliability
+
+    enum_paths = [f.path for f in vocab.lens_fields() if f.kind == "enum"]
+    pairs: dict[str, list[tuple[Any, Any]]] = {p: [] for p in enum_paths}
+    for tid in sorted(set(first) & set(second)):
+        a, b = first[tid], second[tid]
+        shared = set(active_paths(a, vocab)) & set(active_paths(b, vocab))
+        for p in enum_paths:
+            if p in shared:
+                va, vb = (_fv(a, p) or {}).get("value"), (_fv(b, p) or {}).get("value")
+                if va is not None and vb is not None:
+                    pairs[p].append((va, vb))
+    fields = {p: {**reliability(v, grid=p in grid), "grid": p in grid} for p, v in pairs.items() if v}
+    return {"titles": sorted(set(first) & set(second)), "fields": fields,
+            "grid_pass": all(fields.get(p, {}).get("pass") for p in grid),
+            "unreliable": sorted(p for p, r in fields.items() if r["unreliable"])}
+

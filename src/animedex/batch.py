@@ -44,7 +44,7 @@ PENDING, FAILED, SKIPPED = "pending", "failed", "skipped"
 TAIL_LINES = 2
 NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.-]*")  # batch names and title ids become file names
 # Lines the CLI prints for a title it could not finish while still exiting 0 (P1, VERIFY, P2-P4).
-FAILURE_LABELS = ("not written", "not verified", "not replayed", "refused", "quarantined", "failed")
+FAILURE_LABELS = ("not written", "not verified", "not replayed", "not gathered", "refused", "quarantined", "failed")
 
 Executor = Callable[[list[str]], tuple[int, str]]
 Echo = Callable[[str], None]

@@ -148,7 +148,8 @@ def admit(out: dict[str, Any], urls: set[str], vocab: Vocab, allowed: list[str],
         if lf.kind == "enum" and value not in vocab.enum(lf.vocab or f["path"]) and not value.lower().startswith("other:"):
             dropped.append(f"{what}: {value!r} is not an allowed value")
             continue
-        if lf.kind != "enum" and (why := _clean(value, lf.max_words or 15, guards)):
+        cap = lf.max_words if lf.kind == "phrase" else NOTE_WORDS  # a list/group/multi fact is one paraphrased line
+        if lf.kind != "enum" and (why := _clean(value, cap or 15, guards)):
             dropped.append(f"{what}: {why}")
             continue
         if not cited(f.get("source_url"), what):

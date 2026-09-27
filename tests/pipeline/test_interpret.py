@@ -53,10 +53,28 @@ def answer():
     return draft
 
 
+def cast():
+    none = {k: None for k in ("origin", "wound", "want", "need", "flaw", "moral_line", "relationship_to_power",
+                              "origin_power_link", "arc_type", "backstory_reveal", "villain")}
+    kit = {"power_kind": "medium", "medium": "city power grid", "functions": ["reroute power", "store charge", "overload"],
+           "tools": [{"tool": "grid lash", "function": "reroute power"}], "limits": ["needs a live line"],
+           "forms": [], "creativity_level": "inventive", "creativity_moves": [{"move": "charges a tram as armor",
+                                                                             "fact_id": "C01"}],
+           "drama_source": None, "evolution": "from single lines to the whole district"}
+    return {"characters": [
+        {**none, "role": "protagonist", "name": "Marisol Vey", "origin": "a courier raised on the harbor grid",
+         "turning_points": [{"event": "loses her harbor memories", "season": 1, "episode": 7, "fact_id": "C01"},
+                            {"event": "an event outside the scope", "season": 4, "episode": 2, "fact_id": None}],
+         "power_kit": kit, "fact_ids": ["C01", "F02"]},
+        {**none, "role": "protagonist", "name": "Second Lead", "turning_points": [], "power_kit": None, "fact_ids": []},
+        {**none, "role": "main_rival", "name": "Tobin Ash", "turning_points": [], "power_kit": {**kit, "creativity_moves": []},
+         "fact_ids": []}]}
+
+
 def run(repo, **kw):
     (repo.candidates / "gathered").mkdir(parents=True, exist_ok=True)
     (repo.candidates / "gathered" / f"{TID}.json").write_text(json.dumps(GATHERED))
-    mock = MockProvider(responses={("INTERPRET", TID): [answer()]})
+    mock = MockProvider(responses={("INTERPRET", TID): [answer()], ("INTERPRET", f"{TID}.characters"): [cast()]})
     client = LLMClient(provider=mock, provider_name="mock", spec=ModelSpec(provider="mock", model="o"),
                        prompt_version="unset", schema_version=SCHEMA_VERSION, vocab_version=get_vocab().version,
                        cache=ResponseCache(repo.cache), runlog=RunLog(repo.raw_runs, "run_i"))
@@ -67,7 +85,7 @@ def run(repo, **kw):
 
 def test_cited_in_scope_facts_settle_fields_and_reception_settles_the_outcome(repo):
     result, mock = run(repo)
-    assert len(mock.calls) == 1 and "F01: power_combat.gate = trained [in_scope]" in mock.calls[0]["user"]
+    assert len(mock.calls) == 2 and "F01: power_combat.gate = trained [in_scope]" in mock.calls[0]["user"]
     [title] = read_jsonl(repo.candidates / "title" / f"{TID}.jsonl")
     gate = title["power_combat"]["gate"]
     assert (gate["verification"], gate["source"], gate["source_ref"]) == ("gathered", "web", WIKI)
@@ -90,3 +108,22 @@ def test_facts_render_as_compact_lines_with_ids():
     text = render_facts(GATHERED)
     assert "C01: character protagonist (Marisol Vey) turning_point = loses her harbor memories s1e7 [in_scope]" in text
     assert "A01: reception anilist = score 81.0, popularity 5000" in text and "R01: critic_review verdict" in text
+
+
+def test_the_cast_is_cleaned_to_pass_the_cast_rules(repo):
+    result, _ = run(repo)
+    chars = read_jsonl(repo.candidates / "character" / f"{TID}.jsonl")
+    assert [c["role"] for c in chars] == ["protagonist", "main_rival"]  # the second protagonist is dropped
+    hero, rival = chars
+    assert hero["character_id"] == f"{TID}.c.01" and hero["source_refs"] == [WIKI]  # the unplaced fact isn't cited
+    assert [tp["locator"] for tp in hero["turning_points"]] == [{"season": 1, "episode": 7}]  # season 4 is out of scope
+    assert hero["power_kit"]["creativity_level"] == "inventive" and hero["power_kit"]["creativity_moves"][0]["source_ref"] == WIKI
+    assert rival["power_kit"]["creativity_level"] == "literal"  # no sourced move: not creative on the record
+    assert result.characters[TID] == 2 and any("second protagonist" in n for n in result.notes[TID])
+
+
+def test_an_agreement_run_skips_the_cast(repo):
+    out = repo.root / "eval" / "agreement" / "interpret" / "run_y"
+    _, mock = run(repo, out_dir=out, params={"rerun": 2})
+    assert len(mock.calls) == 1 and not (repo.candidates / "character").exists()
+
