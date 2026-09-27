@@ -17,6 +17,7 @@ from animedex.models.characters import (
     ROLE_LIMITS,
     SHARED_SLOT,
 )
+from animedex.models.common import PRINT_MEDIA
 from animedex.ontology import Vocab
 
 State = dict[str, list[dict[str, Any]]]
@@ -319,12 +320,21 @@ def character_errors(state: State, titles: dict[str, dict[str, Any]]) -> list[st
             errors.append(f"characters of {tid}: power kits start with the protagonist's")
         seasons = (title.get("scope") or {}).get("seasons") or []
         film = title.get("format") == "film"
+        print_title = title.get("medium") in PRINT_MEDIA   # v1.9: placed by chapter or volume
+        span = (title.get("scope") or {}).get("range")
         for c in cast:
             cid = c["character_id"]
             if c.get("villain") and c["role"] not in ANTAGONIST_ROLES:
                 errors.append(f"character {cid}: villain fields on a {c['role']}")
             for tp in c.get("turning_points") or []:
                 loc = tp.get("locator") or {}
+                if print_title:
+                    unit = loc.get("chapter") if loc.get("chapter") is not None else loc.get("volume")
+                    if unit is None:
+                        errors.append(f"character {cid}: a turning point needs its chapter or volume")
+                    elif span and not span[0] <= unit <= span[1]:
+                        errors.append(f"character {cid}: a turning point is outside the title's chapter/volume range")
+                    continue
                 if not film and loc.get("episode") is None:
                     errors.append(f"character {cid}: a turning point needs its episode")
                 if loc.get("season") is not None and loc["season"] not in seasons:

@@ -45,8 +45,9 @@ MAL_API = "https://api.myanimelist.net/v2"
 MAL_FIELDS = "mean,num_scoring_users,rank,popularity"
 JIKAN_API = "https://api.jikan.moe/v4"
 ANILIST_API = "https://graphql.anilist.co"
-MAL_PAGE = "https://myanimelist.net/anime/{id}"  # cited as the human page; never fetched (owner rule)
-ANILIST_PAGE = "https://anilist.co/anime/{id}"
+MAL_PAGE = "https://myanimelist.net/{kind}/{id}"  # cited as the human page; never fetched (owner rule)
+ANILIST_PAGE = "https://anilist.co/{kind}/{id}"
+KINDS = ("anime", "manga")   # v1.9: MAL and AniList keep separate id spaces per kind
 MAL_MIN_INTERVAL_S = 1.0
 JIKAN_MIN_INTERVAL_S = 1.1
 CACHE_TTL_S = 30 * 24 * 3600  # monthly refresh
@@ -73,14 +74,15 @@ class Reception:
     popularity: int | None   # MAL/Jikan rank by members (1 = most popular); AniList: users with it listed
     url: str                 # the page to cite (MAL pages are cited, never fetched)
     fetched_at: str          # UTC ISO 8601: when the numbers left the API
+    kind: str = "anime"      # v1.9: anime | manga (print titles use the manga side of both APIs)
 
     @property
     def api_url(self) -> str:
         """The API request the numbers came from (derived, not stored)."""
         if self.source == "mal_api":
-            return f"{MAL_API}/anime/{self.mal_id}?fields={MAL_FIELDS}"
+            return f"{MAL_API}/{self.kind}/{self.mal_id}?fields={MAL_FIELDS}"
         if self.source == "jikan":
-            return f"{JIKAN_API}/anime/{self.mal_id}"
+            return f"{JIKAN_API}/{self.kind}/{self.mal_id}"
         return ANILIST_API
 
     def to_dict(self) -> dict[str, Any]:
@@ -88,10 +90,22 @@ class Reception:
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> Reception:
-        return cls(**{k: data.get(k) for k in FIELDS})
+        return cls(**{**{k: data.get(k) for k in FIELDS}, "kind": data.get("kind") or "anime"})  # old cache: anime
 
 
 FIELDS = tuple(f.name for f in dataclass_fields(Reception))
+
+
+def _kind(kind: str | None) -> str:
+    k = (kind or "anime").lower()
+    if k not in KINDS:
+        raise ValueError(f"reception kind must be anime or manga, not {kind!r}")
+    return k
+
+
+def _key(kind: str, mal_id: Any) -> str:
+    """Cache key: anime keeps the bare id (existing cache files); manga gets its own prefix."""
+    return f"{int(mal_id or 0)}" if _kind(kind) == "anime" else f"manga-{int(mal_id or 0)}"
 
 
 def _iso(epoch: float) -> str:
@@ -149,10 +163,10 @@ class ReceptionClient:
         log.warning("reception: %s", text)
 
     # ------------------------------------------------------------ cache
-    def _cache_file(self, source: str, key: int) -> Path | None:
+    def _cache_file(self, source: str, key: str | int) -> Path | None:
         return None if self.cache_dir is None else self.cache_dir / source / f"{key}.json"
 
-    def _cached(self, source: str, key: int) -> Reception | None:
+    def _cached(self, source: str, key: str | int) -> Reception | None:
         path = self._cache_file(source, key)
         if path is None or not path.is_file():
             return None
@@ -164,7 +178,7 @@ class ReceptionClient:
         return rec if age < self.ttl_s else None
 
     def _store(self, rec: Reception) -> Reception:
-        path = self._cache_file(rec.source, int(rec.mal_id or 0))
+        path = self._cache_file(rec.source, _key(rec.kind, rec.mal_id))
         if path is not None:
             from animedex.store.atomic import atomic_write_text
 
@@ -201,65 +215,71 @@ class ReceptionClient:
             return body
         raise ReceptionError(f"{label} still rate-limited after retries")
 
-    def _fetch_mal(self, mal_id: int) -> Reception:
-        body = self._get("mal_api", f"{MAL_API}/anime/{mal_id}", params={"fields": MAL_FIELDS},
+    def _fetch_mal(self, mal_id: int, kind: str = "anime") -> Reception:
+        kind = _kind(kind)
+        body = self._get("mal_api", f"{MAL_API}/{kind}/{mal_id}", params={"fields": MAL_FIELDS},
                          headers={"X-MAL-CLIENT-ID": self._client_id or ""})
         return Reception(source="mal_api", mal_id=mal_id, anilist_id=None, score=_num(body.get("mean")),
                          scorers=_int(body.get("num_scoring_users")), rank=_int(body.get("rank")),
-                         popularity=_int(body.get("popularity")), url=MAL_PAGE.format(id=mal_id),
-                         fetched_at=_iso(self._clock()))
+                         popularity=_int(body.get("popularity")), url=MAL_PAGE.format(kind=kind, id=mal_id),
+                         fetched_at=_iso(self._clock()), kind=kind)
 
-    def _fetch_jikan(self, mal_id: int) -> Reception:
-        data = self._get("jikan", f"{JIKAN_API}/anime/{mal_id}").get("data")
+    def _fetch_jikan(self, mal_id: int, kind: str = "anime") -> Reception:
+        kind = _kind(kind)
+        data = self._get("jikan", f"{JIKAN_API}/{kind}/{mal_id}").get("data")
         if not isinstance(data, dict):
             raise ReceptionError("Jikan answered without data")
         return Reception(source="jikan", mal_id=mal_id, anilist_id=None, score=_num(data.get("score")),
                          scorers=_int(data.get("scored_by")), rank=_int(data.get("rank")),
-                         popularity=_int(data.get("popularity")), url=MAL_PAGE.format(id=mal_id),
-                         fetched_at=_iso(self._clock()))
+                         popularity=_int(data.get("popularity")), url=MAL_PAGE.format(kind=kind, id=mal_id),
+                         fetched_at=_iso(self._clock()), kind=kind)
 
     # ------------------------------------------------------------ lookups
-    def mal(self, mal_id: int) -> Reception:
-        """MAL's numbers for one MAL id: a cached record (≤ 30 days), else MAL API v2 when a client ID
-        is set, else Jikan. Raises ReceptionError when neither answers."""
+    def mal(self, mal_id: int, kind: str = "anime") -> Reception:
+        """MAL's numbers for one MAL id (anime or, v1.9, manga): a cached record (≤ 30 days), else MAL API
+        v2 when a client ID is set, else Jikan. Raises ReceptionError when neither answers."""
+        kind = _kind(kind)
         for source in ("mal_api", "jikan"):
-            if (rec := self._cached(source, mal_id)) is not None:
+            if (rec := self._cached(source, _key(kind, mal_id))) is not None:
                 return rec
         if self._client_id:
             try:
-                return self._store(self._fetch_mal(mal_id))
+                return self._store(self._fetch_mal(mal_id, kind))
             except ReceptionError as exc:
                 self.note(f"mal {mal_id}: {exc}; using Jikan")
         elif not self._said_no_key:
             self._said_no_key = True
             self.note("MAL_CLIENT_ID is not set; MAL numbers come from Jikan")
-        return self._store(self._fetch_jikan(mal_id))
+        return self._store(self._fetch_jikan(mal_id, kind))
 
     def from_anilist(self, media: Media, *, fetched_at: float | None = None) -> Reception:
         """AniList's own numbers from a catalog `Media` (fetched_at: when AniList served it)."""
+        kind = "manga" if media.kind == "MANGA" else "anime"
         return Reception(source="anilist", mal_id=media.id_mal, anilist_id=media.id,
                          score=_num(media.score), scorers=None, rank=None, popularity=_int(media.popularity),
-                         url=ANILIST_PAGE.format(id=media.id),
-                         fetched_at=_iso(self._clock() if fetched_at is None else fetched_at))
+                         url=ANILIST_PAGE.format(kind=kind, id=media.id),
+                         fetched_at=_iso(self._clock() if fetched_at is None else fetched_at), kind=kind)
 
 
 def _media_for(entry: CorpusEntry, anilist: AniList, client: ReceptionClient) -> Media | None:
     """The entry's AniList media: its `catalog_ref` (anilist:ID) when present, else the resolver."""
     from animedex.catalog.resolve import resolve
+    from animedex.models.common import PRINT_MEDIA
 
+    media_type = "MANGA" if entry.medium in PRINT_MEDIA else "ANIME"   # v1.9: the print side of AniList
     ref = entry.catalog_ref or ""
     try:
         if ref.startswith("anilist:"):
-            return anilist.media(int(ref.split(":", 1)[1]))
+            return anilist.media(int(ref.split(":", 1)[1]), media_type)
         if ref:  # another catalog (TVmaze: western animation, live action) has no AniList or MAL entry
             client.note(f"{entry.title_id}: catalog {ref.split(':', 1)[0]} has no reception source")
             return None
-        found = resolve(anilist, f"{entry.title} ({entry.year})")
+        found = resolve(anilist, f"{entry.title} ({'manga' if media_type == 'MANGA' else entry.year})")
         found_ref = str((found.entry if found else {}).get("catalog_ref") or "")
         if not found_ref.startswith("anilist:"):
             client.note(f"{entry.title_id}: not found on AniList; no reception numbers")
             return None
-        return anilist.media(int(found_ref.split(":", 1)[1]))
+        return anilist.media(int(found_ref.split(":", 1)[1]), media_type)
     except (CatalogError, ValueError) as exc:
         client.note(f"{entry.title_id}: AniList lookup failed ({exc})")
         return None
@@ -278,7 +298,8 @@ def reception_for(entry: CorpusEntry, *, anilist: AniList, client: ReceptionClie
         client.note(f"{entry.title_id}: AniList lists no MAL id; AniList numbers only")
         return records
     try:
-        records.append(replace(client.mal(media.id_mal), anilist_id=media.id))
+        records.append(replace(client.mal(media.id_mal, "manga" if media.kind == "MANGA" else "anime"),
+                               anilist_id=media.id))
     except ReceptionError as exc:
         client.note(f"{entry.title_id}: no MAL numbers ({exc}); AniList numbers only")
     return records

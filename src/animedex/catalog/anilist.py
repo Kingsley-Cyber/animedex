@@ -22,10 +22,11 @@ import httpx
 
 ENDPOINT = "https://graphql.anilist.co"
 USER_AGENT = "animedex/0.1 (personal research tool)"
-_MEDIA = """id idMal title { romaji english native } synonyms format episodes status countryOfOrigin popularity
-averageScore startDate { year month day } endDate { year month day } studios(isMain: true) { nodes { name } }
-relations { edges { relationType node { id type format episodes title { romaji english }
+_MEDIA = """id idMal title { romaji english native } synonyms format episodes chapters volumes status countryOfOrigin
+popularity averageScore startDate { year month day } endDate { year month day } studios(isMain: true) { nodes { name } }
+externalLinks { site } relations { edges { relationType node { id type format episodes status title { romaji english }
 startDate { year month } endDate { year month } } } }"""
+MEDIA_TYPES = ("ANIME", "MANGA")   # v1.9: the same client serves the print side
 
 
 class CatalogError(RuntimeError):
@@ -42,6 +43,7 @@ class Relation:
     start_year: int | None
     end_year: int | None
     episodes: int | None
+    status: str | None = None   # v1.9: RELEASING / FINISHED / NOT_YET_RELEASED / CANCELLED (adaptation signal)
 
 
 @dataclass(frozen=True)
@@ -62,6 +64,10 @@ class Media:
     studios: tuple[str, ...]
     relations: tuple[Relation, ...] = field(default_factory=tuple)
     id_mal: int | None = None  # MyAnimeList id: the reception client's key (catalog/reception.py)
+    kind: str = "ANIME"        # v1.9: ANIME or MANGA (AniList's media type)
+    chapters: int | None = None
+    volumes: int | None = None
+    links: tuple[str, ...] = ()   # external link site names (a webtoon platform marks a webtoon)
 
     @property
     def ref(self) -> str:
@@ -72,7 +78,7 @@ class Media:
         return [n for n in (self.english, self.romaji, *self.synonyms) if n]
 
 
-def _media(d: dict[str, Any]) -> Media:
+def _media(d: dict[str, Any], kind: str = "ANIME") -> Media:
     t = d.get("title") or {}
     rels = []
     for e in (d.get("relations") or {}).get("edges") or []:
@@ -81,7 +87,8 @@ def _media(d: dict[str, Any]) -> Media:
         rels.append(Relation(kind=e.get("relationType") or "", id=int(n.get("id") or 0), type=n.get("type") or "",
                              format=n.get("format"), title=nt.get("english") or nt.get("romaji") or "",
                              start_year=(n.get("startDate") or {}).get("year"),
-                             end_year=(n.get("endDate") or {}).get("year"), episodes=n.get("episodes")))
+                             end_year=(n.get("endDate") or {}).get("year"), episodes=n.get("episodes"),
+                             status=n.get("status")))
     sd, ed = d.get("startDate") or {}, d.get("endDate") or {}
     return Media(id=int(d["id"]), title=t.get("english") or t.get("romaji") or "", romaji=t.get("romaji") or "",
                  english=t.get("english"), synonyms=tuple(d.get("synonyms") or ()), format=d.get("format"),
@@ -89,7 +96,16 @@ def _media(d: dict[str, Any]) -> Media:
                  popularity=int(d.get("popularity") or 0), score=d.get("averageScore"),
                  start=(sd.get("year"), sd.get("month")), end=(ed.get("year"), ed.get("month")),
                  studios=tuple(n["name"] for n in ((d.get("studios") or {}).get("nodes") or [])), relations=tuple(rels),
-                 id_mal=int(d["idMal"]) if d.get("idMal") else None)
+                 id_mal=int(d["idMal"]) if d.get("idMal") else None, kind=kind,
+                 chapters=d.get("chapters"), volumes=d.get("volumes"),
+                 links=tuple(str(x.get("site") or "") for x in (d.get("externalLinks") or []) if x.get("site")))
+
+
+def _type(media_type: str) -> str:
+    kind = str(media_type or "ANIME").upper()
+    if kind not in MEDIA_TYPES:
+        raise ValueError(f"media_type must be ANIME or MANGA, not {media_type!r}")
+    return kind
 
 
 MIN_INTERVAL_S = 2.0         # 30 requests a minute: AniList's degraded limit (owner rule)
@@ -148,19 +164,22 @@ class AniList:
             return body["data"]
         raise CatalogError("AniList: still rate-limited after retries")
 
-    def search(self, text: str, per_page: int = 10) -> list[Media]:
-        q = ("query ($s: String, $n: Int) { Page(perPage: $n) { media(search: $s, type: ANIME, "
+    def search(self, text: str, per_page: int = 10, media_type: str = "ANIME") -> list[Media]:
+        q = ("query ($s: String, $n: Int, $t: MediaType) { Page(perPage: $n) { media(search: $s, type: $t, "
              f"sort: [SEARCH_MATCH, POPULARITY_DESC]) {{ {_MEDIA} }} }} }}")
-        return [_media(m) for m in self._post(q, {"s": text, "n": per_page})["Page"]["media"]]
+        data = self._post(q, {"s": text, "n": per_page, "t": _type(media_type)})
+        return [_media(m, media_type) for m in data["Page"]["media"]]
 
-    def media(self, media_id: int) -> Media:
-        q = f"query ($id: Int) {{ Media(id: $id, type: ANIME) {{ {_MEDIA} }} }}"
-        return _media(self._post(q, {"id": media_id})["Media"])
+    def media(self, media_id: int, media_type: str = "ANIME") -> Media:
+        q = f"query ($id: Int, $t: MediaType) {{ Media(id: $id, type: $t) {{ {_MEDIA} }} }}"
+        return _media(self._post(q, {"id": media_id, "t": _type(media_type)})["Media"], media_type)
 
     def popular(self, page: int, *, country: str, per_page: int = 50, since: int = 1995,
-                formats: tuple[str, ...] = ("TV", "TV_SHORT", "ONA", "MOVIE")) -> list[Media]:
-        q = ("query ($p: Int, $n: Int, $c: CountryCode, $d: FuzzyDateInt, $f: [MediaFormat]) { Page(page: $p, "
-             "perPage: $n) { media(type: ANIME, sort: POPULARITY_DESC, countryOfOrigin: $c, startDate_greater: $d, "
-             f"format_in: $f) {{ {_MEDIA} }} }} }}")
-        data = self._post(q, {"p": page, "n": per_page, "c": country, "d": since * 10000, "f": list(formats)})
-        return [_media(m) for m in data["Page"]["media"]]
+                formats: tuple[str, ...] | None = None, media_type: str = "ANIME") -> list[Media]:
+        formats = formats or (("TV", "TV_SHORT", "ONA", "MOVIE") if media_type == "ANIME" else ("MANGA", "NOVEL"))
+        q = ("query ($p: Int, $n: Int, $c: CountryCode, $d: FuzzyDateInt, $f: [MediaFormat], $t: MediaType) { "
+             "Page(page: $p, perPage: $n) { media(type: $t, sort: POPULARITY_DESC, countryOfOrigin: $c, "
+             f"startDate_greater: $d, format_in: $f) {{ {_MEDIA} }} }} }}")
+        data = self._post(q, {"p": page, "n": per_page, "c": country, "d": since * 10000, "f": list(formats),
+                              "t": _type(media_type)})
+        return [_media(m, media_type) for m in data["Page"]["media"]]

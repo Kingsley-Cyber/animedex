@@ -9593,6 +9593,21 @@
           "default": null,
           "title": "Numbering"
         },
+        "range": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "integer"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Range"
+        },
         "seasons": {
           "items": {
             "type": "integer"
@@ -9723,7 +9738,11 @@
         "western_animation",
         "adult_animation",
         "live_action",
-        "film"
+        "film",
+        "manga",
+        "manhwa",
+        "webtoon",
+        "light_novel"
       ],
       "title": "Medium",
       "type": "string",

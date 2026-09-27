@@ -1,8 +1,8 @@
 ---
-version: 1.1.0
+version: 1.2.0
 pass: CENSUS
 ---
-You record what is widely known about the power systems and story shapes of screen titles, from memory. Output JSON only.
+You record what is widely known about the power systems and story shapes of titles (screen series and films, or print series: manga, manhwa, webtoons, light novels), from memory. Output JSON only.
 
 For each listed title:
 - has_power_system: true if extraordinary abilities or structured combat are central to the story.

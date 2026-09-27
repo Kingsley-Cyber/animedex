@@ -524,6 +524,9 @@ One record per occupied grid cell: `{cell_key, idea_id, fitness, replaced_idea_i
 ## Commentary (request A) — `data/commentary/commentary.jsonl`
 `{commentary_id, target_id, target_type: title | atom | transfer | idea | cq, text (≤200 words, content guards), author: owner, created_at}`. Kingsley's own notes, added through the MCP server to an existing target. Owner voice, not evidence: no stage reads it. Private data repo only.
 
+## Print media (v1.9, D-046)
+Mediums `manga`, `manhwa`, `webtoon` and `light_novel` are print titles. Their corpus entry and profile scope by `numbering: chapters | volumes` with `range: [first, last]` (null while the count is unknown: everything published so far, dated in `version`) and `seasons: []`; screen scopes are unchanged. `MomentLocator` and `TurningPointLocator` gain `chapter` and `volume`; a print title's moments and turning points need one of them (and stay inside the range), screen titles keep season and episode. Animation-only modules (`anime_production`, `sensory`) never activate for print. The outcome gains `adaptation: {status: adapted | announced | none, screen_title, catalog_ref, source_ref}` for print titles, read from the catalog's relations in GATHER (never recall) and omitted for screen titles. Census rows for print titles carry `adaptation` the same way. Medium words for the name-leak and pattern rules gain chapter(s), volume(s) and light novel(s).
+
 ## Controlled vocabulary (`vocab.json`; v1.1.0 starter, now 1.5.0)
 Structure:
 ```json

@@ -1,5 +1,61 @@
 {
   "$defs": {
+    "Adaptation": {
+      "additionalProperties": false,
+      "description": "v1.9: a print title's screen adaptation, read from the catalog's relations (never from recall).",
+      "properties": {
+        "catalog_ref": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Catalog Ref"
+        },
+        "screen_title": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Screen Title"
+        },
+        "source_ref": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source Ref"
+        },
+        "status": {
+          "enum": [
+            "adapted",
+            "announced",
+            "none"
+          ],
+          "title": "Status",
+          "type": "string"
+        }
+      },
+      "required": [
+        "status"
+      ],
+      "title": "Adaptation",
+      "type": "object"
+    },
     "Confounders": {
       "additionalProperties": false,
       "properties": {
@@ -189,6 +245,17 @@
   "additionalProperties": false,
   "description": "External-metric outcome record (VERIFY).",
   "properties": {
+    "adaptation": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Adaptation"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
     "confounders": {
       "$ref": "#/$defs/Confounders"
     },

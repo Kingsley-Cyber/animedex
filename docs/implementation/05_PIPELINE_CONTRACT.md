@@ -227,7 +227,8 @@ Deterministic except steps 3 and 5, which call a model.
 - **Call cap (item 8).** Ideation runs (`make ideas`, either arm) share one cap across generate, judge and prior art: `ideate.calls_per_run` (60), so one run covers three generations. Other runs keep `budget.calls_per_run` (40).
 - **Contested-evidence flag (controls A8).** When `ideas.md` is written, a card whose `atoms_used` lean on an atom now CONTESTED or REJECTed by its latest CHECK, with `explanation: contested`, gone from the index, or (M6 hook) `support.status: contradicted` shows an **Evidence flag** line. It is computed from the current canonical state every time and never shown in the blind packet.
 
-### CENSUS (v1.6)
+### CENSUS (v1.6; print since v1.9)
+- **`--print-top N`:** the N most popular print roots (AniList manga and novels; `census.korean` of them from Korea), each with `adaptation` from the catalog. CQ-P01 answers from these rows.
 - **In:**
   - catalog titles: AniList's popular franchise roots since 1995, anime + donghua;
   - or resolved queue lines.
@@ -241,6 +242,7 @@ Deterministic except steps 3 and 5, which call a model.
 - **Pairing:** two versions of the same story become each other's nearest neighbor.
 - **Mix warning:** an all-hit or all-anime list gets a warning and suggestions, never a block.
 - **Running:** the full pipeline runs in paced batches, and the report shows counts only.
+- **Print (v1.9):** a hint in parentheses (`manga`, `manhwa`, `webtoon`, `light novel`) resolves on AniList's manga side; a line with no screen match anywhere falls back to it ("no screen version found: the print original"). Print entries scope by volumes (else chapters) as `range: [1, n]`. GATHER records the adaptation signal from the catalog; INTERPRET copies it onto the outcome.
 
 ### BACKTEST (controls plan B1; statistics as gates, item 8)
 - **`animedex backtest [--list FILE]`** (`make backtest LIST=FILE`): one command over existing stages.

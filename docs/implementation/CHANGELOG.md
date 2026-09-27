@@ -1,5 +1,8 @@
 # Changelog — docs/implementation
 
+## v1.9: print media — 2026-09-27
+- **D-046.** Vocab 1.6.0 (mediums manga, manhwa, webtoon, light_novel; numbering chapters, volumes; sensory off for print), schema 1.5.0 (scope `range`, chapter/volume locators, `outcome.adaptation`, `census.adaptation`). AniList client serves both media types (chapters, volumes, links, relation status); the resolver takes a print hint and falls back to print when no screen version exists; reception on the manga side of MAL/Jikan/AniList (separate cache keys). GATHER/INTERPRET/VERIFY/P1 place print facts by chapter and volume (prompts 1.1.0, verify +0.1, census 1.2.0); GATHER records the adaptation signal, INTERPRET puts it on the outcome; integrity checks print turning points by chapter/volume; P3 keeps print out of an anime title's cross-medium slot. `animedex census --print-top N`, CQ-P01 (unadapted print titles by story-engine lane). Plan: `proposals/CHANGE_PLAN_v1.9_print.md`. Docs 00, 04, 05, 08 (AC-58–61), 09, USAGE.
+
 ## Operate tools for harnesses — 2026-09-27
 - **D-045.** MCP tools `add_titles` (resolve, preview or run the backfill), `run_ideas`, `check_concept`, `job_status`, `stop_job` (`mcpserver/jobs.py`): one detached job at a time, a `make batch` run counts, exited children are reaped so a finished job never reads as alive. `bin/animedex-mcp` for one-command clients (Hermes). AGENTS.md gets an operating table (owner's words → commands, and the rules that never bend). USAGE section 4, 05, 06 and the request A plan updated.
 

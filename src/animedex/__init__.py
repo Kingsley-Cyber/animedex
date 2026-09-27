@@ -3,4 +3,4 @@
 __version__ = "0.1.0"
 
 # Version of the record shapes in src/animedex/models (04; 1.4.0: v1.8 contracts).
-SCHEMA_VERSION = "1.4.0"
+SCHEMA_VERSION = "1.5.0"   # v1.9 print media (D-046): additive

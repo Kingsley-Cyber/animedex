@@ -145,11 +145,16 @@ class Provenance(StrictModel):
 
 
 # ---------------------------------------------------------------- scope (corpus entry + title)
+PRINT_MEDIA = ("manga", "manhwa", "webtoon", "light_novel")   # v1.9 (D-046): print titles
+PRINT_NUMBERING = ("chapters", "volumes")
+
+
 class Scope(StrictModel):
     version: str = Field(min_length=1)
     seasons: list[int] = Field(default_factory=list)
     numbering: Any = None  # validated against vocab below; null only for films
     exclude: list[str] = Field(default_factory=list)
+    range: list[int] | None = None  # v1.9 print: [first, last] chapter or volume; null = everything published so far
 
     @field_validator("numbering")
     @classmethod
@@ -168,15 +173,30 @@ class Scope(StrictModel):
             raise ValueError("seasons must be distinct non-negative integers")
         return value
 
-    def check_for_format(self, fmt: str) -> None:
-        """Films may use seasons [] and numbering null; every other format needs both (v1.2 D2)."""
+    @field_validator("range")
+    @classmethod
+    def _range(cls, value: list[int] | None) -> list[int] | None:
+        if value is not None and (len(value) != 2 or value[0] < 0 or value[1] < value[0]):
+            raise ValueError("scope.range must be [first, last] with first <= last")
+        return value
+
+    def check_for_format(self, fmt: str, medium: str | None = None) -> None:
+        """Films may use seasons [] and numbering null; every other screen format needs both (v1.2 D2).
+        A print title (v1.9) scopes by chapters or volumes, with no seasons."""
+        if medium in PRINT_MEDIA:
+            if self.numbering not in PRINT_NUMBERING:
+                raise ValueError("a print title's scope.numbering must be chapters or volumes")
+            if self.seasons:
+                raise ValueError("a print title's scope lists chapters or volumes, not seasons")
+            return
+        if self.numbering in PRINT_NUMBERING:
+            raise ValueError("scope.numbering chapters/volumes is for print titles only")
         if fmt == "film":
             return
         if not self.seasons:
             raise ValueError("scope.seasons must list at least one season for non-film titles")
         if self.numbering is None:
             raise ValueError("scope.numbering is required for non-film titles")
-
 
 RoleTag = Literal["gold", "hit", "mixed", "flop", "contrast"]
 

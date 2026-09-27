@@ -56,6 +56,8 @@ class TurningPointLocator(StrictModel):
 
     season: int | None = Field(default=None, ge=0)
     episode: int | None = Field(default=None, ge=0)
+    chapter: int | None = Field(default=None, ge=0)   # v1.9: print titles
+    volume: int | None = Field(default=None, ge=0)
 
 
 class TurningPoint(StrictModel):

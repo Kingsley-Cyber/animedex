@@ -26,6 +26,7 @@ from animedex.config import Settings
 from animedex.content_guards import GuardConfig, dialogue_problems, quote_problems
 from animedex.guards import LiveRunRefused
 from animedex.models import CorpusEntry
+from animedex.models.common import PRINT_MEDIA
 from animedex.ontology import Vocab
 from animedex.paths import Paths
 from animedex.pipeline.common import blocked_source, norm_url, url_set
@@ -75,14 +76,16 @@ def web_limits(settings: Settings) -> dict[str, int]:
 
 def output_schema(paths_: list[str]) -> dict[str, Any]:
     fact = {"type": "object", "additionalProperties": False,
-            "required": ["path", "value", "season", "episode", "source_url", "scope"],
+            "required": ["path", "value", "season", "episode", "chapter", "volume", "source_url", "scope"],
             "properties": {"path": {"type": "string", "enum": paths_ or ["none"]}, "value": {"type": "string"},
                            "season": {"type": ["integer", "null"]}, "episode": {"type": ["integer", "null"]},
+                           "chapter": {"type": ["integer", "null"]}, "volume": {"type": ["integer", "null"]},  # v1.9 print
                            "source_url": {"type": "string"}, "scope": {"type": "string", "enum": ["in_scope", "unplaced"]}}}
     cfact = {"type": "object", "additionalProperties": False,
-             "required": ["field", "value", "season", "episode", "source_url", "scope"],
+             "required": ["field", "value", "season", "episode", "chapter", "volume", "source_url", "scope"],
              "properties": {"field": {"type": "string", "enum": list(CHARACTER_FIELDS)}, "value": {"type": "string"},
                             "season": {"type": ["integer", "null"]}, "episode": {"type": ["integer", "null"]},
+                            "chapter": {"type": ["integer", "null"]}, "volume": {"type": ["integer", "null"]},
                             "source_url": {"type": "string"},
                             "scope": {"type": "string", "enum": ["in_scope", "unplaced"]}}}
     character = {"type": "object", "additionalProperties": False, "required": ["role", "name", "facts"],
@@ -155,7 +158,7 @@ def admit(out: dict[str, Any], urls: set[str], vocab: Vocab, allowed: list[str],
         if not cited(f.get("source_url"), what):
             continue
         n += 1
-        facts.append({"id": f"F{n:02d}", **{k: f.get(k) for k in ("path", "value", "season", "episode", "source_url", "scope")}})
+        facts.append({"id": f"F{n:02d}", **{k: f.get(k) for k in ("path", "value", "season", "episode", "chapter", "volume", "source_url", "scope")}})
     characters, c = [], 0
     for ch in (out.get("characters") or [])[:4]:
         kept = []
@@ -167,7 +170,7 @@ def admit(out: dict[str, Any], urls: set[str], vocab: Vocab, allowed: list[str],
             if not cited(cf.get("source_url"), what):
                 continue
             c += 1
-            kept.append({"id": f"C{c:02d}", **{k: cf.get(k) for k in ("field", "value", "season", "episode", "source_url", "scope")}})
+            kept.append({"id": f"C{c:02d}", **{k: cf.get(k) for k in ("field", "value", "season", "episode", "chapter", "volume", "source_url", "scope")}})
         if kept:
             characters.append({"role": ch.get("role"), "name": str(ch.get("name") or "")[:60], "facts": kept})
     reception, r = [], 0
@@ -184,8 +187,10 @@ def admit(out: dict[str, Any], urls: set[str], vocab: Vocab, allowed: list[str],
 
 def run_gather(paths: Paths, entries: list[CorpusEntry], client: LLMClient, vocab: Vocab, settings: Settings, *,
                run_id: str, reception: Any = None, guards: GuardConfig | None = None,
-               created_at: str | None = None) -> GatherResult:
-    """`reception(entry) -> (records, notes)` supplies the API reception numbers (None: skip)."""
+               created_at: str | None = None, adaptation: Any = None) -> GatherResult:
+    """`reception(entry) -> (records, notes)` supplies the API reception numbers (None: skip);
+    `adaptation(entry) -> dict | None` supplies a print title's screen-adaptation signal from the catalog
+    (v1.9; None: skip)."""
     guards = guards or GuardConfig.from_settings(settings)
     prompt = read_prompt(paths.prompts / "gather.md")
     client.prompt_version = str(prompt.meta["version"])
@@ -222,12 +227,15 @@ def run_gather(paths: Paths, entries: list[CorpusEntry], client: LLMClient, voca
             for i, rec in enumerate(records, start=1):
                 api.append({"id": f"A{i:02d}", **rec.to_dict(), "api_url": rec.api_url})
             res.reception = [a["source"] for a in api]
+        adapt = adaptation(entry) if adaptation is not None else None  # v1.9: catalog facts, never recall
+        if adaptation is not None and adapt is None and entry.medium in PRINT_MEDIA:
+            res.notes.append(f"{tid}: no adaptation signal (catalog lookup failed)")
         res.kept = len(kept["facts"]) + sum(len(c["facts"]) for c in kept["characters"]) + len(kept["reception"])
         res.unplaced = sum(1 for f in kept["facts"] if f["scope"] == "unplaced")
         res.dropped = dropped
         if dropped:
             res.notes.append(f"{len(dropped)} item(s) dropped, no retry: " + "; ".join(dropped[:6]))
-        record = {"title_id": tid, "run_id": run_id, **kept, "reception_api": api,
+        record = {"title_id": tid, "run_id": run_id, **kept, "reception_api": api, "adaptation": adapt,
                   "searches": list(web.get("queries") or []), "notes": res.notes,
                   "provenance": {"run_id": run_id, "pass": "GATHER", "model": completion.provenance_model,
                                  "prompt_version": client.prompt_version, "schema_version": SCHEMA_VERSION,

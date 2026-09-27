@@ -90,11 +90,16 @@ def write_candidates(paths: Paths, record_type: str, title_id: str, records: lis
 # `key: count` line, then one `id: value; part: value; ...` line per record.
 def scope_lines(title: str, year: Any, medium: str, fmt: str, scope: dict[str, Any]) -> list[str]:
     """A title's identity and declared scope as `key: value` lines."""
-    return [f"title: {title}", f"year: {year}", f"medium: {medium}", f"format: {fmt}",
-            f"scope: {scope['version']}",
-            f"seasons: {', '.join(str(s) for s in scope.get('seasons') or []) or 'n/a'}",
-            f"numbering: {scope.get('numbering') or 'n/a'}",
-            f"out_of_scope: {'; '.join(scope.get('exclude') or []) or 'nothing listed'}"]
+    lines = [f"title: {title}", f"year: {year}", f"medium: {medium}", f"format: {fmt}", f"scope: {scope['version']}"]
+    numbering = scope.get("numbering")
+    if numbering in ("chapters", "volumes"):  # v1.9: a print title's scope is a chapter or volume range
+        rng = scope.get("range")
+        lines.append(f"{numbering}: {f'{rng[0]}-{rng[1]}' if rng else 'everything published so far'}")
+    else:
+        lines += [f"seasons: {', '.join(str(s) for s in scope.get('seasons') or []) or 'n/a'}",
+                  f"numbering: {numbering or 'n/a'}"]
+    lines.append(f"out_of_scope: {'; '.join(scope.get('exclude') or []) or 'nothing listed'}")
+    return lines
 
 
 # ---------------------------------------------------------------- prompt rendering

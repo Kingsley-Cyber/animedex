@@ -27,6 +27,7 @@ from animedex.config import Settings
 from animedex.content_guards import GuardConfig
 from animedex.guards import LiveRunRefused
 from animedex.models import CorpusEntry, Moment, title_profile_model
+from animedex.models.common import PRINT_MEDIA
 from animedex.ontology import Vocab
 from animedex.paths import Paths
 from animedex.pipeline.common import render_profile, supersede
@@ -88,15 +89,24 @@ def fact_index(gathered: dict[str, Any]) -> dict[str, dict[str, Any]]:
     return out
 
 
+def _where(f: dict[str, Any]) -> str:
+    """Where a fact is placed: s1e7 for screen, c12 (and v2) for print (v1.9), nothing when unplaced."""
+    if f.get("season") and f.get("episode"):
+        return f" s{f['season']}e{f['episode']}"
+    parts = [f"c{f['chapter']}" if f.get("chapter") else "", f"v{f['volume']}" if f.get("volume") else ""]
+    joined = "".join(parts)
+    return f" {joined}" if joined else ""
+
+
 def render_facts(gathered: dict[str, Any]) -> str:
     """Compact `key: value` lines, one per fact, with its id (v1.7 compact context)."""
     lines = ["gathered_facts:"]
     for f in gathered.get("facts") or []:
-        where = f" s{f['season']}e{f['episode']}" if f.get("season") and f.get("episode") else ""
+        where = _where(f)
         lines.append(f"{f['id']}: {f['path']} = {f['value']}{where} [{f['scope']}]")
     for ch in gathered.get("characters") or []:
         for f in ch.get("facts") or []:
-            where = f" s{f['season']}e{f['episode']}" if f.get("season") and f.get("episode") else ""
+            where = _where(f)
             lines.append(f"{f['id']}: character {ch['role']} ({ch.get('name')}) {f['field']} = {f['value']}{where} [{f['scope']}]")
     for r in gathered.get("reception") or []:
         lines.append(f"{r['id']}: {r['kind']} verdict = {r['verdict']}")
@@ -212,6 +222,8 @@ def characters_schema(vocab: Vocab, ids: list[str]) -> dict[str, Any]:
                      "backstory_reveal": enum("character.backstory_reveal"),
                      "turning_points": {"type": "array", "items": obj({"event": s, "season": {"type": ["integer", "null"]},
                                                                        "episode": {"type": ["integer", "null"]},
+                                                                       "chapter": {"type": ["integer", "null"]},
+                                                                       "volume": {"type": ["integer", "null"]},
                                                                        "fact_id": fidn})},
                      "power_kit": kit, "villain": villain, "fact_ids": {"type": "array", "items": fid}})
     return obj({"characters": {"type": "array", "items": character, "maxItems": 4}})
@@ -227,6 +239,17 @@ def build_characters(entry: CorpusEntry, out: dict[str, Any], facts: dict[str, d
     notes: list[str] = []
     tid, film = entry.title_id, entry.format == "film"
     seasons = set(entry.scope.seasons or [])
+    print_title, span = entry.medium in PRINT_MEDIA, entry.scope.range   # v1.9: print places by chapter/volume
+
+    def placed(tp: dict[str, Any]) -> bool:
+        if film:
+            return True
+        if print_title:
+            unit = tp.get("chapter") if entry.scope.numbering == "chapters" else tp.get("volume")
+            if unit is None:
+                unit = tp.get("chapter") if tp.get("chapter") is not None else tp.get("volume")
+            return unit is not None and (not span or span[0] <= unit <= span[1])
+        return tp.get("episode") is not None and (not seasons or tp.get("season") in seasons)
 
     def ok_fact(fid: Any) -> dict[str, Any] | None:
         f = facts.get(fid or "")
@@ -261,9 +284,10 @@ def build_characters(entry: CorpusEntry, out: dict[str, Any], facts: dict[str, d
             else:
                 kit = {**{k: v for k, v in kit.items() if k != "creativity_moves"}, "creativity_moves": moves,
                        "creativity_level": level if kit.get("power_kind") != "stat_block" else None}
-        tps = [{"event": tp["event"], "locator": {"season": tp.get("season"), "episode": tp.get("episode")}}
-               for tp in ch.get("turning_points") or []
-               if film or (tp.get("episode") is not None and (not seasons or tp.get("season") in seasons))]
+        tps = [{"event": tp["event"], "locator": {"season": tp.get("season"), "episode": tp.get("episode"),
+                                                  **({"chapter": tp.get("chapter"), "volume": tp.get("volume")}
+                                                     if print_title else {})}}
+               for tp in ch.get("turning_points") or [] if placed(tp)]
         cited = [ok_fact(i) for i in ch.get("fact_ids") or []]
         rec = {"character_id": f"{tid}.c.{n:02d}", "title_id": tid, "name": ch.get("name"), "role": ch.get("role"),
                **{k: ch.get(k) for k in ("origin", "wound", "want", "need", "flaw", "moral_line", "relationship_to_power",
@@ -352,6 +376,8 @@ def run_interpret(paths: Paths, entries: list[CorpusEntry], client: LLMClient, v
                                               created_at=created_at)
         sourced = apply_evidence(record, data.get("evidence") or [], facts, threshold)
         outcome = build_outcome(tid, data.get("outcome"), facts, record["provenance"])
+        if outcome and entry.medium in PRINT_MEDIA and gathered.get("adaptation"):  # v1.9: from the catalog
+            outcome["adaptation"] = gathered["adaptation"]
         if outcome:  # the profile's outcome field follows the reception-backed outcome
             record["core"]["outcome"].update(value=outcome["label"], source="web", verification="gathered",
                                              source_ref=outcome["signals"][0]["source_ref"],

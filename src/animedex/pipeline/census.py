@@ -43,12 +43,39 @@ class CensusItem:
     medium: str
     format: str
     popularity: int | None = None
+    adaptation: str | None = None   # v1.9 print rows: adapted | announced | none, from the catalog
 
 
 def item_from_media(m: Media) -> CensusItem:
+    if m.kind == "MANGA":  # v1.9: a print title, with its screen-adaptation status from the catalog
+        from animedex.catalog.resolve import adaptation_of, print_medium
+
+        return CensusItem(census_id=m.ref, title=m.english or m.romaji, year=m.start[0], medium=print_medium(m),
+                          format=m.format or "MANGA", popularity=m.popularity, adaptation=adaptation_of(m)["status"])
     return CensusItem(census_id=m.ref, title=m.english or m.romaji, year=m.start[0],
                       medium="donghua" if m.country == "CN" else "anime", format=m.format or "TV",
                       popularity=m.popularity)
+
+
+def top_print(cat: AniList, *, size: int, korean: int, since: int = 1995) -> list[CensusItem]:
+    """The most popular print roots (no prequel): Japanese manga and light novels first, then Korean
+    manhwa and webtoons (v1.9). Counts only, like the screen census."""
+    out: list[CensusItem] = []
+    for country, want in (("JP", size - korean), ("KR", korean)):
+        got, page = 0, 1
+        while got < want and page <= 40:
+            batch = cat.popular(page, country=country, since=since, media_type="MANGA")
+            if not batch:
+                break
+            for m in batch:
+                if got >= want:
+                    break
+                if any(r.kind == "PREQUEL" for r in m.relations) or not m.start[0]:
+                    continue
+                out.append(item_from_media(m))
+                got += 1
+            page += 1
+    return out
 
 
 def top_roots(cat: AniList, *, size: int, donghua: int, since: int = 1995) -> list[CensusItem]:
@@ -139,7 +166,8 @@ def run_census(paths: Paths, items: list[CensusItem], client: LLMClient, vocab: 
             rec = {"census_id": b.census_id, "title": b.title, "year": b.year, "medium": b.medium, "format": b.format,
                    "popularity": b.popularity, "has_power_system": t.get("has_power_system"),
                    **{k: t.get(k) for k in CENSUS_FIELDS}, "borrowed_system": t.get("borrowed_system"),
-                   "trust": "recall", "batch_id": batch_id, "provenance": prov}
+                   "trust": "recall", "batch_id": batch_id, "provenance": prov,
+                   **({"adaptation": b.adaptation} if b.adaptation else {})}
             CensusEntry.model_validate(rec)
             records.append(rec)
         write_candidates(paths, "census", batch_id.replace(".", "_"), records)

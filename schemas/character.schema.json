@@ -322,6 +322,19 @@
       "additionalProperties": false,
       "description": "Where a turning point happens. Non-film titles need the episode (checked against the title).",
       "properties": {
+        "chapter": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Chapter"
+        },
         "episode": {
           "anyOf": [
             {
@@ -347,6 +360,19 @@
           ],
           "default": null,
           "title": "Season"
+        },
+        "volume": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Volume"
         }
       },
       "title": "TurningPointLocator",

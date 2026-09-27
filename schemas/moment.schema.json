@@ -3,6 +3,18 @@
     "MomentLocator": {
       "additionalProperties": false,
       "properties": {
+        "chapter": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Chapter"
+        },
         "episode": {
           "anyOf": [
             {
@@ -50,6 +62,18 @@
           ],
           "default": null,
           "title": "Timestamp"
+        },
+        "volume": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Volume"
         }
       },
       "title": "MomentLocator",
