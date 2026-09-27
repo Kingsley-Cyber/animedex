@@ -1,0 +1,20 @@
+# Decisions
+
+Kingsley, 2026-09-27: "Every pending or future decision: use your own recommendation, log it here with one line of reasoning, and never ask."
+Each entry: id, date, decision, and why. Owner rulings are in `.control/policies/operating-brief.md`; this file holds the agent's calls.
+
+| ID | Date | Decision | Why |
+|---|---|---|---|
+| D-001 | 2026-09-27 | Per-field word caps: P1 phrases 15 words, 20 for the eleven two-part fields; new v1.8 phrase fields default 15, and stated caps stand. | The 12-word cap forced a length repair on 23 of 41 drafts; these caps cut that to 5 while keeping phrases short. |
+| D-002 | 2026-09-27 | The 7 enum proposals: add `no_magazine_demographic`, `self_imposed_restriction`, `imposed_penalty` and `gauge`; a wish granted in a catastrophe → `contract`; a qualitative power category → visible_counter `none`. | They cover real, recurring cases the enums lacked; the other two are already existing values with a clearer test. |
+| D-003 | 2026-09-27 | INTERPRET runs on Opus 5.5 at effort medium; an effort A/B (medium vs high) runs on 3 titles for gather-first P1 and INTERPRET. | Owner decision; the A/B tells whether high effort's extra thinking time buys agreement. |
+| D-004 | 2026-09-27 | One combined gather-first run covers the v1.7 comparison and the v1.8 fields for the 14 titles, with timing split. | Nothing downstream exists yet, so one run avoids paying for GATHER twice. |
+| D-005 | 2026-09-27 | Baselines: baseline 1 is the same loop as ANIMEDEX with an empty brief; baseline 2 is a single "write N premises" call. No arm searches the web while generating; every arm gets the same prior-art check. | It isolates the index as the only difference, which is the fairness rule. |
+| D-006 | 2026-09-27 | The audit samples all titles now that gold annotations are waived. | The non-gold guard existed to keep annotations blind; with no annotations coming it no longer protects anything. |
+| D-007 | 2026-09-27 | Backtest: 10 held-out titles, mid-popularity and recent, in one run (about 34 calls). | That's enough for a first accuracy read without spending two runs; widen later if the gap is small. |
+| D-008 | 2026-09-27 | Embedder: Polymath's GPU Qwen3-Embedding-0.6B first, the Ollama copy as backup; thresholds calibrated on Polymath's. | Owner choice: no second copy of the same model on the GPU. |
+| D-009 | 2026-09-27 | Reception records (MAL API, Jikan, AniList) enter GATHER through their own source field, not through web-citation matching, which keeps rejecting myanimelist.net page URLs. | API data is allowed; the page-URL block exists to stop scraping, and it stays. |
+| D-010 | 2026-09-27 | Ideation modes: gap_cell only for review #1; the fight-first slice waits. | Fight-first needs Kingsley's own fight images, and he is only rating now; model-written ones would weaken the test. |
+| D-011 | 2026-09-27 | M3 runs on all 14 titles (gold first), not just the gold set. | Ideation needs atoms from many titles and media; gold alone would leave the pool too thin for M5. |
+| D-012 | 2026-09-27 | Steering rules: none exist yet, so every arm runs without them; the machinery stays ready. | Kingsley hasn't written rules; inventing his taste rules would change the taste standard. |
+| D-020 | 2026-09-27 | The embedder readiness probe waits 6 s, not 2. | Polymath's /ready can wait up to 5 s for a busy GPU; 2 s would push busy runs onto the backup. |

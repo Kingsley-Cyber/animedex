@@ -3,5 +3,5 @@
 #   pending          gold live runs may proceed; gold-title outputs are shown only as counts
 #   annotations_done gold outputs may be shown (annotations are committed first)
 #   waived           gold outputs may be shown; gold-vs-annotation metrics stay deferred
-state: pending
+state: waived   # Kingsley, 2026-09-27: "Gold annotations: waived. Unmask outputs and mark AC-17 deferred."
 runs_without_annotations: true

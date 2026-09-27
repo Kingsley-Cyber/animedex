@@ -18,7 +18,7 @@
 | AC-14 | Each title has ≥1 engine atom; total atoms ≤15 (fewer than 5 flagged, not failed); every atom has `evidence_refs`; every effect atom has `rival_because` | Contract test | M3 |
 | AC-15 | Every anime gold title has ≥1 cross-medium partner; every effect-atom proof has an explanation test | Contract test | M3 |
 | AC-16 | Load-bearing count per title is 3–8, or flagged; contested atoms are excluded from load-bearing | Report + contract test | M3 |
-| AC-17 | Model load-bearing set recalls ≥ 0.60 of Kingsley's blind annotation | `make eval` | M3 |
+| AC-17 | Model load-bearing set recalls ≥ 0.60 of Kingsley's blind annotation | `make eval` | M3 — **deferred (owner: Kingsley)**: gold annotations waived 2026-09-27 |
 | AC-18 | P4 patterns contain no names; every transfer atom has essential, variable, and failure conditions | Contract test | M3 |
 | AC-19 | CHECK uses a different model family when configured; a scope-leak fixture is rejected | Config test + pipeline test | M3 |
 | AC-20 | REJECTs quarantined with reasons; REVISEs re-checked once; CONTESTED sets `explanation: contested` | Pipeline test | M3 |

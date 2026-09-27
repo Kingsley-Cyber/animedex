@@ -22,7 +22,7 @@ from urllib.parse import urlsplit
 
 import httpx
 
-READY_TIMEOUT_S = 2.0  # readiness probes: a slow answer counts as not ready
+READY_TIMEOUT_S = 6.0  # readiness probes; Polymath's /ready can wait up to 5 s for a busy GPU (DECISIONS D-020)
 POLYMATH_BATCH = 32    # the sidecar's per-request limit
 AGAIN = "then run the same command again."
 OLLAMA_DOWN = f"Ollama is not running. Start it (open the Ollama app, or run `ollama serve`), {AGAIN}"

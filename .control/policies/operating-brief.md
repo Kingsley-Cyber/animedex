@@ -219,3 +219,17 @@ Supersedes the provider, key and dollar-cap lines of the G1 rulings. The model c
 - **`animedex diagnose` (M5, small; reuses the M5 gates and judge):** a concept as text, from a file or pasted, goes through one structuring call that turns it into an idea card (logline, premise, engine, profile, closest existing title). The card is stored in the private data repo, never the public repo. Every gate and the judge run on it exactly as on generated cards, plus an ablation pass over its own parts (which atom is load-bearing?). Output: one line per check (pass or fail, and why), and a prescription for each failure, mapped to an operator or a concept-ladder rung. The full rebuild (`amplify`) stays in the post-review plan.
 - **Embedder (Kingsley, 2026-09-27):** use Polymath's Qwen3-Embedding-0.6B already on the GPU (`127.0.0.1:8742`, background priority), with the Ollama copy as fallback. Calibrate on Polymath's. No second copy of the model on the GPU in normal runs.
 - **Scopes widened (2026-09-27):** Jujutsu Kaisen S1–3, Demon Slayer S1–5 (TV; films excluded), Mob Psycho 100 S1–3, Avatar Books 1–3, Invincible S1–4, The Boys S1–5. Their canonical profiles keep the season-1 scope until the combined v1.7 + v1.8 run re-profiles them.
+
+## Owner ruling: FINISH IT (Kingsley, 2026-09-27; replaces every open question, gate and pending decision)
+- **Definition of done:**
+  1. v1.7 and v1.8 landed, with the combined 14-title run done.
+  2. AC-12 ≥ 0.80 on every grid field, or the axis replaced.
+  3. M3, M4 and the census run live in order, each milestone's ACs checked before the next.
+  4. M5 live: brief assembly, fair baselines, judge and gate fixes, `make audit`, `animedex diagnose`, and the retrodiction backtest run and reported.
+  5. The blind-review packet ready as a localhost rating page; `make backfill`, `make ideas` and USAGE.md working end to end.
+  6. The data repo pushed after every batch and milestone; tests green; determinism passing.
+- **During Kingsley's blind review:** build change request A (MCP chat, commentary, `search_atoms`), then run the census and the priority-1 backfill. Studio, dashboard, episodes and storyboards stay parked until he has rated.
+- **Decisions:** the agent decides everything with its own recommendation, logged in `docs/implementation/DECISIONS.md` with one line of reasoning, and never asks. Gold annotations are waived: outputs unmasked, AC-17 deferred (owner: Kingsley). URCP: PR opened (#1), then all URCP work stops. Parallel tracks are fine; merge in order; run live sequentially, 3 titles at once.
+- **The only reasons to stop:** deleting data; a change to the taste standard; the blind-review packet is ready (the finish line). On plan limits: pause and resume automatically, no questions.
+- **Rules that stay:** subscription CLIs only; paraphrase only; scope discipline; no scraping MAL; Kingsley's concepts and all outputs only in the private data repo; no new fields after v1.8; tests green.
+- **Updates:** one short plain-language message per milestone. The final message says "ready for blind review" and lists the exact steps.
