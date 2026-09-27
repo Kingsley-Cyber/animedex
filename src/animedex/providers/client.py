@@ -1,18 +1,13 @@
-"""LLMClient: the one path every pass uses to call a model.
-
-complete(system, user, json_schema, params) -> (json, usage)   (03 provider interface)
+"""LLMClient: the one path every call uses.
 
 Order of operations:
-1. cache lookup (key per 05, model part = provider identity, e.g. `claude_cli@2.1.251/<model>`);
-   a hit spends nothing;
-2. live calls only: title guard (corpus scope + gold blind guard), then the budget: dollar caps for
-   API-billed providers, call caps for subscription CLIs (G1a);
-3. provider call; JSON parse + validation; on failure, ONE repair call with the error (11),
-   then InvalidOutput (the stage quarantines);
-4. every attempt is logged with fetched web text redacted. API calls are charged; subscription
-   calls are counted and their reported cost is logged as a shadow cost.
-A response served by a different model than requested is recorded but never cached; strict slots
-refuse it outright.
+1. cache lookup (key: record, pass, prompt/schema/vocab versions, provider identity + model, params,
+   upstream hash); a hit spends nothing;
+2. live calls only: the run's call cap (the subscription CLIs share the plan's limits);
+3. provider call; JSON parse + validation; on failure, ONE repair call with the error, then InvalidOutput
+   (the caller quarantines);
+4. every attempt is logged with fetched web text redacted; the CLI's reported cost is logged, never charged.
+A response served by a different model than requested is recorded but never cached; strict slots refuse it.
 """
 
 from __future__ import annotations
@@ -27,7 +22,7 @@ from typing import Any
 
 from pydantic import ValidationError
 
-from animedex.budget import Budget, Price
+from animedex.budget import Budget
 from animedex.config import ModelSpec
 from animedex.providers.base import Provider, ProviderError, Usage, same_model
 from animedex.providers.cli_common import unexpected_loads
@@ -46,7 +41,7 @@ class ClientConfigError(RuntimeError):
 
 
 class ModelSubstituted(ProviderError):
-    """A strict slot (CHECK, judge) was answered by a different model; the output is refused."""
+    """A strict slot (the check) was answered by a different model; the output is refused."""
 
 
 class InvalidOutput(RuntimeError):
@@ -77,10 +72,8 @@ class CallContext:
     pass_: str
     record_id: str
     upstream: str
-    title_id: str | None = None
-    episode_id: str | None = None
     transients: tuple[TransientText, ...] = field(default_factory=tuple)
-    meta: dict[str, Any] | None = None  # logged with every attempt (e.g. the M5 call brief's size); not in the key
+    meta: dict[str, Any] | None = None  # logged with every attempt; not in the key
 
 
 @dataclass(frozen=True)
@@ -112,8 +105,8 @@ def _required_args(fn: Callable[..., Any]) -> int:
 
 
 def run_validate(validate: Callable[..., Any] | None, data: dict[str, Any], meta: dict[str, Any]) -> None:
-    """`validate(data)`, or `validate(data, meta)` when it takes two required args (VERIFY checks
-    citations against the call's own web evidence)."""
+    """`validate(data)`, or `validate(data, meta)` when it takes two required args (a check against the
+    call's own web evidence)."""
     if validate is None:
         return
     if _required_args(validate) >= 2:
@@ -134,19 +127,13 @@ class LLMClient:
         vocab_version: str,
         cache: ResponseCache,
         runlog: RunLog,
-        price: Price | None = None,
         budget: Budget | None = None,
-        title_guard: Callable[[str], None] | None = None,
         min_interval_s: float = 0.0,
         sleep: Callable[[float], None] = time.sleep,
     ):
-        self.billing = getattr(provider, "billing", "api")
-        if provider.live:
-            missing = [n for n, v in (("budget", budget), ("title guard", title_guard)) if v is None]
-            if self.billing == "api" and price is None:
-                missing.append("pricing")
-            if missing:
-                raise ClientConfigError(f"live provider {provider_name}/{spec.model} needs {', '.join(missing)}")
+        if provider.live and budget is None:
+            raise ClientConfigError(f"live provider {provider_name}/{spec.model} needs a budget")
+        self.billing = getattr(provider, "billing", "subscription")
         self.provider = provider
         self.provider_name = provider_name
         self.identity = str(getattr(provider, "identity", provider_name))
@@ -156,9 +143,7 @@ class LLMClient:
         self.vocab_version = vocab_version
         self.cache = cache
         self.runlog = runlog
-        self.price = price
         self.budget = budget
-        self.title_guard = title_guard
         self.min_interval_s = min_interval_s
         self._sleep = sleep
         self._last_call: float | None = None
@@ -176,19 +161,6 @@ class LLMClient:
             upstream=ctx.upstream,
         )
 
-    def complete(
-        self,
-        system: str,
-        user: str,
-        json_schema: dict[str, Any],
-        params: dict[str, Any] | None = None,
-        *,
-        ctx: CallContext,
-        validate: Callable[[dict[str, Any]], Any] | None = None,
-    ) -> tuple[dict[str, Any], Usage]:
-        result = self.complete_ex(system, user, json_schema, params, ctx=ctx, validate=validate)
-        return result.data, result.usage
-
     def _pace(self) -> float:
         """Sleep out the gap between calls; returns the seconds slept (logged as pacing)."""
         waited = 0.0
@@ -200,13 +172,8 @@ class LLMClient:
         self._last_call = time.monotonic()
         return waited
 
-    def _check_budget(self, ctx: CallContext) -> None:
-        if not self.provider.live or self.budget is None:
-            return
-        if self.billing == "subscription":
-            self.budget.check_calls(ctx.title_id)
-        else:
-            self.budget.check(ctx.title_id, ctx.episode_id)
+    def _counted(self) -> bool:
+        return self.provider.live and self.budget is not None
 
     def complete_ex(
         self,
@@ -231,15 +198,13 @@ class LLMClient:
             return Completion(hit["json"], Usage(), hit.get("model", ""), key, True, False,
                               hit.get("identity", self.identity), hit.get("meta") or {})
 
-        if self.provider.live and ctx.title_id:
-            self.title_guard(ctx.title_id)  # type: ignore[misc]
-
         call_params = {**self.spec.params, **(params or {}), "model": self.spec.model}
         total = Usage()
         errors: list[str] = []
         attempt_user = user
         for attempt in (0, 1):
-            self._check_budget(ctx)
+            if self._counted():
+                self.budget.check_calls()  # type: ignore[union-attr]
             sent = dict(call_params)
             if not self.provider.live:
                 sent["_meta"] = {"pass": ctx.pass_, "record_id": ctx.record_id, "attempt": attempt}
@@ -248,8 +213,8 @@ class LLMClient:
             try:
                 resp = self.provider.generate(system, attempt_user, json_schema, sent)
             except ProviderError as exc:
-                if self.provider.live and self.billing == "subscription" and self.budget is not None:
-                    self.budget.count_call(ctx.title_id)
+                if self._counted():
+                    self.budget.count_call()  # type: ignore[union-attr]
                 self.runlog.log_call(**log_common, model=self.spec.model, cache_hit=False, attempt=attempt,
                                      input_tokens=0, output_tokens=0, cost_usd=0.0, user=attempt_user,
                                      response=None, error=str(exc),
@@ -257,14 +222,9 @@ class LLMClient:
                 raise
             timing = {**(resp.meta.get("timing") or {}), "call_s": round(time.monotonic() - started, 2),
                       "pacing_s": round(paced, 2)}
-            if self.billing == "subscription":
-                cost = float(resp.meta.get("shadow_cost_usd") or 0.0)  # logged, never charged
-                if self.provider.live and self.budget is not None:
-                    self.budget.count_call(ctx.title_id)
-            else:
-                cost = self.price.cost(resp.usage.input_tokens, resp.usage.output_tokens) if self.price else 0.0
-                if self.provider.live and self.budget is not None:
-                    self.budget.charge(cost, ctx.title_id, ctx.episode_id)
+            cost = float(resp.meta.get("shadow_cost_usd") or 0.0)  # the CLI's reported cost: logged, never charged
+            if self._counted():
+                self.budget.count_call()  # type: ignore[union-attr]
             total = total + resp.usage
             substituted = self.provider.live and not same_model(self.spec.model, resp.model)
             kept = {k: resp.meta[k] for k in KEPT_META if k in resp.meta}
@@ -272,65 +232,29 @@ class LLMClient:
             if "init" in resp.meta:
                 cli_meta["unexpected"] = unexpected_loads(resp.meta["init"], expected_tools=resp.meta.get("expected_tools"))
             cli_meta = {**cli_meta, **kept} or None
+            usage_log = {"input_tokens": resp.usage.input_tokens, "output_tokens": resp.usage.output_tokens,
+                         "cache_read_tokens": resp.usage.cache_read_tokens,
+                         "cache_write_tokens": resp.usage.cache_write_tokens}
             if substituted and self.spec.strict_model:
-                self.runlog.log_call(**log_common, model=resp.model, cache_hit=False, attempt=attempt,
-                                     input_tokens=resp.usage.input_tokens, output_tokens=resp.usage.output_tokens,
-                                 cache_read_tokens=resp.usage.cache_read_tokens,
-                                 cache_write_tokens=resp.usage.cache_write_tokens,
+                self.runlog.log_call(**log_common, **usage_log, model=resp.model, cache_hit=False, attempt=attempt,
                                      cost_usd=cost, user=attempt_user, response=None, meta=cli_meta, timing=timing,
                                      error=f"refused: strict slot answered by {resp.model}, not {self.spec.model}")
                 raise ModelSubstituted(f"{self.spec.model} was substituted by {resp.model}; strict slot refuses it")
-            self.runlog.log_call(**log_common, model=resp.model, cache_hit=False, attempt=attempt,
-                                 input_tokens=resp.usage.input_tokens, output_tokens=resp.usage.output_tokens,
-                                 cache_read_tokens=resp.usage.cache_read_tokens,
-                                 cache_write_tokens=resp.usage.cache_write_tokens,
+            self.runlog.log_call(**log_common, **usage_log, model=resp.model, cache_hit=False, attempt=attempt,
                                  cost_usd=cost, user=attempt_user, response=resp.text, meta=cli_meta, timing=timing,
                                  error=f"substituted: served by {resp.model}" if substituted else None)
-            data: dict[str, Any] | None = None
             try:
                 data = parse_json(resp.text)
                 run_validate(validate, data, kept)
             except (ValueError, ValidationError) as exc:
                 errors.append(str(exc))
-                # only texts over their caps: shorten just those first, since a full regeneration can break
-                # something else (a live P3 retry did); after the full repair it is the last resort
-                fixed = self._length_repair(ctx, params, data, str(exc), validate, kept) if data is not None else None
-                if fixed is None and attempt == 0:
+                if attempt == 0:
                     attempt_user = user + REPAIR_SUFFIX.format(error=str(exc)[:800])
                     continue
-                if fixed is None:
-                    raise InvalidOutput(errors, resp.text) from exc
-                data, usage = fixed
-                total = total + usage
+                raise InvalidOutput(errors, resp.text) from exc
             if not substituted:  # a fallback answer is never cached: reruns retry the requested model
                 self.cache.put(ctx.pass_, key, {"json": data, "model": resp.model, "usage": asdict(total),
                                                 "provider": self.provider_name, "identity": self.identity,
                                                 "meta": kept})
             return Completion(data, total, resp.model, key, False, substituted, self.identity, kept)
         raise AssertionError("unreachable")  # pragma: no cover
-
-    def _length_repair(self, ctx: CallContext, params: dict[str, Any] | None, data: dict[str, Any], error: str,
-                       validate: Callable[..., Any] | None, kept: dict[str, Any]) -> tuple[dict[str, Any], Usage] | None:
-        """The last resort before quarantine (D-030): when every remaining problem is a text over its word
-        cap, one short call rewrites just those texts; the result must pass the same validation."""
-        from animedex.providers import length_repair as lr
-        from animedex.store.cache import upstream_hash
-
-        items = lr.targets(data, error)
-        if not items:
-            return None
-        user, schema = lr.request(items)
-        sub = CallContext(pass_=ctx.pass_, record_id=f"{ctx.record_id}.shorten", title_id=ctx.title_id,
-                          episode_id=ctx.episode_id,
-                          upstream=upstream_hash([{"shorten": [[lr.dotted(p), t, c] for p, t, c in items]}]))
-        try:
-            done = self.complete_ex(lr.SYSTEM, user, schema, params, ctx=sub,
-                                    validate=lambda out: lr.check(items, out))
-        except InvalidOutput:
-            return None
-        fixed = lr.apply(data, items, done.data)
-        try:
-            run_validate(validate, fixed, kept)
-        except (ValueError, ValidationError):
-            return None
-        return fixed, done.usage
