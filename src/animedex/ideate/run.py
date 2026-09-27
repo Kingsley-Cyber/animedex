@@ -197,8 +197,10 @@ def revival_sources(ctx: Context) -> list[dict[str, Any]]:
 
 
 def open_borrowed(ctx: Context) -> list[str]:
-    """v1.6 5b: a borrowed system qualifies only with zero occurrences as a power system in the census."""
-    if not ctx.census_size:
+    """v1.6 5b: a borrowed system qualifies only with zero occurrences as a power system in the census. That zero
+    is census-backed novelty, so it counts only over the 200 powered census rows of the M5 floor, which also
+    clears the rule of three (3/n < 0.02, statistics as gates)."""
+    if not ctx.census_size or not ctx.census_zeros_trusted:
         return []
     return [s for s in BORROWABLE if ctx.census_systems.get(s, 0) == 0]
 

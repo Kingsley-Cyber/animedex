@@ -269,6 +269,16 @@ def test_unpowered_census_rows_never_count_and_bridge_pairs_need_an_adequate_cor
     assert not r.novel_combo and "bridge pairs need atoms from 2+ titles" in r.fatal[0]
 
 
+@pytest.mark.parametrize("rows, open_", [(150, False), (200, True)])
+def test_a_borrowed_system_is_open_only_over_enough_powered_census_rows(pool, rows, open_):
+    from animedex.ideate.run import BORROWABLE, open_borrowed
+
+    CanonicalStore(pool).write("census", make_census(rows, borrowed_system="game"))
+    ctx = build_context(pool, load_settings(pool), get_vocab())
+    got = open_borrowed(ctx)  # a zero among 150 rows is not open (3/150 = 0.02); 200 rows clear the floor
+    assert got == ([s for s in BORROWABLE if s != "game"] if open_ else [])
+
+
 @pytest.mark.parametrize("together, kept", [(0, True), (1, False)])
 def test_t1_needs_the_key_pair_never_seen_together(pool, together, kept):
     from animedex.ideate.gates import GateResult
