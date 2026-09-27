@@ -27,3 +27,4 @@ CHANGELOG → 00 → 02 → 03 → 04 → 05 → 06 → 07 (current milestone on
 19. **Episodes need a fetched source.** Never create an episode record from recall alone. Store a ≤60-word paraphrase and the URL; never the fetched text.
 20. **Stay inside scope in every pass.** Treat a scope leak (another adaptation, unadapted source material) as a bug, not a nuance.
 21. **Only status changes spend tokens in ROLLUP.** If a supporting episode triggers a re-run, that's a caching bug.
+22. **MCP server (request A).** It never calls a model or the web. Only `add_commentary` writes, only to `data/commentary/`, and only Kingsley's own words when he asks for a note.

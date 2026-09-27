@@ -306,6 +306,11 @@ Snapshots and counts only, no models; each statistic replaced the check it corre
   The concept ladder: kit → set → MC → villain and thematic argument → world → engine and escalation → promise and hooks → pilot hook → three key frames → storyboard.
 - **Gold blind:** gold names are masked, and a judge reason written against a gold title is withheld while the blind is pending.
 
+### MCP (request A, D-033)
+- **Command:** `animedex mcp` / `make mcp` (stdio). No model calls, no web.
+- **Read tools:** `search_atoms(query, kind, title_id, eligible_only, limit)` → ranked atoms with `ranker: embedding | word_overlap`; `get_atom`, `list_titles`, `get_title`, `find_titles(filters)`, `list_cqs`, `cq_answer`, `gaps`; `champions` only when every card in the latest blind packet is rated.
+- **Write tool:** `add_commentary(target_id, text)` appends one owner note; nothing else is written.
+
 ## Caching and idempotency
 `cache_key = sha256(id | pass | prompt_version | schema_version | vocab_version | model | params | upstream_hash)`, where `upstream_hash` hashes the canonical inputs the pass reads.
 - Changing the P3 prompt invalidates P3, CHECK, and P4 for affected titles, never P1 or P2.

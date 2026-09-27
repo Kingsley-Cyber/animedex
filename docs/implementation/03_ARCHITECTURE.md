@@ -173,6 +173,9 @@ animedex/
 - **Loop:** pick a theme root → pick atoms → apply one transformation operator (reverse the incentive, redistribute knowledge, transfer the cost, change the rule, combine mechanisms, import a lane), respecting each atom's essential conditions → write the card with its own engine and traced consequences → deterministic gates (clone, novelty, graveyard) → judge (H1 consequence test, failure conditions, coherence, taste with evidence) → place if the cell is empty or the card beats the incumbent → repeat.
 - **Output:** best idea per cell + the empty-cell map.
 
+## MCP server (request A, D-033)
+`animedex mcp` serves the index over stdio (`src/animedex/mcpserver/`, the official `mcp` SDK). The client's model does the chatting; the server calls no model and no web. Tools: `search_atoms`, `get_atom`, `list_titles`, `get_title`, `find_titles`, `list_cqs`, `cq_answer`, `gaps`, `champions` (after the blind review only), `commentary`, `add_commentary`. `search_atoms` ranks with the pipeline's embedder (Polymath, then Ollama) and falls back to word overlap, naming the ranker in every answer; its vectors live in memory for the session. The one write is `add_commentary` → `data/commentary/commentary.jsonl` (git-ignored, in the private data repo).
+
 ## Design principles
 1. Canonical JSONL is truth; everything else rebuilds.
 2. No domain vocabulary in `src/`.

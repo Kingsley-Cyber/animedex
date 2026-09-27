@@ -1,5 +1,11 @@
 # Changelog — docs/implementation
 
+## Request A: MCP chat, commentary, search_atoms — 2026-09-27 (merged after the packet)
+- **D-033.** `animedex mcp` / `make mcp`: the index as an MCP server over stdio (official `mcp` SDK 2.x, `MCPServer`). Read-only tools (`search_atoms`, `get_atom`, `list_titles`, `get_title`, `find_titles`, `list_cqs`, `cq_answer`, `gaps`, `champions` after the blind review) and one write (`add_commentary` → `data/commentary/`, private data repo). `search_atoms` ranks by embedding (Polymath, then Ollama) or word overlap and says which. No model calls, no web; tests prove the read tools write nothing and the server imports no provider.
+- **Docs:** 02, 03, 04 (commentary record), 05, 06, 10, USAGE (section 4). Plan: `proposals/CHANGE_PLAN_request_A.md`.
+
+## Length repair for every stage — 2026-09-27
+
 ## The idea archive persists — 2026-09-27
 - **D-041.** Live M5 finding: one canary card's `broken_rule` ("Iyashikei safety: …") tripped the dialogue guard at canonicalize. Its dangling archive row then failed the whole archive transaction on every run, so the archive never persisted: every passing card stayed "champion" and no card was ever displaced.
   - A speaker label must now be Title Case (a name), so a sentence-case label introduces a description, not speech.

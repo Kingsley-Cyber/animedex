@@ -13,7 +13,7 @@
 - **Backfill:** a plain title list is resolved through catalogs into scoped corpus entries and runs through the full pipeline.
 - **Ideation:** MAP-Elites with transformation operators, idea engines, consequence tracing, gates, a judge, a runway check, pre-mortems, and prior-art web checks for absence claims (v1.6). Target domain: anime premises.
 - **Eval:** gold set, agreement, regression snapshots, blind baseline comparison.
-- **Interface:** CLI + Makefile only.
+- **Interface:** CLI + Makefile, plus a read-only MCP server (`animedex mcp`, request A, D-033) for chatting with the index from an MCP client.
 
 **V1.1 (M6)**
 - **Episode evidence layer:** key episodes only (pilot, moment episodes, a finale, one control episode) per title, from fetched summaries; rollup into atom support status; promotion of recurring new atoms; derived series-engine fields; setup/payoff links.

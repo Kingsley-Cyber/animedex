@@ -65,6 +65,7 @@
 | ALL (live) | CLI isolation | Preventive | Allowlisted env (no `ANTHROPIC_*`/`OPENAI_*`/`CLAUDE*`/`CODEX_*`), empty scratch dir, tools off, no user settings/skills/MCP/memory | Refuse an API-key login; log each call's init metadata; report user-level leaks |
 | ALL (live) | Gold blind guard | Preventive | Live run on a gold title needs filled, committed `eval/gold/<title_id>/` annotations | Refuse to start |
 | ALL | Raw-log redaction | Preventive | Fetched web text never written to logs | Replace with URL + sha256 + length |
+| MCP (request A) | Read-only index, one write path | Preventive | Index tools only read (a test snapshots the repo); `add_commentary` writes only `data/commentary/`; idea cards hidden until the blind review is rated; the server imports no model provider (test) | A tool that writes elsewhere or reveals an arm is a bug: fix and re-test |
 
 ## Decision rights
 | Decision | Agent | Kingsley |

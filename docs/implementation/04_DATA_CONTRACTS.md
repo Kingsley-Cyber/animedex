@@ -521,6 +521,9 @@ rules:
 ## Archive — `archive.jsonl`
 One record per occupied grid cell: `{cell_key, idea_id, fitness, replaced_idea_id, generation}`.
 
+## Commentary (request A) — `data/commentary/commentary.jsonl`
+`{commentary_id, target_id, target_type: title | atom | transfer | idea | cq, text (≤200 words, content guards), author: owner, created_at}`. Kingsley's own notes, added through the MCP server to an existing target. Owner voice, not evidence: no stage reads it. Private data repo only.
+
 ## Controlled vocabulary (`vocab.json`; v1.1.0 starter, now 1.5.0)
 Structure:
 ```json

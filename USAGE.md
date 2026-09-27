@@ -60,6 +60,26 @@ You get one line per check: PASS or FAIL, and why. The checks ask:
 
 Every FAIL comes with a fix. The fix names either one of the idea moves (for example "move the cost onto someone else") or the step to work on next (for example "world", or "engine and escalation"). The full report is in `data/diagnose/`. It stays on your computer and in your private backup, never in the public repo. A check takes 3 model calls.
 
+## 4. Chat with the index
+
+Ask Claude about the index in plain words ("which shows make the hero pay with memories?", "what does the index say about Hunter x Hunter's Nen?"). ANIMEDEX answers through an MCP server; it never calls a model itself.
+
+1. In Claude Code, run this once:
+
+   ```bash
+   claude mcp add animedex -- uv run --directory /Users/king/Desktop/Ideation animedex mcp
+   ```
+
+   For Claude Desktop, add this under `mcpServers` in its config file instead:
+
+   ```json
+   "animedex": {"command": "uv", "args": ["run", "--directory", "/Users/king/Desktop/Ideation", "animedex", "mcp"]}
+   ```
+
+2. Ask away. To leave a note on a show or an atom, say "add a note to ...". Notes stay in your private backup.
+
+Idea cards stay hidden in chat until you've rated the whole blind packet, so the review stays blind.
+
 ## Long runs
 
 - `make batch FILE=my_batch.yaml` runs a batch file (titles and their steps; Claude can write one for you) in the background, up to 3 titles at once. It keeps running if you close the chat or the terminal.

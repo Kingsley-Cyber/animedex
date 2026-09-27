@@ -1,4 +1,4 @@
-.PHONY: validate build clean-build test eval smoke schemas lint ideas packet analyze backfill census review review-report batch status timing recalibrate data-push data-pull audit audit-report diagnose backtest stats
+.PHONY: mcp validate build clean-build test eval smoke schemas lint ideas packet analyze backfill census review review-report batch status timing recalibrate data-push data-pull audit audit-report diagnose backtest stats
 
 UV ?= uv
 RUN = $(UV) run
@@ -81,3 +81,6 @@ data-push:
 
 data-pull:
 	$(RUN) animedex data pull
+
+mcp:
+	$(RUN) animedex mcp

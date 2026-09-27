@@ -1306,6 +1306,14 @@ def data_pull() -> None:
         raise typer.Exit(1) from exc
     typer.echo(f"restored {n} file(s) from the data repo")
 
+@app.command()
+def mcp() -> None:
+    """Request A: serve the index to an MCP client over stdio (read-only tools, search_atoms, commentary)."""
+    from animedex.mcpserver.server import main as serve_mcp
+
+    serve_mcp()
+
+
 def main() -> None:
     app()
 
