@@ -88,7 +88,9 @@ def test_scope_version_always_required_even_for_films():
 
 @pytest.mark.parametrize("path, value, message", [
     (("power_combat", "gate"), field_value("teleport_permit"), "not in vocab"),
-    (("core", "logline_hook"), field_value(" ".join(["word"] * 13)), "1-12 words"),
+    (("core", "logline_hook"), field_value(" ".join(["word"] * 21)), "1-20 words"),  # a two-part field
+    (("core", "tone"), field_value(" ".join(["word"] * 16)), "1-15 words"),
+    (("core", "flaw"), {**field_value("proud"), "condition": " ".join(["word"] * 16)}, "15-word limit"),
     (("core", "tone"), field_value(None, conf=0.5), "conf 0"),
     (("core", "tone"), {**field_value("wry"), "condition": "when cornered"}, "does not take a condition"),
     (("core", "tone"), field_value("wry", verification="web_confirmed"), "recall is not verification"),
@@ -193,3 +195,10 @@ def test_provenance_pass_values_include_canonicalize_and_patterns():
         Provenance.model_validate(prov("SMOKE"))
     with pytest.raises(ValidationError, match="sha256"):
         Provenance.model_validate(prov("P1", cache_key="md5:abc"))
+
+
+def test_each_phrase_field_takes_its_own_cap():
+    rec = make_title()
+    rec["core"]["logline_hook"] = field_value(" ".join(["word"] * 20))
+    rec["core"]["tone"] = field_value(" ".join(["word"] * 15))
+    title_profile_model().model_validate(rec)  # both exactly at their caps

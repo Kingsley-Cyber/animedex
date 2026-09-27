@@ -29,6 +29,7 @@ class LensField:
     kind: FieldKind
     vocab: str | None = None
     conditional: bool = False
+    max_words: int | None = None  # phrase fields only (vocab 1.4.0: per field, default lens.phrase_max_words)
 
     @property
     def path(self) -> str:
@@ -49,6 +50,7 @@ class Vocab:
             lens = data["lens"]
             core = lens["core"]["fields"]
             modules = lens["modules"]
+            self.phrase_max_words = int(lens.get("phrase_max_words", 12))
         except KeyError as exc:
             raise OntologyError(f"vocab.json missing key: {exc}") from exc
         self.core_fields = [self._lens_field("core", n, spec) for n, spec in core.items()]
@@ -86,7 +88,14 @@ class Vocab:
         vocab = spec.get("vocab")
         if kind == "enum" and vocab not in self.fields:
             raise OntologyError(f"lens field {block}.{name}: unknown vocab field {vocab!r}")
-        return LensField(block, name, kind, vocab, bool(spec.get("conditional", False)))
+        max_words = None
+        if kind == "phrase":
+            max_words = spec.get("max_words", self.phrase_max_words)
+            if not isinstance(max_words, int) or max_words < 1:
+                raise OntologyError(f"lens field {block}.{name}: max_words must be a positive integer")
+        elif "max_words" in spec:
+            raise OntologyError(f"lens field {block}.{name}: only phrase fields take max_words")
+        return LensField(block, name, kind, vocab, bool(spec.get("conditional", False)), max_words)
 
     # enums ---------------------------------------------------------------
     def enum(self, field_name: str) -> tuple[str, ...]:

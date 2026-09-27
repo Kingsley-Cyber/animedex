@@ -6,6 +6,7 @@ Pydantic models in `src/animedex/models/` are the source of truth for shapes. JS
 - **IDs:** `title_id` = slug + year (`hunter_x_hunter_2011`). Moments `{title_id}.mo.{nn}`; atoms `{title_id}.m.{nnn}`; transfers `{title_id}.t.{nnn}`; episodes `{title_id}.s{ss}e{ee}`; links `{title_id}.l.{nnnn}`; patterns `pattern.{nnn}`; ideas `idea.{run_id}.{nnn}`.
 - **Versions:** semver for `schema_version`, `vocab_version`, `bridge_version`, and each prompt file.
 - **Text:** paraphrase only. Phrases ≤ 12 words, sentences ≤ 25 words, episode summaries ≤ 60 words, unless noted. No quotes from sources.
+- **P1 word caps (vocab 1.4.0, owner-approved 2026-09-27):** P1 phrase fields allow 15 words. Eleven two-part fields allow 20: core.logline_hook, core.core_question, core.premise_engine, core.want_vs_need, core.opposition_logic, core.stakes_clock, core.world_rules, core.broken_rule, core.central_mystery, core.knowledge_gap, series_engine.episode_template. `condition` and `uncertainty_reason` allow 15. The vocab holds each field's cap (`max_words`, default `lens.phrase_max_words`).
 
 ## Provenance block (every record)
 ```json
@@ -35,10 +36,10 @@ Films use `seasons: []` and `numbering: null`; `version` is always required. Eve
 ## Field value shape (every P1 field)
 ```json
 {
-  "value": "enum value | ≤12-word phrase | null",
-  "condition": "≤12 words; character fields only (flaw, moral_line): when it shows / what would make them cross it",
+  "value": "enum value | phrase within the field's cap (15 words; 20 for the two-part fields) | null",
+  "condition": "≤15 words; character fields only (flaw, moral_line): when it shows / what would make them cross it",
   "conf": 0.0,
-  "uncertainty_reason": "≤12 words; required when conf < verify.conf_threshold",
+  "uncertainty_reason": "≤15 words; required when conf < verify.conf_threshold",
   "source": "recall|web|episodes",
   "verification": "not_required|unverified|web_confirmed|web_corrected|derived_from_episodes|unresolved",
   "source_ref": "URL or null",

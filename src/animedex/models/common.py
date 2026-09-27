@@ -10,7 +10,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 from pydantic_core import core_schema
 
 from animedex.ontology import get_bridge, get_vocab
-from animedex.textutil import Words12
+from animedex.textutil import Words15
 
 
 # ---------------------------------------------------------------- base
@@ -176,9 +176,9 @@ class FieldValue(StrictModel):
     """Shape of every P1 field (04). Subclassed per lens field for enum/phrase rules."""
 
     value: str | None = None
-    condition: Words12 | None = None
+    condition: Words15 | None = None
     conf: float = Field(ge=0.0, le=1.0)
-    uncertainty_reason: Words12 | None = None
+    uncertainty_reason: Words15 | None = None
     source: Source
     verification: Verification
     source_ref: str | None = None
@@ -188,6 +188,7 @@ class FieldValue(StrictModel):
     __field_path__: ClassVar[str] = ""
     __enum__: ClassVar[tuple[str, ...] | None] = None
     __conditional__: ClassVar[bool] = False
+    __max_words__: ClassVar[int] = 15  # phrase fields; the vocab sets it per field (1.4.0)
 
     @model_validator(mode="after")
     def _rules(self) -> FieldValue:
@@ -199,9 +200,9 @@ class FieldValue(StrictModel):
             if self.value not in cls.__enum__:
                 raise ValueError(f"{self.value!r} is not in vocab for {cls.__field_path__} {list(cls.__enum__)}")
         else:
-            words = len(self.value.split())
-            if not self.value.strip() or words > 12:
-                raise ValueError(f"phrase value must be 1-12 words (got {words})")
+            words, cap = len(self.value.split()), cls.__max_words__
+            if not self.value.strip() or words > cap:
+                raise ValueError(f"phrase value must be 1-{cap} words (got {words})")
         if self.condition is not None and not cls.__conditional__:
             raise ValueError(f"{cls.__field_path__ or 'field'} does not take a condition")
         if self.verification in ("web_confirmed", "web_corrected"):
@@ -213,9 +214,10 @@ class FieldValue(StrictModel):
 
 
 def field_value_type(
-    path: str, enum: tuple[str, ...] | None, conditional: bool, vocab_name: str | None = None
+    path: str, enum: tuple[str, ...] | None, conditional: bool, vocab_name: str | None = None,
+    max_words: int | None = None,
 ) -> type[FieldValue]:
-    """Per-lens-field FieldValue subclass carrying its enum and condition rule."""
+    """Per-lens-field FieldValue subclass carrying its enum, condition rule and word cap."""
     name = "FV_" + re.sub(r"[^A-Za-z0-9]", "_", path)
     attrs: dict[str, Any] = {
         "__module__": __name__,
@@ -223,6 +225,8 @@ def field_value_type(
         "__enum__": enum,
         "__conditional__": conditional,
     }
+    if max_words is not None:
+        attrs["__max_words__"] = max_words
     if enum is not None:
         attrs["__annotations__"] = {"value": Any}
         attrs["value"] = Field(

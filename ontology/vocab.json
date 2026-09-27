@@ -1,6 +1,6 @@
 {
-  "version": "1.3.0",
-  "notes": "Enums are the 04 v1.1.0 starter set. The lens section declares P1 fields and modules (spec v1.2: four orphan fields deleted at G0). Change only through ontology/proposals and owner approval. 1.2.1: module activation rules (05 table) added to the lens.",
+  "version": "1.4.0",
+  "notes": "Enums are the 04 v1.1.0 starter set. The lens section declares P1 fields and modules (spec v1.2: four orphan fields deleted at G0). Change only through ontology/proposals and owner approval. 1.2.1: module activation rules (05 table) added to the lens. 1.4.0: per-field word caps (owner-approved 2026-09-27, ontology/proposals/2026-09-27_word_caps.md): phrase fields 15 words (lens.phrase_max_words), 20 for the eleven two-part fields (max_words).",
   "fields": {
     "medium": {
       "enum": [
@@ -374,16 +374,20 @@
     }
   },
   "lens": {
+    "phrase_max_words": 15,
     "core": {
       "fields": {
         "logline_hook": {
-          "kind": "phrase"
+          "kind": "phrase",
+          "max_words": 20
         },
         "core_question": {
-          "kind": "phrase"
+          "kind": "phrase",
+          "max_words": 20
         },
         "premise_engine": {
-          "kind": "phrase"
+          "kind": "phrase",
+          "max_words": 20
         },
         "primary_feeling": {
           "kind": "phrase"
@@ -392,7 +396,8 @@
           "kind": "phrase"
         },
         "want_vs_need": {
-          "kind": "phrase"
+          "kind": "phrase",
+          "max_words": 20
         },
         "flaw": {
           "kind": "phrase",
@@ -406,28 +411,34 @@
           "kind": "phrase"
         },
         "opposition_logic": {
-          "kind": "phrase"
+          "kind": "phrase",
+          "max_words": 20
         },
         "stakes_clock": {
-          "kind": "phrase"
+          "kind": "phrase",
+          "max_words": 20
         },
         "world_rules": {
-          "kind": "phrase"
+          "kind": "phrase",
+          "max_words": 20
         },
         "borrowed_template": {
           "kind": "phrase"
         },
         "broken_rule": {
-          "kind": "phrase"
+          "kind": "phrase",
+          "max_words": 20
         },
         "unserved_appetite": {
           "kind": "phrase"
         },
         "central_mystery": {
-          "kind": "phrase"
+          "kind": "phrase",
+          "max_words": 20
         },
         "knowledge_gap": {
-          "kind": "phrase"
+          "kind": "phrase",
+          "max_words": 20
         },
         "reveal_cadence": {
           "kind": "phrase"
@@ -601,7 +612,8 @@
             "kind": "phrase"
           },
           "episode_template": {
-            "kind": "phrase"
+            "kind": "phrase",
+            "max_words": 20
           },
           "season_arc_shape": {
             "kind": "phrase"

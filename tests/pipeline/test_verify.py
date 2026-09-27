@@ -254,6 +254,21 @@ def test_a_verify_without_an_outcome_supersedes_a_stale_one(repo):
     assert not stale.exists() and (repo.candidates / "outcome" / "superseded" / "run_v" / f"{TID}.jsonl").is_file()
 
 
+def test_a_corrected_value_keeps_its_fields_word_cap(repo):
+    fields = [{"path": "sensory.power_visual_signature", "status": "corrected", "note": None, "source_url": FACTS,
+               "value": " ".join(f"w{i}" for i in range(16))},                      # cap 15
+              {"path": "core.central_mystery", "status": "corrected", "note": None, "source_url": FACTS,
+               "value": " ".join(f"w{i}" for i in range(18))}]                      # cap 20: fine
+    fixed = [{**fields[0], "value": "violet circuitry lines on skin"}, fields[1]]
+    result, mock, _ = verify_native(repo, {("VERIFY", TID): [verify_out(fields=fields), verify_out(fields=fixed)]},
+                                    {FACTS, EPISODES, RATINGS})
+    assert "[max 15 words]" in mock.calls[0]["user"] and "[max 20 words]" in mock.calls[0]["user"]
+    assert "sensory.power_visual_signature: 15 words max" in mock.calls[1]["user"]
+    assert "core.central_mystery: 20 words max" not in mock.calls[1]["user"]
+    [r] = result.titles
+    assert r.statuses["core.central_mystery"] == "corrected" == r.statuses["sensory.power_visual_signature"]
+
+
 def test_native_mode_flags_a_blown_search_cap(repo):
     good = verify_out(fields=[f for f in verify_out()["fields"] if f["path"] != "sensory.color_motif"])
     result, mock, _ = verify_native(repo, {("VERIFY", TID): [good]}, {FACTS, EPISODES, RATINGS}, searches=9)

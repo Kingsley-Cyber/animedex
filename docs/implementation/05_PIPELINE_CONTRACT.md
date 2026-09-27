@@ -282,11 +282,11 @@ You extract a compact profile of ONE screen title, inside the given scope. Outpu
 - Fill core fields. Set modules_active by the activation rules; fill only active modules.
 - Use only events inside the scope. Ignore other adaptations and unadapted source material.
 - Enum fields: choose from the provided enum. If none fits, use "other:<phrase>".
-- Phrase fields: ≤12 words, normalized wording.
+- Phrase fields: within each field's word cap (15 words; 20 for two-part fields; 04), normalized wording.
 - flaw and moral_line: add a condition (when it shows / what would make them cross it).
 - Sensory: documented signatures only. No claims about framing, blocking, editing, or shots.
 - conf 0.0–1.0 per field = how sure you are. Unknown → value null, conf 0. Never guess to fill.
-  If conf < 0.7, give an uncertainty_reason (≤12 words).
+  If conf < 0.7, give an uncertainty_reason (≤15 words).
 - Extract mechanics, structure, and appeal. Not plot summary.
 - 3–5 moments. Paraphrase only. No dialogue, no quotes.
 - source = "recall" for every field.

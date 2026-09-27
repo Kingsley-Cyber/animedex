@@ -1,5 +1,10 @@
 # Changelog — docs/implementation
 
+## v1.6.2 — 2026-09-27 (owner-approved: per-field word caps)
+- P1 phrase fields allow 15 words; the eleven two-part fields allow 20; `condition` and `uncertainty_reason` allow 15 (04 lists them). Vocab 1.4.0 carries each cap (`max_words`); FieldValue, the P1 checks and schema, the length-only repair, and VERIFY corrections all read it. Other passes keep 12.
+- Why: in 41 live P1 drafts, 217 phrases went over 12 words, in 33 of 41 fields, and 23 drafts needed a length repair. With these caps, 16 phrases and 5 drafts would. Record: `ontology/proposals/2026-09-27_word_caps.md`.
+- Prompts: p1_what 1.2.0, verify_native 1.2.0, verify_web 1.1.0. Existing candidates stay valid (every phrase was ≤ 12).
+
 ## v1.6.1 — 2026-09-27 (owner rule: sources)
 - Pipeline code never scrapes MyAnimeList pages. Claude web calls pass `--disallowedTools WebFetch(domain:myanimelist.net)`, and the VERIFY, prior-art and web-baseline prompts say so (prompt versions 1.1.0).
 - A myanimelist.net URL is never an admissible citation (VERIFY fields, moments, outcome signals, failure evidence; prior-art counterexamples). It gets a specific repair message, and `apply` drops it to `unresolved` even without validation.

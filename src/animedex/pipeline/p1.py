@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import fnmatch
 import json
+import re
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
@@ -75,15 +76,19 @@ def render_user(entry: CorpusEntry) -> str:
 
 
 # ---------------------------------------------------------------- output schema (for the model)
-def _field_schema(conditional: bool) -> dict[str, Any]:
+NOTE_MAX_WORDS = 15  # condition and uncertainty_reason (04; vocab 1.4.0 caps, owner-approved)
+
+
+def _field_schema(conditional: bool, max_words: int | None = None) -> dict[str, Any]:
+    value = f"a phrase of {max_words} words or fewer" if max_words else "a listed enum value"
     props: dict[str, Any] = {
-        "value": {"type": ["string", "null"], "description": "a listed enum value, or a phrase of 12 words or fewer"},
+        "value": {"type": ["string", "null"], "description": value},
         "conf": {"type": "number"},
-        "uncertainty_reason": {"type": ["string", "null"], "description": "12 words or fewer"},
+        "uncertainty_reason": {"type": ["string", "null"], "description": f"{NOTE_MAX_WORDS} words or fewer"},
         "epistemic": {"type": "string", "enum": EPISTEMIC},
     }
     if conditional:
-        props["condition"] = {"type": ["string", "null"], "description": "12 words or fewer"}
+        props["condition"] = {"type": ["string", "null"], "description": f"{NOTE_MAX_WORDS} words or fewer"}
     return {"type": "object", "properties": props, "required": list(props), "additionalProperties": False}
 
 
@@ -149,7 +154,7 @@ def output_schema(vocab: Vocab, entry: CorpusEntry | None = None) -> dict[str, A
     ones are required, and `modules_active` is derived afterwards (normalize_draft)."""
     def block(name: str) -> dict[str, Any]:
         fields = vocab.block_fields(name)
-        return {"type": "object", "properties": {f.name: _field_schema(f.conditional) for f in fields},
+        return {"type": "object", "properties": {f.name: _field_schema(f.conditional, f.max_words) for f in fields},
                 "required": [f.name for f in fields], "additionalProperties": False}
 
     moment = {"type": "object", "additionalProperties": False, "properties": {
@@ -204,8 +209,8 @@ def draft_problems(draft: dict[str, Any], entry: CorpusEntry, vocab: Vocab, thre
             if isinstance(value, str):
                 if f.kind == "enum" and not _enum_ok(vocab, f.vocab or f.path, value):
                     problems.append(f"{f.path}={value!r}: use a listed value or other:<phrase>")
-                if f.kind == "phrase" and word_count(value) > 12:
-                    problems.append(f"{f.path}: has {word_count(value)} words; rewrite it in 12 or fewer")
+                if f.kind == "phrase" and word_count(value) > (f.max_words or NOTE_MAX_WORDS):
+                    problems.append(f"{f.path}: has {word_count(value)} words; {LENGTH_TAG} {f.max_words} or fewer")
                 problems += [f"{f.path}: {p}" for p in quote_problems(value, guards.min_quote_words)]
                 if f.block == "sensory":
                     problems += [f"{f.path}: {p}" for p in framing_problems(value, guards.framing_terms)]
@@ -214,8 +219,9 @@ def draft_problems(draft: dict[str, Any], entry: CorpusEntry, vocab: Vocab, thre
             if conf < threshold and not (fv.get("uncertainty_reason") or "").strip():
                 problems.append(f"{f.path}: conf < {threshold} needs an uncertainty_reason")
             for key in ("uncertainty_reason", "condition"):
-                if isinstance(fv.get(key), str) and word_count(fv[key]) > 12:
-                    problems.append(f"{f.path}.{key}: has {word_count(fv[key])} words; rewrite it in 12 or fewer")
+                if isinstance(fv.get(key), str) and word_count(fv[key]) > NOTE_MAX_WORDS:
+                    problems.append(f"{f.path}.{key}: has {word_count(fv[key])} words; "
+                                    f"{LENGTH_TAG} {NOTE_MAX_WORDS} or fewer")
     moments = draft.get("moments") or []
     if not MOMENTS[0] <= len(moments) <= MOMENTS[1]:
         problems.append(f"give {MOMENTS[0]}-{MOMENTS[1]} moments (got {len(moments)})")
@@ -297,9 +303,10 @@ class P1Result:
     stopped: str | None = None
 
 
-LENGTH_TAG = "rewrite it in 12 or fewer"
-SHORTEN_SYSTEM = ("You shorten phrases. Rewrite each listed phrase in 12 words or fewer, keeping its meaning and facts "
-                  "and dropping filler words. Paraphrase only; no quotes. Output JSON only.")
+LENGTH_TAG = "rewrite it in"
+SHORTEN_SYSTEM = ("You shorten phrases. Rewrite each listed phrase within the word limit shown after it, keeping its "
+                  "meaning and facts and dropping filler words. Paraphrase only; no quotes. Output JSON only.")
+_LIMIT = re.compile(r"rewrite it in (\d+) or fewer")
 
 
 def _is_length(problem: str) -> bool:
@@ -315,14 +322,16 @@ def _field_ref(draft: dict[str, Any], path: str) -> tuple[dict[str, Any], str] |
 
 def shorten_phrases(client: LLMClient, entry: CorpusEntry, draft: dict[str, Any], problems: list[str],
                     params: dict[str, Any] | None) -> dict[str, Any]:
-    """Length-only repair (P1 1.2.0): rewrite just the over-long phrases, keep everything else. The
-    word cap is unchanged; nothing is truncated."""
-    targets = []
+    """Length-only repair (P1 1.2.0): rewrite just the over-long phrases, keep everything else. Each
+    phrase keeps its own word cap (vocab 1.4.0); nothing is truncated."""
+    targets, caps = [], {}
     for prob in problems:
         path = prob.split(":")[0].strip()
         ref = _field_ref(draft, path)
-        if ref and isinstance(ref[0].get(ref[1]), str):
+        limit = _LIMIT.search(prob)
+        if ref and isinstance(ref[0].get(ref[1]), str) and limit:
             targets.append((path, ref[0][ref[1]]))
+            caps[path] = int(limit.group(1))
     paths_ = [t[0] for t in targets]
     item = {"type": "object", "additionalProperties": False, "required": ["path", "text"],
             "properties": {"path": {"type": "string", "enum": paths_}, "text": {"type": "string"}}}
@@ -332,13 +341,15 @@ def shorten_phrases(client: LLMClient, entry: CorpusEntry, draft: dict[str, Any]
     def check(out: dict[str, Any]) -> None:
         got = {i.get("path"): i.get("text") or "" for i in out.get("items") or []}
         bad = [f"{p}: missing" for p in paths_ if p not in got]
-        bad += [f"{p}: has {word_count(t)} words; 12 or fewer" for p, t in got.items() if word_count(t) > 12 or not t.strip()]
+        bad += [f"{p}: has {word_count(t)} words; {caps.get(p, NOTE_MAX_WORDS)} or fewer" for p, t in got.items()
+                if word_count(t) > caps.get(p, NOTE_MAX_WORDS) or not t.strip()]
         if bad:
             raise ValueError("; ".join(bad))
 
     ctx = CallContext(pass_="P1", record_id=f"{entry.title_id}.shorten", title_id=entry.title_id,
                       upstream=upstream_hash([{"shorten": targets}]))
-    done = client.complete_ex(SHORTEN_SYSTEM, "\n".join(f"- {p}: {t}" for p, t in targets), schema, params, ctx=ctx,
+    done = client.complete_ex(SHORTEN_SYSTEM, "\n".join(f"- {p}: {t} [max {caps[p]} words]" for p, t in targets),
+                              schema, params, ctx=ctx,
                               validate=check)
     out = json.loads(json.dumps(draft))
     for i in done.data["items"]:
@@ -430,7 +441,7 @@ def run_p1(paths: Paths, entries: list[CorpusEntry], client: LLMClient, vocab: V
                 draft = normalize_draft(shorten_phrases(client, entry, draft, long, params), entry, vocab)
             except InvalidOutput as exc:
                 quarantine(paths.quarantine, "P1", "title", tid, draft, [*exc.errors, *long])
-                result.quarantined.append((tid, "phrases still over 12 words after the length repair"))
+                result.quarantined.append((tid, "phrases still over their word limits after the length repair"))
                 continue
             except (BudgetExceeded, RateLimited, CliAuthError) as exc:
                 result.stopped = str(exc)

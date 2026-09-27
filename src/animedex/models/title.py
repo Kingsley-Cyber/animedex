@@ -112,7 +112,7 @@ def _block_model(vocab: Vocab, block: str) -> type[StrictModel]:
     fields: dict[str, Any] = {}
     for f in vocab.block_fields(block):
         enum = vocab.enum(f.vocab) if f.kind == "enum" and f.vocab else None
-        fields[f.name] = (field_value_type(f.path, enum, f.conditional, f.vocab), ...)
+        fields[f.name] = (field_value_type(f.path, enum, f.conditional, f.vocab, f.max_words), ...)
     name = "Core" if block == "core" else "".join(p.title() for p in block.split("_"))
     return create_model(f"{name}Block", __base__=StrictModel, **fields)
 

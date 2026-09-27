@@ -27,7 +27,7 @@ from animedex.config import Settings
 from animedex.content_guards import GuardConfig, framing_problems, quote_problems
 from animedex.guards import LiveRunRefused
 from animedex.models import CorpusEntry
-from animedex.ontology import Vocab
+from animedex.ontology import LensField, Vocab
 from animedex.paths import Paths
 from animedex.pipeline.common import (
     BLOCKED_SOURCE_NOTE,
@@ -179,6 +179,16 @@ def render_user_native(entry: CorpusEntry, pending: Pending, vocab: Vocab, limit
         "", f"Limits: at most {limits['max_searches']} web searches{extra} and {limits['max_fetches']} page fetches."])
 
 
+def _lens(vocab: Vocab, path: str) -> LensField | None:
+    return next((f for f in vocab.lens_fields() if f.path == path), None)
+
+
+def _cap(vocab: Vocab, path: str) -> int:
+    """A field's word cap (vocab 1.4.0), or the phrase default for a path the vocab no longer has."""
+    f = _lens(vocab, path)
+    return (f.max_words if f else None) or vocab.phrase_max_words
+
+
 def _brief(entry: CorpusEntry, pending: Pending, vocab: Vocab) -> list[str]:
     lines = [f"Title: {entry.title} ({entry.year}); medium {entry.medium}; format {entry.format}",
              f"Scope: {entry.scope.version}; seasons {entry.scope.seasons or 'n/a'}; "
@@ -188,10 +198,12 @@ def _brief(entry: CorpusEntry, pending: Pending, vocab: Vocab) -> list[str]:
         if path.startswith("moments."):
             continue
         fv = _field(pending.record, path) or {}
-        enum = ""
-        if path in {f.path for f in vocab.lens_fields() if f.kind == "enum"}:
-            enum = f"   [allowed: {' | '.join(vocab.enum(vocab.lens_field(path).vocab or path))}]"
-        lines.append(f"- {path} = {fv.get('value')!r}{enum}")
+        f = _lens(vocab, path)
+        if f is not None and f.kind == "enum":
+            hint = f"   [allowed: {' | '.join(vocab.enum(f.vocab or path))}]"
+        else:
+            hint = f"   [max {_cap(vocab, path)} words]"
+        lines.append(f"- {path} = {fv.get('value')!r}{hint}")
     lines += ["", "Moments to locate (moment_id: description; recalled season/episode):"]
     for m in pending.moments:
         loc = m.get("locator") or {}
@@ -231,8 +243,8 @@ def output_problems(out: dict[str, Any], pending: Pending, vocab: Vocab, pages: 
                 allowed = vocab.enum(enum_paths[path].vocab or path)
                 if value not in allowed and not str(value).lower().startswith("other:"):
                     problems.append(f"{path}: {value!r} is not an allowed value")
-            elif word_count(str(value)) > 12:
-                problems.append(f"{path}: 12 words max")
+            elif word_count(str(value)) > (cap := _cap(vocab, path)):
+                problems.append(f"{path}: {cap} words max")
             if value:
                 problems += [f"{path}: {p}" for p in quote_problems(str(value), guards.min_quote_words)]
                 if path.startswith("sensory."):

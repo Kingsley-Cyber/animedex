@@ -277,20 +277,20 @@ def test_null_values_carry_conf_zero_after_normalizing():
 def test_over_long_phrases_get_a_small_length_repair_not_a_full_rewrite(repo):
     long = make_draft()
     long["core"]["logline_hook"]["value"] = ("a courier who can see the whole city grid trades her memories for "
-                                             "power every night")  # 17 words
+                                             "power every night until she forgets why she started")  # 22 > 20
     short = {"items": [{"path": "core.logline_hook", "text": "a courier trades her memories for city power"}]}
     result, mock = run(repo, {KEY: [long], ("P1", f"{KEY[1]}.shorten"): [short]})
     assert len(result.titles) == 1 and [c["record_id"] for c in mock.calls] == [KEY[1], f"{KEY[1]}.shorten"]
+    assert "core.logline_hook: a courier who" in mock.calls[1]["user"] and "[max 20 words]" in mock.calls[1]["user"]
     assert result.titles[0]["core"]["logline_hook"]["value"] == "a courier trades her memories for city power"
 
 
 def test_a_length_repair_that_stays_long_is_quarantined(repo):
     long = make_draft()
-    long["core"]["logline_hook"]["value"] = "one two three four five six seven eight nine ten eleven twelve thirteen"
-    still = {"items": [{"path": "core.logline_hook", "text": "one two three four five six seven eight nine ten eleven "
-                                                              "twelve thirteen fourteen"}]}
+    long["core"]["logline_hook"]["value"] = " ".join(f"w{i}" for i in range(21))  # 21 > 20
+    still = {"items": [{"path": "core.logline_hook", "text": " ".join(f"w{i}" for i in range(22))}]}
     result, _ = run(repo, {KEY: [long], ("P1", f"{KEY[1]}.shorten"): [still, still]})
-    assert result.titles == [] and "over 12 words" in result.quarantined[0][1]
+    assert result.titles == [] and "over their word limits" in result.quarantined[0][1]
 
 
 def test_replay_rebuilds_candidates_from_the_stored_draft_without_a_call(repo):
@@ -318,9 +318,10 @@ def test_replay_rebuilds_candidates_from_the_stored_draft_without_a_call(repo):
 def test_replay_reuses_a_cached_length_repair_and_never_calls(repo):
     long = make_draft()
     long["core"]["logline_hook"]["value"] = ("a courier who can see the whole city grid trades her memories for "
-                                             "power every night")
+                                             "power every night until she forgets why she started")  # needs a repair
     short = {"items": [{"path": "core.logline_hook", "text": "a courier trades her memories for city power"}]}
-    run(repo, {KEY: [long], ("P1", f"{KEY[1]}.shorten"): [short]})
+    _, original = run(repo, {KEY: [long], ("P1", f"{KEY[1]}.shorten"): [short]})
+    assert [c["record_id"] for c in original.calls] == [KEY[1], f"{KEY[1]}.shorten"]  # the repair really ran
     first = (repo.candidates / "title" / f"{KEY[1]}.jsonl").read_text()
     client, mock = client_for(repo, {})
     client.identity = "replay"  # as in `animedex p1 --replay`: not the identity that made the draft
@@ -332,3 +333,26 @@ def test_replay_reuses_a_cached_length_repair_and_never_calls(repo):
     again = run_p1(repo, [CorpusEntry.model_validate(ENTRY)], client, get_vocab(), load_settings(repo),
                    run_id="run_replay2", replay=True)
     assert not mock.calls and again.failed == [(KEY[1], "its stored draft is not in the response cache")]
+
+
+def test_word_caps_come_from_each_field(repo):
+    from animedex.content_guards import GuardConfig
+    from animedex.pipeline.p1 import draft_problems, normalize_draft, output_schema
+
+    vocab, entry = get_vocab(), CorpusEntry.model_validate(ENTRY)
+    core = output_schema(vocab, entry)["properties"]["core"]["properties"]
+    assert core["logline_hook"]["properties"]["value"]["description"] == "a phrase of 20 words or fewer"
+    assert core["tone"]["properties"]["value"]["description"] == "a phrase of 15 words or fewer"
+    assert core["outcome"]["properties"]["value"]["description"] == "a listed enum value"
+    assert core["flaw"]["properties"]["condition"]["description"] == "15 words or fewer"
+    draft = make_draft()
+    draft["core"]["logline_hook"]["value"] = " ".join(f"w{i}" for i in range(20))  # at the cap
+    draft["core"]["premise_engine"]["value"] = " ".join(f"w{i}" for i in range(21))
+    draft["core"]["tone"]["value"] = " ".join(f"w{i}" for i in range(16))
+    draft["core"]["flaw"]["condition"] = " ".join(f"w{i}" for i in range(15))  # at the cap
+    guards = GuardConfig.from_settings(load_settings(repo))
+    problems = draft_problems(normalize_draft(draft, entry, vocab), entry, vocab, 0.7, guards)
+    assert sorted(p for p in problems if "words;" in p) == [
+        "core.premise_engine: has 21 words; rewrite it in 20 or fewer",
+        "core.tone: has 16 words; rewrite it in 15 or fewer"]
+

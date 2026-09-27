@@ -26,7 +26,7 @@ def seeded(repo):
 
 @pytest.mark.parametrize("breaker", [
     lambda r: r.pop("core"),                                                    # missing required block
-    lambda r: r["core"]["tone"].update(value=" ".join(["long"] * 13)),         # phrase over 12 words
+    lambda r: r["core"]["tone"].update(value=" ".join(["long"] * 16)),         # phrase over its 15-word cap
     lambda r: r.update(medium="radio"),                                         # record-level enum off-vocab
 ])
 def test_invalid_title_never_enters_canonical(seeded, breaker):
