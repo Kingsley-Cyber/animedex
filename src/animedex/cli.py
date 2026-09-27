@@ -653,13 +653,36 @@ def census(top: int = typer.Option(0, "--top", help="Count the N most popular fr
 
 
 @app.command()
-def review(port: int = typer.Option(8765, "--port"), open_browser: bool = typer.Option(True, "--open/--no-open")) -> None:
+def review(port: int = typer.Option(8765, "--port"), open_browser: bool = typer.Option(True, "--open/--no-open"),
+           summary: bool = typer.Option(False, "--summary", help="Review import: Bradley-Terry strengths from your "
+                                        "ratings and panel picks, and the judge's agreement -> build/reports/taste.md"),
+           date: str = typer.Option(None, "--date", help="With --summary: the packet date (default: the latest).")
+           ) -> None:
     """Blind review page on http://127.0.0.1:<port> (localhost only); ratings save to eval/blind/."""
     import webbrowser
 
     from animedex.ideate.review import serve
 
     paths = _paths()
+    if summary:
+        from animedex.ideate.review import taste_summary
+
+        try:
+            res = taste_summary(paths, date)
+        except FileNotFoundError as exc:
+            typer.echo(str(exc), err=True)
+            raise typer.Exit(1) from exc
+        p = res.picks
+        typer.echo(f"taste: packet {res.date}, {res.rated}/{res.cards} rated; picks {p['kingsley']} from your ratings, "
+                   f"{p['panel']} from {p['panel_files']} panel file(s), {p['skipped']} skipped -> {res.report}")
+        if not res.complete:
+            typer.echo("  arms stay hidden until every card is rated")
+            return
+        arms = ", ".join(f"{a} {v:.2f}" for a, v in sorted(res.arm_strength.items(), key=lambda x: -x[1]))
+        agree = "n/a" if res.judge_agreement is None else f"{res.judge_agreement:.2f}"
+        typer.echo(f"  arm strengths (Bradley-Terry): {arms or 'no cross-arm picks'}; judge agreement {agree} over "
+                   f"{res.judge_pairs} pair(s)")
+        return
     try:
         server = serve(paths.root / "eval" / "blind", port)
     except FileNotFoundError as exc:

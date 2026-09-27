@@ -1,4 +1,4 @@
-.PHONY: validate build clean-build test eval smoke schemas lint ideas packet analyze backfill census review batch status timing recalibrate data-push data-pull audit audit-report diagnose
+.PHONY: validate build clean-build test eval smoke schemas lint ideas packet analyze backfill census review review-report batch status timing recalibrate data-push data-pull audit audit-report diagnose
 
 UV ?= uv
 RUN = $(UV) run
@@ -54,6 +54,9 @@ census:
 
 review:
 	$(RUN) animedex review
+
+review-report:
+	$(RUN) animedex review --summary $(if $(DATE),--date $(DATE),)
 
 timing:
 	$(RUN) animedex timing

@@ -59,3 +59,80 @@ def test_ratings_save_to_eval_blind(server):
     assert data["cards"]["C02"] == saved and data["cards"]["C01"]["rating"] is None
     with pytest.raises(urllib.error.HTTPError):
         post({"rating": 9})
+
+
+# ---------------------------------------------------------------- review import: taste (statistics as gates, item 7)
+def test_ratings_become_picks_higher_wins_ties_and_unrated_skipped():
+    from animedex.ideate.review import rating_picks
+
+    ratings = {"C01": {"rating": 5}, "C02": {"rating": 3}, "C03": {"rating": 3}, "C04": {"rating": None}}
+    assert rating_picks(ratings) == [("C01", "C02"), ("C01", "C03")]  # C02 = C03 is a tie; C04 is unrated
+
+
+DATE = "2026-09-27"
+
+
+def _review(repo, ratings):
+    """A 4-card packet: two ANIMEDEX cards, one baseline-1 card, one baseline-2 card, and a panel file."""
+    from animedex.ideate.run import baseline_file
+    from tests.conftest import make_idea, synthetic_state, write_state
+
+    state = synthetic_state()
+    strong = make_idea(2, status="candidate", taste={"criteria_met": ["T2", "T3"], "evidence": {
+        "T2": "The nearest title shares the concept.", "T3": "Two patterns from two media combine."}, "hard_fail": False})
+    state["idea"].append(strong)
+    write_state(repo, state)
+    loop = make_idea(1, arm="baseline_loop", atoms_used=[], transformation={
+        "operator": "transfer_cost", "source_transfer_ids": [], "what_changed": "The cost moves."},
+        taste={"criteria_met": [], "evidence": {}, "hard_fail": False}, status="candidate")
+    loop["idea_id"] = "idea.run_test_001_bl.001"
+    f = baseline_file(repo, "ideas")
+    f.parent.mkdir(parents=True)
+    f.write_text(json.dumps(loop) + "\n")
+    blind = repo.root / "eval" / "blind"
+    blind.mkdir(parents=True)
+    cards = [{"id": f"C0{i}", "logline": f"Logline {i}", "premise": f"Premise {i}"} for i in (1, 2, 3, 4)]
+    (blind / f"packet_{DATE}.json").write_text(json.dumps({"date": DATE, "cards": cards}))
+    lines = ["cards:"] + [f"  {cid}: {json.dumps({'rating': r, 'greenlight': None, 'criteria': []})}"
+                          for cid, r in ratings.items()]
+    (blind / f"ratings_{DATE}.yaml").write_text("\n".join(lines) + "\n")
+    key = {"C01": {"arm": "animedex", "source": "idea.run_test_001.001"},
+           "C02": {"arm": "baseline_loop", "source": "idea.run_test_001_bl.001"},
+           "C03": {"arm": "baseline_single", "source": f"baseline_single.{DATE}.01"},
+           "C04": {"arm": "animedex", "source": "idea.run_test_001.002"}}
+    (repo.root / "data" / "blind" / f"key_{DATE}.json").write_text(json.dumps(key))  # beside baseline 1's store
+    panel = repo.root / "eval" / "panel"
+    panel.mkdir(parents=True)
+    (panel / "panelist_1.json").write_text(json.dumps({"picks": [{"winner": "C02", "loser": "C03"},
+                                                                 {"winner": "C09", "loser": "C01"}]}))
+
+
+def test_review_report_ranks_cards_and_arms_and_scores_the_judge(repo):
+    from typer.testing import CliRunner
+
+    from animedex.cli import app
+
+    _review(repo, {"C01": 5, "C02": 2, "C03": 3, "C04": 4})
+    result = CliRunner().invoke(app, ["review", "--summary"])
+    assert result.exit_code == 0, result.output
+    stored = json.loads((repo.build / "stats" / "taste.json").read_text())
+    assert stored["picks"] == {"kingsley": 6, "panel": 1, "panel_files": 1, "skipped": 1}  # C09 is not in the packet
+    s = stored["card_strength"]
+    assert s["C01"] > s["C04"] > max(s["C02"], s["C03"])
+    arms = stored["arm_strength"]
+    assert max(arms, key=arms.get) == "animedex" and stored["arm_record"]["animedex"] == [4, 0]  # C01 v C04 skipped
+    # the judge orders C04 (2 taste criteria) > C01 (1) > C02 (0); the picks say C01 > C04 > C02: 2 of 3 pairs agree
+    assert stored["judge_agreement"] == round(2 / 3, 4) and stored["judge_pairs"] == 3
+    report = (repo.reports / "taste.md").read_text()
+    assert "| animedex |" in report and "Agreement: 0.67 over 3 card pair(s)" in report
+    assert "judge agreement 0.67" in result.output
+
+
+def test_review_report_hides_the_arms_until_every_card_is_rated(repo):
+    _review(repo, {"C01": 5, "C02": 2, "C03": 3, "C04": None})
+    from animedex.ideate.review import taste_summary
+
+    res = taste_summary(repo)
+    report = (repo.reports / "taste.md").read_text()
+    assert not res.complete and res.rated == 3 and res.card_strength == {} and res.arm_strength == {}
+    assert "1 card(s) still unrated" in report and "animedex" not in report and "baseline" not in report
