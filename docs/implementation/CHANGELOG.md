@@ -1,5 +1,11 @@
 # Changelog — docs/implementation
 
+## v1.6.3 — 2026-09-27 (owner rules: stop chasing confirmations)
+- VERIFY makes one call per title. Evidence problems never trigger a retry: they are stored as `unresolved` and counted in the verify notes (05).
+- Visual-detail fields and moment episode numbers are verified for gold titles only; other titles skip them (unresolved, no search).
+- Outcomes: two independent reception sources are enough; MAL is optional. Btooom! stays mixed on AniList 68 + ANN B-; its MAL figure is removed from the corpus note and the G1b addendum.
+- Prompts: verify_native 1.3.0, verify_web 1.2.0.
+
 ## v1.6.2 — 2026-09-27 (owner-approved: per-field word caps)
 - P1 phrase fields allow 15 words; the eleven two-part fields allow 20; `condition` and `uncertainty_reason` allow 15 (04 lists them). Vocab 1.4.0 carries each cap (`max_words`); FieldValue, the P1 checks and schema, the length-only repair, and VERIFY corrections all read it. Other passes keep 12.
 - Why: in 41 live P1 drafts, 217 phrases went over 12 words, in 33 of 41 fields, and 23 drafts needed a length repair. With these caps, 16 phrases and 5 drafts would. Record: `ontology/proposals/2026-09-27_word_caps.md`.

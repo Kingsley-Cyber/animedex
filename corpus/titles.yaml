@@ -49,7 +49,7 @@ titles:
       numbering: broadcast
       exclude: ["Extra Edition", "Sword Art Offline shorts", "SAO II onward", "films", "manga versions", "light novels volume 5 onward"]
     role_tags: [mixed]   # non-gold since 2026-09-27: Btooom! took the gold mixed slot (Kingsley has watched it)
-  - title_id: btooom_2012   # gold mixed from 2026-09-27: AniList 68, ANN B- (both mixed); MAL 7.26 (519k) is from a manual page check made before the no-MAL rule: re-confirm via Jikan
+  - title_id: btooom_2012   # gold mixed from 2026-09-27: AniList 68, ANN B- (both mixed)
     title: Btooom!
     year: 2012
     medium: anime

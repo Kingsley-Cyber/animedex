@@ -53,7 +53,11 @@ Flags: `--all` (every title in the corpus), `--dry-run` (print prompts and cache
   - The model gets WebSearch and WebFetch only.
   - Limits: searches = the cap above; fetches = searches × `verify.pages_per_search`; hard turn limit = searches + fetches + 2.
   - Searches above the cap are flagged in the title's verify notes.
-  - A status of confirmed or corrected needs a URL that the same call's searches returned or fetches opened. Anything else is rejected once for repair, then marked `unresolved`.
+  - A status of confirmed or corrected needs a URL that the same call's searches returned or fetches opened.
+- Owner rules (2026-09-27): `unresolved` is a result, not a failure.
+  - No retries for evidence: an uncited, blocked, over-cap, quoted or off-vocab answer is stored as `unresolved`, and the title's verify notes count it. Only unreadable output gets the one repair.
+  - Visual-detail fields (`sensory.*`) and moment episode numbers are checked for gold titles only. For other titles they stay `unresolved`, with no search spent on them.
+  - Outcome: two independent reception sources are enough (for example AniList plus one critic source such as ANN or a Wikipedia reception section). MAL is optional. Uncited signals drop out; a mixed or flop label without a level is stored with `failure_level: unknown`.
   - Blocked sources (owner rule, 2026-09-27): the call cannot fetch myanimelist.net pages, and a myanimelist.net URL is never an admissible citation here or in the prior-art check. MAL numbers come only through AniList, Jikan, or MAL's official API.
 - Recall vs. web conflict: web wins if the source is credible; otherwise `unresolved`. Conflicts are logged.
 - **Outcome `failure_level`** (v1.3): for mixed and flop outcomes, VERIFY classifies the main failure as premise, execution, external, or unknown.

@@ -189,6 +189,40 @@ def _cap(vocab: Vocab, path: str) -> int:
     return (f.max_words if f else None) or vocab.phrase_max_words
 
 
+def _value_problems(path: str, value: Any, vocab: Vocab, guards: GuardConfig | None) -> list[str]:
+    """Why a corrected value cannot be stored (empty, off-vocab, over its word cap, quoted)."""
+    if not value:
+        return ["corrected needs a value"]
+    f = _lens(vocab, path)
+    if f is not None and f.kind == "enum":
+        ok = value in vocab.enum(f.vocab or path) or str(value).lower().startswith("other:")
+        return [] if ok else [f"{value!r} is not an allowed value"]
+    problems = [f"{cap} words max"] if word_count(str(value)) > (cap := _cap(vocab, path)) else []
+    if guards is not None:
+        problems += quote_problems(str(value), guards.min_quote_words)
+        if path.startswith("sensory."):
+            problems += framing_problems(str(value), guards.framing_terms)
+    return problems
+
+
+def _text_ok(text: Any, limit: int, guards: GuardConfig | None) -> bool:
+    return bool(text) and word_count(str(text)) <= limit and not (
+        guards is not None and quote_problems(str(text), guards.min_quote_words))
+
+
+def ask_view(entry: CorpusEntry, pending: Pending) -> tuple[Pending, list[str]]:
+    """What the model is asked. Owner rule (2026-09-27): visual-detail fields and moment episode numbers
+    are checked for gold titles only; for the rest they stay unresolved, with no search spent on them."""
+    if "gold" in entry.role_tags:
+        return pending, []
+    fields = [p for p in pending.verify if not p.startswith(("sensory.", "moments."))]
+    visual = sum(p.startswith("sensory.") for p in pending.verify)
+    if not visual and not pending.moments:
+        return pending, []
+    return Pending(pending.record, [], fields), [
+        f"not checked (gold titles only): {visual} visual-detail field(s), {len(pending.moments)} moment episode(s)"]
+
+
 def _brief(entry: CorpusEntry, pending: Pending, vocab: Vocab) -> list[str]:
     lines = [f"Title: {entry.title} ({entry.year}); medium {entry.medium}; format {entry.format}",
              f"Scope: {entry.scope.version}; seasons {entry.scope.seasons or 'n/a'}; "
@@ -227,7 +261,6 @@ def output_problems(out: dict[str, Any], pending: Pending, vocab: Vocab, pages: 
     problems = []
     urls = url_set(pages)
     fields_to_check = {p for p in pending.verify if not p.startswith("moments.")}
-    enum_paths = {f.path: f for f in vocab.lens_fields() if f.kind == "enum"}
     for item in out.get("fields", []):
         path, status = item.get("path"), item.get("status")
         if path not in fields_to_check:
@@ -236,19 +269,7 @@ def output_problems(out: dict[str, Any], pending: Pending, vocab: Vocab, pages: 
         if status in ("confirmed", "corrected") and (why := _cite(item.get("source_url"), urls, cite)):
             problems.append(f"{path}: {why}, or mark unresolved")
         if status == "corrected":
-            value = item.get("value")
-            if not value:
-                problems.append(f"{path}: corrected needs a value")
-            elif path in enum_paths:
-                allowed = vocab.enum(enum_paths[path].vocab or path)
-                if value not in allowed and not str(value).lower().startswith("other:"):
-                    problems.append(f"{path}: {value!r} is not an allowed value")
-            elif word_count(str(value)) > (cap := _cap(vocab, path)):
-                problems.append(f"{path}: {cap} words max")
-            if value:
-                problems += [f"{path}: {p}" for p in quote_problems(str(value), guards.min_quote_words)]
-                if path.startswith("sensory."):
-                    problems += [f"{path}: {p}" for p in framing_problems(str(value), guards.framing_terms)]
+            problems += [f"{path}: {p}" for p in _value_problems(path, item.get("value"), vocab, guards)]
     moment_ids = {m["moment_id"] for m in pending.moments}
     for item in out.get("moments", []):
         if item.get("moment_id") not in moment_ids:
@@ -308,19 +329,27 @@ class VerifyTitleResult:
 
 
 def apply(pending: Pending, out: dict[str, Any], pages: dict[str, TransientText] | set[str], *, prov: dict[str, Any],
-          threshold: float) -> tuple[dict[str, Any], list[dict[str, Any]], dict[str, Any] | None, VerifyTitleResult]:
+          threshold: float, vocab: Vocab | None = None, guards: GuardConfig | None = None, ask: Pending | None = None
+          ) -> tuple[dict[str, Any], list[dict[str, Any]], dict[str, Any] | None, VerifyTitleResult]:
+    """Store what the evidence supports; anything else stays unresolved (owner rule: unresolved is a
+    result, not a failure, so nothing here asks for a retry). `ask` is what the model was asked:
+    answers outside it are ignored."""
     record = json.loads(json.dumps(pending.record))
     res = VerifyTitleResult(record["title_id"])
     pages = _Sources(pages)
-    by_path = {i["path"]: i for i in out.get("fields", [])}
+    ask = ask or pending
+    by_path = {i.get("path"): i for i in out.get("fields") or [] if i.get("path") in ask.verify}
     for path in pending.verify:
         if path.startswith("moments."):
             continue
         fv = _field(record, path)
         if fv is None:
             continue
-        item = by_path.get(path)
-        status = item["status"] if item and (item["status"] == "unresolved" or item.get("source_url") in pages) else "unresolved"
+        item = by_path.get(path) or {}
+        status = item.get("status") if item.get("source_url") in pages else "unresolved"
+        if status == "corrected" and vocab is not None and _value_problems(path, item.get("value"), vocab, guards):
+            status = "unresolved"
+        status = status if status in ("confirmed", "corrected") else "unresolved"
         if status == "confirmed":
             fv.update(source="web", verification="web_confirmed", source_ref=item["source_url"], conf=max(fv["conf"], threshold))
         elif status == "corrected":
@@ -330,12 +359,16 @@ def apply(pending: Pending, out: dict[str, Any], pages: dict[str, TransientText]
         else:
             fv.update(verification="unresolved")
         res.statuses[path] = status
-    by_moment = {i["moment_id"]: i for i in out.get("moments", [])}
+    asked_moments = {m["moment_id"] for m in ask.moments}
+    by_moment = {i.get("moment_id"): i for i in out.get("moments") or [] if i.get("moment_id") in asked_moments}
     moments = []
     for m in pending.moments:
         m = json.loads(json.dumps(m))
-        item = by_moment.get(m["moment_id"])
-        status = item["status"] if item and (item["status"] == "unresolved" or item.get("source_url") in pages) else "unresolved"
+        item = by_moment.get(m["moment_id"]) or {}
+        status = item.get("status") if item.get("source_url") in pages else "unresolved"
+        if status == "corrected" and item.get("episode") is None:
+            status = "unresolved"
+        status = status if status in ("confirmed", "corrected", "not_found") else "unresolved"
         if status == "not_found":
             res.dropped_moments.append(m["moment_id"])
             continue
@@ -349,16 +382,20 @@ def apply(pending: Pending, out: dict[str, Any], pages: dict[str, TransientText]
         res.statuses[f"moments.{m['moment_id']}.locator"] = status
         moments.append(m)
     outcome = None
-    oc = out.get("outcome")
-    if oc and all(s["source_url"] in pages for s in oc.get("signals", [])) and oc.get("signals"):
-        level = oc.get("failure_level") if oc["label"] != "hit" else None
-        sourced = level not in (None, "unknown") and oc.get("failure_evidence_url") in pages
+    oc = out.get("outcome") or {}
+    signals = [s for s in oc.get("signals") or [] if s.get("source_url") in pages]  # uncited metrics drop out
+    hit = oc.get("label") == "hit"
+    reason_ok = hit or _text_ok(oc.get("failure_reason"), 25, guards)
+    if oc.get("label") in ("hit", "mixed", "flop") and signals and reason_ok:
+        level = None if hit else (oc.get("failure_level") or "unknown")
+        sourced = (level not in (None, "unknown") and oc.get("failure_evidence_url") in pages
+                   and _text_ok(oc.get("failure_evidence"), 25, guards))
         if level not in (None, "unknown") and not sourced:
             level = "unknown"  # an unsourced level is not evidence
         outcome = {"title_id": record["title_id"], "label": oc["label"],
-                   "signals": [{"metric": s["metric"], "value": s["value"], "source_ref": s["source_url"]} for s in oc["signals"]],
+                   "signals": [{"metric": s["metric"], "value": s["value"], "source_ref": s["source_url"]} for s in signals],
                    "confounders": {k: (oc.get("confounders") or {}).get(k, "") for k in CONFOUNDERS},
-                   "failure_reason": oc.get("failure_reason"),
+                   "failure_reason": None if hit else oc.get("failure_reason"),
                    "failure_level": level,
                    "failure_evidence": oc.get("failure_evidence") if sourced else None,
                    "failure_evidence_ref": oc.get("failure_evidence_url") if sourced else None,
@@ -402,48 +439,38 @@ def run_verify(paths: Paths, entries: list[CorpusEntry], client: LLMClient, sear
             result.skipped.append((tid, "no canonical profile" if outcome_only else
                                    "no P1 candidate; run `animedex p1` first"))
             continue
+        ask, skip_notes = (pending, []) if outcome_only else ask_view(entry, pending)
         budget = SearchBudget(int(settings.verify.get("max_searches_per_title", 3)),
                               int(settings.verify.get("outcome_extra_searches", 2)))
         try:
             if client.provider.live and client.title_guard:
                 client.title_guard(tid)  # blind guard before any web or model traffic for this title
-            pages, notes = ({}, []) if native else gather_pages(entry, pending, search, settings, budget)
+            pages, notes = ({}, []) if native else gather_pages(entry, ask, search, settings, budget)
+            notes = [*skip_notes, *notes]
         except LiveRunRefused as exc:
             result.skipped.append((tid, str(exc)))
             continue
         out: dict[str, Any] = {"fields": [], "moments": [], "outcome": None}
         completion = None
         sources: dict[str, TransientText] | set[str] = pages
-        if native and (pending.verify or pending.moments):
-            limits = native_limits(pending, settings)
+        if native and (ask.verify or ask.moments):
+            limits = native_limits(ask, settings)
             if outcome_only:  # the outcome's own extra searches are the whole budget
                 extra = int(settings.verify.get("outcome_extra_searches", 2))
                 fetches = extra * int(settings.verify.get("pages_per_search", 2))
                 limits = {"max_searches": extra, "outcome_extra": extra, "max_fetches": fetches,
                           "max_turns": extra + fetches + 2}
             ctx = CallContext(pass_="VERIFY", record_id=tid, title_id=tid,
-                              upstream=upstream_hash([pending.record, *pending.moments, {"verify": pending.verify},
+                              upstream=upstream_hash([ask.record, *ask.moments, {"verify": ask.verify},
                                                       {"search": "native", "limits": limits}]))
-
-            def check_native(data: dict[str, Any], meta: dict[str, Any], _p: Pending = pending) -> None:
-                urls = set(((meta or {}).get("web") or {}).get("urls") or [])
-                problems = output_problems(data, _p, vocab, urls, guards, cite=CITE_NATIVE)
-                if problems:
-                    raise ValueError("; ".join(problems[:25]))
-
-            call = (prompt.system, render_user_native(entry, pending, vocab, limits), {"web": limits}, check_native)
+            # no validator: evidence problems never trigger a retry; apply() stores them as unresolved
+            call = (prompt.system, render_user_native(entry, ask, vocab, limits), {"web": limits}, None)
         elif pages:
             ctx = CallContext(pass_="VERIFY", record_id=tid, title_id=tid,
-                              upstream=upstream_hash([pending.record, *pending.moments, {"verify": pending.verify},
+                              upstream=upstream_hash([ask.record, *ask.moments, {"verify": ask.verify},
                                                       {"pages": sorted((u, p.placeholder) for u, p in pages.items())}]),
                               transients=tuple(pages.values()))
-
-            def check(data: dict[str, Any], _p: Pending = pending, _pages: dict = pages) -> None:
-                problems = output_problems(data, _p, vocab, _pages, guards)
-                if problems:
-                    raise ValueError("; ".join(problems[:25]))
-
-            call = (prompt.system, render_user(entry, pending, vocab, pages), None, check)
+            call = (prompt.system, render_user(entry, ask, vocab, pages), None, None)
         else:
             call = None
         if call is not None:
@@ -474,7 +501,11 @@ def run_verify(paths: Paths, entries: list[CorpusEntry], client: LLMClient, sear
                 "prompt_version": prompt.version, "schema_version": SCHEMA_VERSION, "vocab_version": vocab.version,
                 "cache_key": completion.cache_key if completion else None,
                 "created_at": created_at or datetime.now(UTC).isoformat()}
-        record, moments, outcome, res = apply(pending, out, sources, prov=prov, threshold=threshold)
+        if completion is not None and (kept := output_problems(out, ask, vocab, sources, guards,
+                                                               cite=CITE_NATIVE if native else CITE_PAGES)):
+            notes.append(f"{len(kept)} answer(s) stored as unresolved, no retry: " + "; ".join(kept[:6]))
+        record, moments, outcome, res = apply(pending, out, sources, prov=prov, threshold=threshold, vocab=vocab,
+                                              guards=guards, ask=ask)
         if outcome and entry.failure_level_override and outcome["label"] != "hit":
             outcome.update(failure_level=entry.failure_level_override, failure_level_source="owner")
             notes.append(f"failure_level set by owner override: {entry.failure_level_override}")

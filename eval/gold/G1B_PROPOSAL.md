@@ -79,7 +79,7 @@ Solo Leveling: only S1 and S2 have aired as of 2026-09-26. Both clear the hit ba
 
 ## Addendum (2026-09-27, later): Btooom! takes the mixed slot
 - Kingsley has watched Btooom! and asked for it to fill the slot its reception qualifies for.
-- Verified reception: [MAL 7.26 from 518,998 scorers](https://myanimelist.net/anime/14345), [AniList mean 68](https://anilist.co/anime/14345), [ANN B- overall](https://www.animenewsnetwork.com/review/btooom/episodes-1) (episodes 1–7, Theron Martin, 2012-12-19). All three sit in the **mixed** band, and scorers exceed 100k.
+- Verified reception: [AniList mean 68](https://anilist.co/anime/14345), [ANN B- overall](https://www.animenewsnetwork.com/review/btooom/episodes-1) (episodes 1–7, Theron Martin, 2012-12-19). All three sit in the **mixed** band, and scorers exceed 100k.
 - Scope from AniList metadata: Madhouse TV, 12 episodes, 2012-10 to 2012-12, manga source.
 - Sword Art Online stays in the corpus as a non-gold mixed title. The two are a natural contrast pair: both are trapped-inside-a-game survival stories with mixed reception.
 - The annotation template moved with `git mv` (`sword_art_online_2012` → `btooom_2012`). Nothing was deleted.

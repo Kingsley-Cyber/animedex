@@ -175,3 +175,7 @@ Supersedes the provider, key and dollar-cap lines of the G1 rulings. The model c
 - **Word caps:** before spending more retries, report which fields overflow the 12-word cap and how often. Per-field caps are a contract change for Kingsley's approval. Never retry until outputs happen to fit.
 - **Sources:** pipeline code must not scrape MyAnimeList pages. Use AniList, Jikan, or MAL's official API. Web calls block myanimelist.net fetches, and its pages are never admissible citations.
 - **Queue:** Dragon Raja added to the donghua list.
+- **Word caps (approved):** P1 phrases 15 words, 20 for the eleven two-part fields (vocab 1.4.0).
+- **Stop chasing confirmations:** `unresolved` is a result. VERIFY never retries for evidence. Visual details and moment episodes are verified for gold titles only. Two independent reception sources settle an outcome; MAL is optional. None of this blocks M2; v1.7 gather-first sources these fields up front.
+- **Batch runs:** up to 3 titles at once, as detached jobs with a status file; they pause on plan limits and resume on the next run. Run logs record per-stage timing, and the M2 report shows where the time goes.
+- **v1.7 (approved in principle):** plan now; land after the M2 report and before any M3 live run. Embeddings stay, switched to Qwen3-Embedding-0.6B on local Ollama (the one allowed local model).

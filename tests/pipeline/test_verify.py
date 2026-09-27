@@ -26,6 +26,7 @@ from tests.pipeline.test_p1 import ENTRY, KEY, make_draft, run
 pytestmark = pytest.mark.pipeline
 
 TID = "ironvale_circuit_2021"
+GOLD = {**ENTRY, "role_tags": ["gold", "hit"]}  # gold titles get every check (owner rule 2026-09-27)
 FACTS, EPISODES = "https://ref.example/ironvale", "https://ref.example/ironvale-episodes"
 REVIEW, RATINGS = "https://reviews.example/ironvale", "https://ratings.example/ironvale"
 PAGE = {FACTS: "Synthetic reference page describing the power look as violet circuitry lines on the skin. " * 3,
@@ -73,18 +74,17 @@ def verify(repo, responses, search_backend=None, settings=None):
                        prompt_version="unset", schema_version=SCHEMA_VERSION, vocab_version=get_vocab().version,
                        cache=ResponseCache(repo.cache), runlog=RunLog(repo.raw_runs, "run_v"))
     backend = search_backend or search()
-    result = run_verify(repo, [CorpusEntry.model_validate(ENTRY)], client, backend, get_vocab(), settings,
+    result = run_verify(repo, [CorpusEntry.model_validate(GOLD)], client, backend, get_vocab(), settings,
                         run_id="run_v", created_at="2026-09-26T13:00:00+00:00")
     return result, mock, backend
 
 
 def test_statuses_require_fetched_citations(repo):
-    # the uncited "confirmed" is rejected once, then the repaired answer drops it to unresolved
-    bad = verify_out()
-    good = verify_out(fields=[f for f in bad["fields"] if f["path"] != "sensory.color_motif"])
-    result, mock, _ = verify(repo, {("VERIFY", TID): [bad, good]})
-    assert "cite one of the provided page URLs" in mock.calls[1]["user"]
+    # the uncited "confirmed" is stored as unresolved, with no retry (owner rule: unresolved is a result)
+    result, mock, _ = verify(repo, {("VERIFY", TID): [verify_out()]})
+    assert len(mock.calls) == 1
     [r] = result.titles
+    assert any("no retry" in n and "cite one of the provided page URLs" in n for n in r.notes)
     assert r.statuses["core.outcome"] == "confirmed"
     assert r.statuses["sensory.power_visual_signature"] == "corrected"
     assert r.statuses["sensory.color_motif"] == "unresolved"
@@ -193,23 +193,23 @@ class WebMock(MockProvider):
         return dataclasses.replace(resp, meta={"web": web})
 
 
-def verify_native(repo, responses, urls, searches=2):
+def verify_native(repo, responses, urls, searches=2, entry=GOLD):
     run(repo, {KEY: make_draft()})
     settings = load_settings(repo)
     mock = WebMock(urls, searches, responses=responses)
     client = LLMClient(provider=mock, provider_name="mock", spec=ModelSpec(provider="mock", model="v"),
                        prompt_version="unset", schema_version=SCHEMA_VERSION, vocab_version=get_vocab().version,
                        cache=ResponseCache(repo.cache), runlog=RunLog(repo.raw_runs, "run_n"))
-    result = run_verify(repo, [CorpusEntry.model_validate(ENTRY)], client, None, get_vocab(), settings,
+    result = run_verify(repo, [CorpusEntry.model_validate(entry)], client, None, get_vocab(), settings,
                         run_id="run_n", created_at="2026-09-27T13:00:00+00:00")
     return result, mock, client
 
 
 def test_native_mode_cites_only_urls_the_call_retrieved(repo):
     bad = verify_out()  # sensory.color_motif cites a URL the tools never returned
-    good = verify_out(fields=[f for f in bad["fields"] if f["path"] != "sensory.color_motif"])
-    result, mock, _ = verify_native(repo, {("VERIFY", TID): [bad, good]}, {FACTS, EPISODES, RATINGS})
-    assert "cite a URL your searches returned or you opened in this session" in mock.calls[1]["user"]
+    result, mock, _ = verify_native(repo, {("VERIFY", TID): [bad]}, {FACTS, EPISODES, RATINGS})
+    assert len(mock.calls) == 1  # no retry: the uncited answer is stored as unresolved
+    assert any("cite a URL your searches returned or you opened in this session" in n for n in result.titles[0].notes)
     assert "Limits: at most" in mock.calls[0]["user"] and "Pages:" not in mock.calls[0]["user"]
     web = mock.params[0]["web"]
     assert web["max_turns"] == web["max_searches"] + web["max_fetches"] + 2 and web["outcome_extra"] == 2
@@ -231,10 +231,10 @@ def test_myanimelist_pages_are_never_admissible_citations(repo):
     assert url_set([mal, FACTS]) == {FACTS}
     via_mal = verify_out(fields=[{"path": "sensory.power_visual_signature", "status": "corrected",
                                   "value": "violet circuitry lines on skin", "source_url": mal, "note": None}])
-    still_mal = json.loads(json.dumps(via_mal))
-    result, mock, _ = verify_native(repo, {("VERIFY", TID): [via_mal, still_mal]}, {FACTS, EPISODES, RATINGS, mal})
-    assert "myanimelist.net pages are not an allowed source" in mock.calls[1]["user"]
-    assert not result.titles and result.quarantined  # the tools returned the page, but it never counts
+    result, mock, _ = verify_native(repo, {("VERIFY", TID): [via_mal]}, {FACTS, EPISODES, RATINGS, mal})
+    [r] = result.titles  # the tools returned the page, but it never counts
+    assert len(mock.calls) == 1 and r.statuses["sensory.power_visual_signature"] == "unresolved"
+    assert any("myanimelist.net pages are not an allowed source" in n for n in r.notes)
     from animedex.pipeline.verify import Pending, apply
 
     pending = Pending({"title_id": TID, "sensory": {"power_visual_signature": {"value": "x", "conf": 0.5}}}, [],
@@ -259,14 +259,27 @@ def test_a_corrected_value_keeps_its_fields_word_cap(repo):
                "value": " ".join(f"w{i}" for i in range(16))},                      # cap 15
               {"path": "core.central_mystery", "status": "corrected", "note": None, "source_url": FACTS,
                "value": " ".join(f"w{i}" for i in range(18))}]                      # cap 20: fine
-    fixed = [{**fields[0], "value": "violet circuitry lines on skin"}, fields[1]]
-    result, mock, _ = verify_native(repo, {("VERIFY", TID): [verify_out(fields=fields), verify_out(fields=fixed)]},
-                                    {FACTS, EPISODES, RATINGS})
+    result, mock, _ = verify_native(repo, {("VERIFY", TID): [verify_out(fields=fields)]}, {FACTS, EPISODES, RATINGS})
     assert "[max 15 words]" in mock.calls[0]["user"] and "[max 20 words]" in mock.calls[0]["user"]
-    assert "sensory.power_visual_signature: 15 words max" in mock.calls[1]["user"]
-    assert "core.central_mystery: 20 words max" not in mock.calls[1]["user"]
     [r] = result.titles
-    assert r.statuses["core.central_mystery"] == "corrected" == r.statuses["sensory.power_visual_signature"]
+    assert len(mock.calls) == 1 and any("sensory.power_visual_signature: 15 words max" in n for n in r.notes)
+    assert r.statuses["core.central_mystery"] == "corrected" and r.statuses["sensory.power_visual_signature"] == "unresolved"
+
+
+def test_non_gold_titles_skip_visual_details_and_moment_episodes(repo):
+    ans = verify_out(fields=[
+        {"path": "core.outcome", "status": "confirmed", "value": None, "source_url": RATINGS, "note": None},
+        {"path": "sensory.power_visual_signature", "status": "corrected", "value": "violet lines", "source_url": FACTS,
+         "note": None}])  # answered although never asked: ignored
+    result, mock, _ = verify_native(repo, {("VERIFY", TID): [ans]}, {FACTS, EPISODES, RATINGS}, entry=ENTRY)
+    user = mock.calls[0]["user"]
+    assert "sensory.power_visual_signature" not in user and f"{TID}.mo.01" not in user and "core.tone" in user
+    [r] = result.titles
+    assert r.statuses["core.outcome"] == "confirmed" and r.statuses["sensory.power_visual_signature"] == "unresolved"
+    assert {r.statuses[f"moments.{TID}.mo.0{i}.locator"] for i in (1, 2, 3)} == {"unresolved"}
+    assert any(n.startswith("not checked (gold titles only): 4 visual-detail field(s), 3 moment") for n in r.notes)
+    moments = read_jsonl(repo.candidates / "moment" / f"{TID}.jsonl")
+    assert len(moments) == 3 and {m["verification"] for m in moments} == {"unresolved"}
 
 
 def test_native_mode_flags_a_blown_search_cap(repo):
@@ -297,18 +310,24 @@ def flop_out(level="execution", evidence="Reviews fault pacing and production, n
 
 def test_failure_level_needs_a_retrieved_source(repo):
     bad = flop_out(url="https://not-fetched.example/review")
-    good = flop_out()
-    result, mock, _ = verify(repo, {("VERIFY", TID): [bad, good]})
-    assert "outcome.failure_evidence_url: cite one of the provided page URLs" in mock.calls[1]["user"]
+    result, mock, _ = verify(repo, {("VERIFY", TID): [bad]})
+    assert len(mock.calls) == 1
+    assert any("outcome.failure_evidence_url: cite one of the provided page URLs" in n for n in result.titles[0].notes)
+    [outcome] = read_jsonl(repo.candidates / "outcome" / f"{TID}.jsonl")
+    assert (outcome["failure_level"], outcome["failure_level_source"], outcome["failure_evidence_ref"]) == (
+        "unknown", "verify", None)  # an unsourced level is not evidence
+
+
+def test_a_sourced_failure_level_is_kept(repo):
+    verify(repo, {("VERIFY", TID): [flop_out()]})
     [outcome] = read_jsonl(repo.candidates / "outcome" / f"{TID}.jsonl")
     assert (outcome["failure_level"], outcome["failure_level_source"], outcome["failure_evidence_ref"]) == (
         "execution", "verify", REVIEW)
 
 
-def test_mixed_or_flop_without_a_level_is_repaired(repo):
-    missing = flop_out(level=None, evidence=None)
-    result, mock, _ = verify(repo, {("VERIFY", TID): [missing, flop_out(level="unknown", evidence=None)]})
-    assert "needs failure_level" in mock.calls[1]["user"]
+def test_mixed_or_flop_without_a_level_is_stored_as_unknown(repo):
+    result, mock, _ = verify(repo, {("VERIFY", TID): [flop_out(level=None, evidence=None)]})
+    assert len(mock.calls) == 1
     [outcome] = read_jsonl(repo.candidates / "outcome" / f"{TID}.jsonl")
     assert outcome["failure_level"] == "unknown" and outcome["failure_evidence"] is None
 
