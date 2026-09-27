@@ -8,8 +8,6 @@ import httpx
 import pytest
 
 from animedex.embeddings.base import LocalEmbedder, MockEmbedder, cosine
-from animedex.search.base import MockSearch, SearchResult
-from animedex.store.runlog import TransientText
 
 pytestmark = pytest.mark.unit
 
@@ -35,16 +33,6 @@ def test_local_embedder_posts_to_embeddings_and_orders_by_index():
     vectors = emb.embed(["first", "second"])
     assert seen["path"] == "/v1/embeddings" and seen["body"] == {"model": "embed-model", "input": ["first", "second"]}
     assert vectors == [[1.0, 0.0], [0.0, 1.0]]
-
-
-def test_mock_search_returns_transient_pages_and_counts_calls():
-    s = MockSearch(results={"q": [SearchResult("https://e.org/a", "A", "snippet")]}, pages={"https://e.org/a": "page"})
-    assert s.search("q")[0].url == "https://e.org/a"
-    page = s.fetch("https://e.org/a")
-    assert isinstance(page, TransientText) and page.text == "page"
-    assert (s.search_calls, s.fetch_calls) == (1, 1)
-    with pytest.raises(KeyError):
-        s.fetch("https://e.org/missing")
 
 
 # ---------------------------------------------------------------- v1.7: Polymath's embedder first, Ollama fallback
@@ -192,21 +180,6 @@ def test_polymath_failing_mid_run_stops_instead_of_switching_backends():
     with pytest.raises(EmbedderUnavailable, match="Polymath.s embedder at 127.0.0.1:8742 stopped answering .ConnectError.. Make sure it is running"):
         emb.embed(["a premise"])
     assert 11434 not in services.ports()
-
-
-def test_embeddings_only_providers_are_not_model_providers(repo):
-    from animedex.config import live_problems, load_settings
-    from animedex.providers.factory import ProviderConfigError, build_provider
-
-    s = load_settings(repo)
-    with pytest.raises(ProviderConfigError, match="embeddings only"):
-        build_provider("polymath_embedder", s, {})
-    assert not [p for p in live_problems(s, {}, ["embeddings"]) if "embeddings" in p or "polymath" in p]
-    s.providers["polymath_embedder"].base_url = None
-    s.models["embeddings"].fallback.provider = "nowhere"
-    problems = live_problems(s, {}, ["embeddings"])
-    assert "providers.polymath_embedder: set base_url" in problems
-    assert any("models.embeddings.fallback.provider" in p for p in problems)
 
 
 # ---------------------------------------------------------------- mid-run hand-over (item 2, 2026-09-27)

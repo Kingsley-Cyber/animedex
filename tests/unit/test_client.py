@@ -6,7 +6,6 @@ import json
 
 import pytest
 
-from animedex.budget import Budget, BudgetExceeded, Price
 from animedex.config import ModelSpec
 from animedex.providers.base import ProviderResponse, Usage
 from animedex.providers.client import CallContext, ClientConfigError, InvalidOutput, LLMClient
@@ -81,34 +80,6 @@ def test_live_client_requires_price_budget_and_guard(tmp_path):
         make_client(tmp_path, FakeLive())
 
 
-def test_live_call_runs_guard_then_budget_and_charges(tmp_path):
-    seen = []
-    budget = Budget(run_cap=10.0, per_title_cap=2.5, per_episode_cap=1.0)
-    live = FakeLive()
-    client = make_client(tmp_path, live, price=Price(2.0, 0.0), budget=budget, title_guard=seen.append)
-    client.complete("s", "u", SCHEMA, ctx=ctx(title_id="x_2020"))
-    assert seen == ["x_2020"] and budget.spent_run == pytest.approx(2.0)
-    client.complete("s", "u2", SCHEMA, ctx=ctx("x_2020.b", title_id="x_2020"))
-    assert budget.spent_title["x_2020"] == pytest.approx(4.0)
-    with pytest.raises(BudgetExceeded):
-        client.complete("s", "u3", SCHEMA, ctx=ctx("x_2020.c", title_id="x_2020"))
-    assert live.calls == 2  # stopped cleanly after the unit that crossed the cap
-
-
-def test_guard_refusal_prevents_the_call(tmp_path):
-    class Refuse(RuntimeError):
-        pass
-
-    def guard(title_id):
-        raise Refuse(title_id)
-
-    live = FakeLive()
-    client = make_client(tmp_path, live, price=Price(1, 1), budget=Budget(10, 10, 10), title_guard=guard)
-    with pytest.raises(Refuse):
-        client.complete("s", "u", SCHEMA, ctx=ctx(title_id="gold_title_2011"))
-    assert live.calls == 0
-
-
 def test_fetched_text_redacted_in_logs_but_sent_to_provider(tmp_path):
     page = "A fetched synthetic page body long enough to trip the redaction leak check for sure."
     mock = MockProvider(responses={("P1", "x_2020"): {"ok": True}})
@@ -122,6 +93,7 @@ def test_fetched_text_redacted_in_logs_but_sent_to_provider(tmp_path):
 # ---------------------------------------------------------------- length repair, last resort (D-030)
 def check_notes(data):
     from animedex.pipeline.common import raise_problems
+
     from animedex.textutil import word_count
 
     problems = []
@@ -137,46 +109,3 @@ def check_notes(data):
 LONG = {"proofs": [{"test": {"note": "one two three four five six"}}, {"test": {"note": "short enough"}}]}
 
 
-def test_a_text_over_its_cap_is_shortened_instead_of_regenerating_the_answer(tmp_path):
-    mock = MockProvider(responses={("P1", "x_2020"): [LONG],
-                                   ("P1", "x_2020.shorten"): {"items": [{"path": "proofs.0.test.note",
-                                                                         "text": "one two three"}]}})
-    client = make_client(tmp_path, mock)
-    done = client.complete_ex("s", "u", SCHEMA, ctx=ctx(), validate=check_notes)
-    assert done.data["proofs"][0]["test"]["note"] == "one two three"
-    assert done.data["proofs"][1] == LONG["proofs"][1]  # everything else as the model wrote it
-    assert [c["record_id"] for c in mock.calls] == ["x_2020", "x_2020.shorten"]  # no full regeneration
-    assert mock.calls[1]["user"] == "proofs.0.test.note: one two three four five six [max 5 words]"
-    again = client.complete_ex("s", "u", SCHEMA, ctx=ctx(), validate=check_notes)
-    assert again.cache_hit and again.data == done.data and len(mock.calls) == 2  # the repaired output is cached
-
-
-def test_other_problems_or_a_failed_shortening_still_quarantine(tmp_path):
-    mixed = {"proofs": [{"test": {"note": "one two three four five six"}, "quote": True}]}
-    mock = MockProvider(responses={("P1", "x_2020"): [mixed, mixed]})
-    with pytest.raises(InvalidOutput):
-        make_client(tmp_path, mock).complete_ex("s", "u", SCHEMA, ctx=ctx(), validate=check_notes)
-    assert len(mock.calls) == 2  # not a length-only problem: no shorten call
-    bad = {"items": [{"path": "proofs.0.test.note", "text": "still one two three four five six"}]}
-    mock = MockProvider(responses={("P1", "x_2020"): [LONG, LONG], ("P1", "x_2020.shorten"): [bad, bad, bad, bad]})
-    with pytest.raises(InvalidOutput) as err:
-        make_client(tmp_path / "b", mock).complete_ex("s", "u", SCHEMA, ctx=ctx(), validate=check_notes)
-    assert "6 words exceeds the 5-word limit" in err.value.errors[-1]
-    # shorten (2 attempts), full repair, shorten again as the last resort (2 attempts)
-    assert [c["record_id"] for c in mock.calls] == ["x_2020", *["x_2020.shorten"] * 2, "x_2020",
-                                                    *["x_2020.shorten"] * 2]
-
-
-def test_judge_length_problems_name_a_path_the_length_repair_can_shorten():
-    from animedex.ideate.llm import judge_problems
-    from animedex.providers.length_repair import targets
-
-    long_reason = " ".join(["word"] * 27)
-    out = {"cards": [{"ref": "g0c00", "choices_reason": "fine", "runway_reason": long_reason,
-                      "taste": [{"criterion": "T2", "evidence": long_reason}]}]}
-    problems = judge_problems(out, ["g0c00"])
-    assert problems == ["cards[0].runway_reason: 27 words exceeds the 25-word limit",
-                        "cards[0].taste[0].evidence: 27 words exceeds the 25-word limit"]
-    found = targets(out, "; ".join(problems))
-    assert [(".".join(map(str, p)), c) for p, _, c in found] == [("cards.0.runway_reason", 25),
-                                                                  ("cards.0.taste.0.evidence", 25)]

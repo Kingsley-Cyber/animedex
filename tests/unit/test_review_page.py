@@ -72,21 +72,27 @@ def test_ratings_become_picks_higher_wins_ties_and_unrated_skipped():
 DATE = "2026-09-27"
 
 
+def idea(n: int, criteria: list[str], atoms: list[str]) -> dict:
+    """A stored packet card of the heavy path, with just the fields the review report reads."""
+    return {"idea_id": f"idea.run_test_001.{n:03d}", "status": "candidate",
+            "logline": "A lighthouse keeper can see the debts every sailor owes the sea, and must choose who pays.",
+            "premise": "The lead reads the measure of their own power, a secret the audience shares.",
+            "engine": {"goal": "keep the harbor alive", "cost": "someone else drowns"},
+            "transformation": {"operator": "transfer_cost"}, "atoms_used": atoms,
+            "taste": {"criteria_met": criteria}, "gates": {"structural_jaccard_max": 0.3}}
+
+
 def _review(repo, ratings):
     """A 4-card packet: two ANIMEDEX cards, one baseline-1 card, one baseline-2 card, and a panel file."""
-    from animedex.ideate.run import baseline_file
-    from tests.conftest import make_idea, synthetic_state, write_state
-
-    state = synthetic_state()
-    strong = make_idea(2, status="candidate", taste={"criteria_met": ["T2", "T3"], "evidence": {
-        "T2": "The nearest title shares the concept.", "T3": "Two patterns from two media combine."}, "hard_fail": False})
-    state["idea"].append(strong)
-    write_state(repo, state)
-    loop = make_idea(1, arm="baseline_loop", atoms_used=[], transformation={
-        "operator": "transfer_cost", "source_transfer_ids": [], "what_changed": "The cost moves."},
-        taste={"criteria_met": [], "evidence": {}, "hard_fail": False}, status="candidate")
-    loop["idea_id"] = "idea.run_test_001_bl.001"
-    f = baseline_file(repo, "ideas")
+    canonical = repo.root / "data" / "canonical"
+    canonical.mkdir(parents=True, exist_ok=True)
+    ideas = [idea(1, ["T2"], ["ironvale_circuit_2021.t.001"]), idea(2, ["T2", "T3"], ["ironvale_circuit_2021.t.001"])]
+    (canonical / "ideas.jsonl").write_text("".join(json.dumps(i) + "\n" for i in ideas))
+    transfer = {"transfer_id": "ironvale_circuit_2021.t.001", "source_atom_id": "ironvale_circuit_2021.m.001",
+                "pattern": "Only the lead can read the measure of their own power, so the audience shares a secret."}
+    (canonical / "transfers.jsonl").write_text(json.dumps(transfer) + "\n")
+    loop = {**idea(1, [], []), "idea_id": "idea.run_test_001_bl.001", "arm": "baseline_loop"}
+    f = repo.root / "data" / "blind" / "baseline_loop" / "ideas.jsonl"
     f.parent.mkdir(parents=True)
     f.write_text(json.dumps(loop) + "\n")
     blind = repo.root / "eval" / "blind"

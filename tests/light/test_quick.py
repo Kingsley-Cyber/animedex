@@ -27,7 +27,7 @@ from tests.light.test_ingest import (
     make_note_record,
     note_for,
 )
-from tests.pipeline.test_gather import WebMock
+from tests.light.webmock import WebMock
 
 pytestmark = pytest.mark.pipeline
 
@@ -86,7 +86,7 @@ def clients_for(repo, research_answer, cards, verdicts, prior=None, budget=None)
     web = WebMock({WIKI, WIKIA, PRIOR}, default=notes_default)
     gen = MockProvider(default=lambda s, u, sch, p: {"seed_kind": "fight_image", "cards": cards})
     judge = MockProvider(default=lambda s, u, sch, p: {"cards": verdicts})
-    mocks = {"notes": web, "ideate_generate": gen, "ideate_judge": judge}
+    mocks = {"ingest": web, "generate": gen, "check": judge}
     clients = {k: LLMClient(provider=m, provider_name="mock", spec=ModelSpec(provider="mock", model="m"),
                             prompt_version="unset", schema_version=SCHEMA_VERSION, vocab_version=get_vocab().version,
                             cache=ResponseCache(repo.cache), runlog=log, budget=budget) for k, m in mocks.items()}
@@ -122,9 +122,9 @@ def test_first_run_researches_generates_checks_and_checks_prior_art_in_four_call
     assert "## Dropped by the check" in md and WIKI in md
     record = json.loads((repo.root / res.json_path).read_text())
     assert record["survivors"] == ["C1"] and record["seed_kind"] == "fight_image"
-    gen_user = mocks["ideate_generate"].calls[0]["user"]
+    gen_user = mocks["generate"].calls[0]["user"]
     assert "rule R1 (hard)" in gen_user and "=== note copper_vow_2018" in gen_user and f"seed: {SEED}" in gen_user
-    assert "=== CARD C1" in mocks["ideate_judge"].calls[0]["user"]
+    assert "=== CARD C1" in mocks["check"].calls[0]["user"]
 
 
 def test_the_same_seed_again_skips_research_and_a_claimless_survivor_skips_prior_art(repo):
@@ -141,7 +141,7 @@ def test_the_same_seed_again_skips_research_and_a_claimless_survivor_skips_prior
     clients, mocks = clients_for(repo, research, cards, verdicts)
     second = quick(repo, clients, n=2)
     assert second.research.startswith("skipped (picks kept") and second.calls == 2 and "research" not in second.timings
-    assert not mocks["notes"].calls and second.picks == first.picks
+    assert not mocks["ingest"].calls and second.picks == first.picks
     record = json.loads((repo.root / second.json_path).read_text())
     assert record["survivors"] == ["C2", "C1"]   # ranked by the check's score
 
@@ -151,16 +151,16 @@ def test_named_shows_skip_research_when_their_notes_exist_and_write_the_missing_
     cards = [card(1, "ironvale_circuit_2021")]
     clients, mocks = clients_for(repo, {}, cards, [verdict("C1", 3)])
     res = quick(repo, clients, shows=["Ironvale Circuit", "Lantern Debt"], n=1)
-    assert res.research == "skipped (every named show has a note)" and res.calls == 2 and not mocks["notes"].calls
+    assert res.research == "skipped (every named show has a note)" and res.calls == 2 and not mocks["ingest"].calls
     clients, mocks = clients_for(repo, {}, cards, [verdict("C1", 3)])
     res = quick(repo, clients, shows=["Ironvale Circuit", "Copper Vow", "Nowhere (1900)"], n=1)
     assert res.research.startswith("ran (notes for 1 named show") and "copper_vow_2018" in res.picks
-    assert any("Nowhere (1900)" in p for p in res.problems) and mocks["notes"].calls[0]["pass"] == "NOTES"
+    assert any("Nowhere (1900)" in p for p in res.problems) and mocks["ingest"].calls[0]["pass"] == "INGEST"
 
 
 def test_the_call_cap_pauses_the_run_cleanly(repo):
     setup(repo)
-    budget = Budget(None, None, None, 1, 6)
+    budget = Budget(1)
     budget.count_call()
     cards = [card(1, "ironvale_circuit_2021")]
     clients, mocks = clients_for(repo, {}, cards, [verdict("C1", 3)], budget=budget)

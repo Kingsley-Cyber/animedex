@@ -1,6 +1,6 @@
 ---
-version: 1.0.0
-pass: QUICK
+version: 2.0.0
+pass: GENERATE
 ---
 You write new anime concepts as idea cards from a seed, measured against the study notes given. Output JSON only: {"seed_kind": ..., "cards": [...]}.
 

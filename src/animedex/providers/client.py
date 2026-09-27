@@ -161,6 +161,11 @@ class LLMClient:
             upstream=ctx.upstream,
         )
 
+    def complete(self, system: str, user: str, json_schema: dict[str, Any], params: dict[str, Any] | None = None, *,
+                 ctx: CallContext, validate: Callable[..., Any] | None = None) -> tuple[dict[str, Any], Usage]:
+        done = self.complete_ex(system, user, json_schema, params, ctx=ctx, validate=validate)
+        return done.data, done.usage
+
     def _pace(self) -> float:
         """Sleep out the gap between calls; returns the seconds slept (logged as pacing)."""
         waited = 0.0

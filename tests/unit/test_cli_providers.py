@@ -15,12 +15,9 @@ from typing import Any
 
 import pytest
 import yaml
-from typer.testing import CliRunner
 
-from animedex.budget import Budget, BudgetConfigError, BudgetExceeded
-from animedex.cli import app
+from animedex.budget import Budget, BudgetExceeded
 from animedex.config import ModelSpec
-from animedex.pipeline.p1 import run_p1
 from animedex.providers.base import ProviderError, ProviderResponse, Usage
 from animedex.providers.claude_cli import ClaudeCliProvider, served_model
 from animedex.providers.cli_common import (
@@ -283,24 +280,23 @@ def cli_client(tmp_path, provider, budget, **kw):
     return LLMClient(provider=provider, provider_name="claude_cli", spec=ModelSpec(provider="claude_cli",
                      model="claude-sonnet-5"), prompt_version="p1", schema_version="1", vocab_version="1",
                      cache=ResponseCache(tmp_path / "cache"), runlog=RunLog(tmp_path / "runs", "run_c"),
-                     budget=budget, title_guard=lambda tid: None, **kw)
+                     budget=budget, **kw)
 
 
 def ctx(tid="solo_leveling_2024", record=None):
-    return CallContext(pass_="P1", record_id=record or tid, title_id=tid, upstream="u")
+    return CallContext(pass_="INGEST", record_id=record or tid, upstream="u")
 
 
-def test_subscription_calls_need_call_caps_not_pricing(tmp_path):
-    c = cli_client(tmp_path, FakeCli(), Budget(None, None, None))  # no price: fine for a subscription
-    with pytest.raises(BudgetConfigError, match="calls_per_run"):
-        c.complete_ex("s", "u", SCHEMA, ctx=ctx())
+def test_live_calls_need_a_budget(tmp_path):
+    with pytest.raises(Exception, match="needs a budget"):
+        cli_client(tmp_path, FakeCli(), None)
 
 
 def test_shadow_cost_is_logged_never_charged_and_calls_are_counted(tmp_path):
-    budget = Budget(1.0, 1.0, 1.0, calls_per_run=5, calls_per_title=2)
+    budget = Budget(5)
     c = cli_client(tmp_path, FakeCli(), budget)
     done = c.complete_ex("s", "u", SCHEMA, ctx=ctx())
-    assert budget.spent_run == 0.0 and budget.calls_run == 1 and budget.calls_title["solo_leveling_2024"] == 1
+    assert budget.calls_run == 1
     entry = json.loads((tmp_path / "runs" / "run_c" / "calls.jsonl").read_text().splitlines()[0])
     assert entry["billing"] == "subscription" and entry["cost_usd"] == 0.0 and entry["shadow_cost_usd"] == 0.02
     assert entry["provider"] == "claude_cli@2.1.251" and entry["cli"]["cli_version"] == "2.1.251"
@@ -312,12 +308,10 @@ def test_shadow_cost_is_logged_never_charged_and_calls_are_counted(tmp_path):
 
 
 def test_call_caps_stop_before_the_next_call(tmp_path):
-    budget = Budget(None, None, None, calls_per_run=2, calls_per_title=1)
+    budget = Budget(2)
     provider = FakeCli()
     c = cli_client(tmp_path, provider, budget)
     c.complete_ex("s", "u", SCHEMA, ctx=ctx())
-    with pytest.raises(BudgetExceeded, match="for solo_leveling_2024"):
-        c.complete_ex("s", "u2", SCHEMA, ctx=ctx(record="solo_leveling_2024.b"))
     c.complete_ex("s", "u", SCHEMA, ctx=ctx("mob_psycho_100_2016"))
     with pytest.raises(BudgetExceeded, match="2/2 calls this run"):
         c.complete_ex("s", "u", SCHEMA, ctx=ctx("invincible_2021"))
@@ -325,14 +319,14 @@ def test_call_caps_stop_before_the_next_call(tmp_path):
 
 
 def test_cli_version_is_part_of_the_cache_key(tmp_path):
-    budget = Budget(None, None, None, calls_per_run=9, calls_per_title=9)
+    budget = Budget(9)
     a = cli_client(tmp_path, FakeCli("claude_cli@2.1.251"), budget)
     b = cli_client(tmp_path, FakeCli("claude_cli@2.2.0"), budget)
     assert a.key_for(ctx()) != b.key_for(ctx())
 
 
 def test_rate_limit_propagates_and_counts_the_call(tmp_path):
-    budget = Budget(None, None, None, calls_per_run=9, calls_per_title=9)
+    budget = Budget(9)
     c = cli_client(tmp_path, FakeCli(fail=RateLimited("claude_cli: usage limit")), budget)
     with pytest.raises(RateLimited):
         c.complete_ex("s", "u", SCHEMA, ctx=ctx())
@@ -341,7 +335,7 @@ def test_rate_limit_propagates_and_counts_the_call(tmp_path):
 
 def test_calls_are_paced(tmp_path):
     slept: list[float] = []
-    budget = Budget(None, None, None, calls_per_run=9, calls_per_title=9)
+    budget = Budget(9)
     c = cli_client(tmp_path, FakeCli(), budget, min_interval_s=5.0, sleep=slept.append)
     c.complete_ex("s", "u", SCHEMA, ctx=ctx())
     c.complete_ex("s", "u", SCHEMA, ctx=ctx("mob_psycho_100_2016"))
@@ -369,24 +363,6 @@ class LimitedMock:
         return model_id
 
 
-def test_p1_stops_the_run_on_a_rate_limit(repo):
-    from animedex.config import load_settings
-    from animedex.guards import load_corpus
-    from animedex.ontology import get_vocab
-
-    settings = load_settings(repo)
-    vocab = get_vocab(repo)
-    entries = [e for e in load_corpus(repo).values() if "gold" not in e.role_tags][:3]
-    assert len(entries) == 3
-    provider = LimitedMock()
-    client = LLMClient(provider=provider, provider_name="claude_cli", spec=settings.models["p1"], prompt_version="x",
-                       schema_version="1", vocab_version=vocab.version, cache=ResponseCache(repo.cache),
-                       runlog=RunLog(repo.raw_runs, "run_rl"))
-    result = run_p1(repo, entries, client, vocab, settings, run_id="run_rl")
-    assert provider.n == 1, "the run must stop at the first usage-limit error, not try every title"
-    assert result.stopped and "limit" in result.stopped and not result.failed
-
-
 # --- `animedex smoke --providers`: the G1a first live step, end to end with fake CLIs ----------------
 
 def point_config_at(repo, claude: Path, codex: Path) -> None:
@@ -395,41 +371,6 @@ def point_config_at(repo, claude: Path, codex: Path) -> None:
     data["providers"]["codex_cli"]["binary"] = str(codex)
     data["budget"]["min_seconds_between_calls"] = 0
     repo.config_file.write_text(yaml.safe_dump(data, sort_keys=False), encoding="utf-8")
-
-
-def test_smoke_providers_makes_one_tiny_call_per_cli_and_reports(repo, tmp_path, poisoned_env):
-    claude = fake_cli(tmp_path, "claude", FAKE_CLAUDE, logged_in=True, auth_method="claude.ai", mode="ok")
-    codex = fake_cli(tmp_path, "codex", FAKE_CODEX, login="Logged in using ChatGPT", mode="ok")
-    point_config_at(repo, claude, codex)
-    result = CliRunner().invoke(app, ["smoke", "--providers"])
-    assert result.exit_code == 0, result.output
-    assert len(calls(claude)) == 1 and len(calls(codex)) == 1
-    out = result.output
-    assert "ANTHROPIC_API_KEY" in out and "sk-ant-test" not in out  # names reported, values never
-    assert "requested=claude-sonnet-5 served=claude-sonnet-5 ok=True" in out
-    assert "requested=gpt-5.6-terra served=gpt-5.6-terra ok=True" in out
-    assert "REPORT: user-level: ~/.codex/AGENTS.md" in out and "calls made: 2" in out
-    ledger = json.loads(next(repo.raw_runs.rglob("ledger.json")).read_text())
-    assert ledger["total_cost_usd"] == 0.0 and ledger["total_shadow_cost_usd"] == 0.0123
-
-
-def test_smoke_providers_only_calls_the_named_provider(repo, tmp_path):
-    claude = fake_cli(tmp_path, "claude", FAKE_CLAUDE, logged_in=True, auth_method="claude.ai", mode="ok")
-    codex = fake_cli(tmp_path, "codex", FAKE_CODEX, login="Logged in using ChatGPT", mode="ok")
-    point_config_at(repo, claude, codex)
-    result = CliRunner().invoke(app, ["smoke", "--providers", "--only", "claude_cli"])
-    assert result.exit_code == 0, result.output
-    assert len(calls(claude)) == 1 and calls(codex) == [] and "calls made: 1" in result.output
-
-
-def test_smoke_providers_refuses_without_a_plan_login(repo, tmp_path):
-    claude = fake_cli(tmp_path / "c", "claude", FAKE_CLAUDE, logged_in=False, auth_method="none", mode="ok")
-    codex = fake_cli(tmp_path / "x", "codex", FAKE_CODEX, login="Logged in using an API key", mode="ok")
-    point_config_at(repo, claude, codex)
-    result = CliRunner().invoke(app, ["smoke", "--providers"])
-    assert result.exit_code == 1
-    assert calls(claude) == [] and calls(codex) == [], "no model call without a subscription login"
-    assert "not logged in" in result.output and "would bill the API" in result.output
 
 
 def test_env_var_names_only(monkeypatch):
@@ -494,7 +435,7 @@ class WebFake(FakeCli):
 
 def test_validate_sees_the_web_evidence_and_the_cache_keeps_it(tmp_path):
     seen = []
-    c = cli_client(tmp_path, WebFake(), Budget(None, None, None, calls_per_run=9, calls_per_title=9))
+    c = cli_client(tmp_path, WebFake(), Budget(9))
     first = c.complete_ex("s", "u", SCHEMA, {"web": {"max_turns": 3}}, ctx=ctx(),
                           validate=lambda data, meta: seen.append(meta))
     assert seen == [{"web": {"urls": ["https://ref.example/a"], "searches": 1}}] and first.meta == seen[0]
@@ -518,14 +459,6 @@ def test_tests_can_never_run_the_real_clis():
         CodexCliProvider(binary="codex")
 
 
-def test_milestone_smoke_in_tests_stops_before_any_real_call(repo, monkeypatch):
-    for key in ("SEARCH_API_KEY",):
-        monkeypatch.delenv(key, raising=False)
-    result = CliRunner().invoke(app, ["smoke", "--stage", "m2"])
-    assert result.exit_code == 1 and "blocked" in result.output + (result.stderr if result.stderr_bytes else "")
-
-
-
 def test_urls_with_parentheses_survive_extraction():
     from animedex.providers.claude_cli import clean_url, web_evidence
 
@@ -543,7 +476,7 @@ def test_urls_with_parentheses_survive_extraction():
 
 
 def test_citations_match_by_page_not_spelling():
-    from animedex.pipeline.common import norm_url
+    from animedex.textutil import norm_url
 
     a = norm_url("https://www.Example.org/wiki/Page_(x)/#section")
     assert a == norm_url("https://example.org/wiki/Page_(x)") and a != norm_url("https://example.org/wiki/Other")
@@ -589,20 +522,3 @@ def test_a_real_cli_call_is_streamed_and_its_timing_adds_up(tmp_path):
     assert t["wall_s"] > 0 and t["startup_s"] > 0 and abs(parts - t["wall_s"]) < 0.05
 
 
-def test_run_log_rows_carry_call_time_and_pacing(tmp_path):
-    from animedex.providers.mock import MockProvider
-    from animedex.store.jsonl import read_jsonl
-
-    slept: list[float] = []
-    client = LLMClient(provider=MockProvider(default=lambda *a: {"ok": True}), provider_name="mock",
-                       spec=ModelSpec(provider="mock", model="m"), prompt_version="1", schema_version="1",
-                       vocab_version="1", cache=ResponseCache(tmp_path / "cache"), runlog=RunLog(tmp_path / "runs", "r1"),
-                       min_interval_s=5.0, sleep=slept.append)
-    for rid in ("a", "b"):
-        client.complete_ex("S", "U", SCHEMA, None, ctx=CallContext(pass_="P1", record_id=rid, title_id=rid, upstream="u"))
-    rows = read_jsonl(tmp_path / "runs" / "r1" / "calls.jsonl")
-    assert [r["timing"]["pacing_s"] for r in rows] == [0.0, round(slept[0], 2)] and slept[0] > 4.9
-    assert all(r["timing"]["call_s"] >= 0 for r in rows)
-    client.runlog.write_ledger()
-    ledger = json.loads((tmp_path / "runs" / "r1" / "ledger.json").read_text())
-    assert ledger["started"] <= ledger["ended"]

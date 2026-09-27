@@ -1,8 +1,7 @@
-"""`make ingest LIST=<file>` (light path, D-052): one Sonnet call with web per three shows writes
-notes/<slug>.json for each show that has none. Shows resolve through the catalog (read-only); the
-outcome is the catalog's numbers under the existing label rule. A failed answer (after the client's one
-repair) is quarantined and every show of that call is reported with the reason; a plan limit pauses
-the run and the rerun continues from the cache.
+"""`make ingest LIST=<file>`: one Sonnet call with web per three shows writes notes/<slug>.json for each show
+that has none. Shows resolve through the catalog (read-only); the outcome is the catalog's numbers under the
+existing label rule. A failed answer (after the client's one repair) is quarantined and every show of that
+call is reported with the reason; a plan limit pauses the run and the rerun continues from the cache.
 """
 
 from __future__ import annotations
@@ -10,13 +9,21 @@ from __future__ import annotations
 import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any
 
 from animedex.budget import BudgetExceeded
 from animedex.catalog.resolve import Resolved
 from animedex.config import Settings
-from animedex.content_guards import GuardConfig
-from animedex.light.notes import ENUMS, make_note, note_path, note_problems, note_schema, write_note
+from animedex.light.notes import (
+    PRINT_MEDIA,
+    make_note,
+    note_path,
+    note_problems,
+    note_schema,
+    values_lines,
+    write_note,
+)
 from animedex.ontology import Vocab
 from animedex.paths import Paths
 from animedex.prompts import PromptFile, read_prompt
@@ -41,7 +48,7 @@ class IngestResult:
     seconds: float = 0.0
 
     def lines(self) -> list[str]:
-        per_show = (sum(self.call_seconds) / max(1, len(self.written))) if self.written else 0.0
+        per_show = (sum(self.call_seconds) / len(self.written)) if self.written else 0.0
         out = [f"ingest: {len(self.written)} note(s) written, {len(self.skipped)} skipped (note exists), "
                f"{len(self.failed)} failed; {self.calls} call(s); {self.seconds / 60:.1f} min total, "
                f"{per_show:.0f} s of call time per written note"]
@@ -51,32 +58,35 @@ class IngestResult:
         return out
 
 
-def notes_config(settings: Settings) -> dict[str, Any]:
-    return (settings.model_extra or {}).get("notes") or {}
+def read_list(path: Path) -> list[str]:
+    """One show per line; blank lines and # comments are skipped."""
+    return [s for s in (raw.strip() for raw in path.read_text(encoding="utf-8").splitlines())
+            if s and not s.startswith("#")]
 
 
 def web_limits(settings: Settings, shows: int) -> dict[str, int]:
-    cfg = notes_config(settings)
+    cfg = settings.section("notes")
     searches = int(cfg.get("searches_per_show", 2)) * shows
     fetches = int(cfg.get("fetches_per_show", 2)) * shows
     return {"max_searches": searches, "outcome_extra": 0, "max_fetches": fetches, "max_turns": searches + fetches + 2}
 
 
-def render_user(entries: list[Resolved], vocab: Vocab, limits: dict[str, int]) -> str:
+def show_lines(entries: list[Resolved]) -> list[str]:
     lines = []
     for i, res in enumerate(entries, start=1):
         e = res.entry
-        scope = e.get("scope") or {}
         ref = str(e.get("catalog_ref") or "")
-        kind = "manga" if e.get("medium") in ("manga", "manhwa", "webtoon", "light_novel") else "anime"
+        kind = "manga" if e.get("medium") in PRINT_MEDIA else "anime"
         url = f"https://anilist.co/{kind}/{ref.split(':')[-1]}" if ref.startswith("anilist:") else ref
-        lines.append(f"show {i}: {e['title']} ({e.get('year')}, {e.get('medium')}); scope: {scope.get('version')}; "
-                     f"catalog: {url}")
-    lines.append(f"limits: searches {limits['max_searches']}, fetches {limits['max_fetches']} for this whole call")
-    for key, path in ENUMS.items():
-        lines.append(f"values {key}: " + " | ".join(vocab.enum(path)))
-    lines.append("The `show` field is the exact title string given above, one note per show, in order.")
-    return "\n".join(lines)
+        lines.append(f"show {i}: {e['title']} ({e.get('year')}, {e.get('medium')}); scope: "
+                     f"{(e.get('scope') or {}).get('version')}; catalog: {url}")
+    return lines
+
+
+def render_user(entries: list[Resolved], vocab: Vocab, limits: dict[str, int]) -> str:
+    return "\n".join(["job: shows", *show_lines(entries),
+                      f"limits: searches {limits['max_searches']}, fetches {limits['max_fetches']} for this whole call",
+                      *values_lines(vocab)])
 
 
 def resolve_lines(paths: Paths, lines: list[str], resolve: Resolver, result: IngestResult) -> list[Resolved]:
@@ -104,17 +114,14 @@ def resolve_lines(paths: Paths, lines: list[str], resolve: Resolver, result: Ing
 
 
 def run_ingest(paths: Paths, settings: Settings, vocab: Vocab, lines: list[str], *, client: LLMClient,
-               resolve: Resolver, numbers: Numbers, run_id: str, guards: GuardConfig | None = None,
-               created_at: str | None = None, prompt: PromptFile | None = None,
-               echo: Callable[[str], None] = lambda s: None) -> IngestResult:
+               resolve: Resolver, numbers: Numbers, run_id: str, created_at: str | None = None,
+               prompt: PromptFile | None = None, echo: Callable[[str], None] = lambda s: None) -> IngestResult:
     started = time.monotonic()
-    guards = guards or GuardConfig.from_settings(settings)
-    prompt = prompt or read_prompt(paths.prompts / "notes.md")
+    prompt = prompt or read_prompt(paths.prompts / "ingest.md")
     client.prompt_version = prompt.version
     result = IngestResult()
     todo = resolve_lines(paths, lines, resolve, result)
-    per_call = max(1, int(notes_config(settings).get("shows_per_call", 3)))
-    cap = int(notes_config(settings).get("premise_max_words", 25))
+    per_call = max(1, int(settings.section("notes").get("shows_per_call", 3)))
     for i in range(0, len(todo), per_call):
         group = todo[i:i + per_call]
         shows = [r.entry["title"] for r in group]
@@ -125,18 +132,18 @@ def run_ingest(paths: Paths, settings: Settings, vocab: Vocab, lines: list[str],
         echo(f"notes: {', '.join(shows)}")
 
         def check(out: dict[str, Any], _shows: list[str] = shows, _titles: set[str] = titles) -> None:
-            problems = note_problems(out, _shows, vocab, guards, _titles, cap)
+            problems = note_problems(out, _shows, vocab, _titles)
             if problems:
                 raise ValueError("; ".join(problems[:25]))
 
-        ctx = CallContext(pass_="NOTES", record_id=label, title_id=None,
+        ctx = CallContext(pass_="INGEST", record_id=label,
                           upstream=upstream_hash([{"entries": [r.entry for r in group], "limits": limits}]))
         t0 = time.monotonic()
         try:
             done = client.complete_ex(prompt.body, render_user(group, vocab, limits), note_schema(shows),
                                       {"web": limits}, ctx=ctx, validate=check)
         except InvalidOutput as exc:
-            quarantine(paths.quarantine, "NOTES", "note", label, exc.raw, exc.errors)
+            quarantine(paths.quarantine, "INGEST", "note", label, exc.raw, exc.errors)
             result.failed += [(s, f"no valid note after one repair ({exc.errors[-1][:160]})") for s in slugs]
             result.calls += 1
             result.call_seconds.append(time.monotonic() - t0)
@@ -164,12 +171,9 @@ def run_ingest(paths: Paths, settings: Settings, vocab: Vocab, lines: list[str],
             except Exception as exc:  # the note still stands; the outcome falls back to the resolver's hint
                 nums = None
                 echo(f"  {res.entry['title_id']}: catalog numbers unavailable ({str(exc)[:120]})")
-            note = make_note(raw, res, nums, run_id=run_id, model=done.provenance_model, prompt_version=prompt.version,
-                             vocab=vocab, cache_key=done.cache_key, created_at=created_at, web_urls=web_urls)
-            write_note(paths, note)
-            result.written.append(note["slug"])
+            write_note(paths, make_note(raw, res, nums, run_id=run_id, model=done.provenance_model,
+                                        prompt_version=prompt.version, vocab=vocab, cache_key=done.cache_key,
+                                        created_at=created_at, web_urls=web_urls))
+            result.written.append(res.entry["title_id"])
     result.seconds = time.monotonic() - started
     return result
-
-
-__all__ = ["IngestResult", "render_user", "resolve_lines", "run_ingest", "web_limits"]
