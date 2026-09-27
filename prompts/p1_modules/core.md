@@ -1,5 +1,5 @@
 ---
-version: 1.0.0
+version: 1.1.0
 block: core
 ---
 core (always active)
@@ -22,3 +22,28 @@ core (always active)
 - knowledge_gap: who knows what the others do not
 - reveal_cadence: how often and how large the reveals are
 - outcome: reception label (enum; verified on the web later)
+- story_engine: the structure that keeps generating story (enum)
+- story_engine_secondary: a second engine only if it drives as much story as the first (enum; else null)
+- pilot_hook_type: how the opening hooks the audience (enum)
+- ending_type: how the finished story ends (enum; null while it is still running)
+- setting_type: where and when the story is set (enum)
+- world_visibility: hidden (a masquerade the public does not know), open, or contained to one place or group (enum)
+- conflict_scale: the widest stakes the story reaches (enum)
+- institutions: up to 3 institutions that shape the story: name, type (enum), and role in the story
+- mc_archetype: who the protagonist is at the start (enum)
+- mc_start: how strong the protagonist is at the start (enum)
+- mc_goal_type: what the protagonist is after (enum)
+- ensemble_size: how many leads carry the story (enum)
+- rival_type: the protagonist's main rivalry (enum)
+- threat_structure: how threats are organized; escalating_ladder = a boss per arc (enum)
+- thematic_argument: thesis_mc (what the protagonist's path argues), antithesis_villain (what the opposition argues back), resolution (what the ending argues)
+- audience_promise: what the premise promises the audience
+- promise_mechanism: how the story keeps that promise
+- promise_break: how the story broke that promise (mixed or flop titles only; needs a source)
+- escalation_model: how the stakes rise across the run (enum)
+- anticipation_hooks: up to 3 things the audience waits for: hook and type (enum)
+- premise_abstraction: the premise in general terms, no names or medium words
+- real_world_isomorphism: the real-world system the mechanics mirror
+- core_fantasy: the wishes the story fulfils (one or more; enum)
+- genre_move: what the story does to its genre (enum)
+- reacts_against: what the story reacts against

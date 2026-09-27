@@ -97,6 +97,17 @@ def scope_lines(title: str, year: Any, medium: str, fmt: str, scope: dict[str, A
             f"out_of_scope: {'; '.join(scope.get('exclude') or []) or 'nothing listed'}"]
 
 
+# ---------------------------------------------------------------- prompt rendering
+def render_value(value: Any) -> str:
+    """A lens value as compact text: a list of values joined, list items and group parts as key: value."""
+    if isinstance(value, dict):
+        return "; ".join(f"{k}: {v}" for k, v in value.items() if v is not None)
+    if isinstance(value, list):
+        return " | ".join(render_value(v) for v in value) if any(isinstance(v, dict) for v in value) \
+            else ", ".join(str(v) for v in value)
+    return str(value)
+
+
 def render_profile(record: dict[str, Any], vocab: Vocab, *, verification: bool = True) -> list[str]:
     """Compact, paraphrased profile lines: identity and scope, then `path: value [verification]` for
     non-null fields (a field's condition as `; when: ...`)."""
@@ -109,7 +120,7 @@ def render_profile(record: dict[str, Any], vocab: Vocab, *, verification: bool =
                 continue
             extra = f"; when: {fv['condition']}" if fv.get("condition") else ""
             tag = f" [{fv.get('verification')}]" if verification else ""
-            lines.append(f"{f.path}: {fv['value']}{extra}{tag}")
+            lines.append(f"{f.path}: {render_value(fv['value'])}{extra}{tag}")
     return lines
 
 

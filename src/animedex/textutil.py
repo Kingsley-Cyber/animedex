@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 from typing import Annotated, Any
 
 from pydantic import AfterValidator
@@ -39,6 +40,18 @@ Words30 = words(30)
 Words40 = words(40)
 Words60 = words(60)
 Words120 = words(120)
+
+
+# Medium-specific words (04: transfer patterns, and premise abstractions from vocab 1.5.0, never use them)
+MEDIUM_WORDS = ("anime", "manga", "manhua", "manhwa", "donghua", "cartoon", "cartoons", "episode", "episodes",
+                "season", "seasons", "show", "shows", "film", "films", "movie", "movies", "cour", "cours", "ova",
+                "webtoon", "studio")
+_MEDIUM = re.compile(r"(?<![a-z])(" + "|".join(MEDIUM_WORDS) + r")(?![a-z])", re.I)
+
+
+def medium_words(text: str) -> list[str]:
+    """The medium-specific words a domain-neutral text uses, lowercased and sorted."""
+    return sorted({m.lower() for m in _MEDIUM.findall(text)})
 
 
 def stable_json(obj: Any) -> str:

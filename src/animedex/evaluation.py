@@ -11,17 +11,27 @@ from animedex.ontology import Vocab
 VERIFIED = ("web_confirmed", "web_corrected", "gathered")  # gathered: sourced at extraction (v1.7)
 
 
+ABSENT = {"value": None, "verification": "not_required"}  # a field the record's vocab predates
+
+
 def active_paths(record: dict[str, Any], vocab: Vocab) -> list[str]:
     return [f.path for f in vocab.lens_fields() if f.block == "core" or f.block in record.get("modules_active", [])]
 
 
-def _fv(record: dict[str, Any], path: str) -> dict[str, Any]:
+def _present(record: dict[str, Any], path: str) -> bool:
     block, _, name = path.partition(".")
-    return record[block][name]
+    return name in (record.get(block) or {})
+
+
+def _fv(record: dict[str, Any], path: str) -> dict[str, Any]:
+    """A field's value dict; a field absent from an older record (vocab 1.5.0 `since`) counts as unknown."""
+    block, _, name = path.partition(".")
+    return record[block].get(name) or ABSENT
 
 
 def coverage_row(record: dict[str, Any], vocab: Vocab) -> dict[str, Any]:
-    """Coverage ledger fields for one title (04): completion, verified share, passes done."""
+    """Coverage ledger fields for one title (04): completion, verified share, passes done. A field the
+    record's vocab predates counts as not filled, so a zero on a new field is not read as covered."""
     paths = active_paths(record, vocab)
     values = [_fv(record, p) for p in paths]
     flagged = [v for v in values if v["verification"] != "not_required"]
@@ -55,7 +65,7 @@ def verify_rates(titles: list[dict[str, Any]], vocab: Vocab) -> list[RateRow]:
     """Per P1 field: how often it was flagged for VERIFY and how often the web corrected it (AC-13)."""
     rows: dict[str, RateRow] = {f.path: RateRow(f.path, 0, 0, 0, 0, 0) for f in vocab.lens_fields()}
     for t in titles:
-        for path in active_paths(t, vocab):
+        for path in (p for p in active_paths(t, vocab) if _present(t, p)):
             v, row = _fv(t, path)["verification"], rows[path]
             row.titles += 1
             if v != "not_required":
@@ -83,7 +93,8 @@ def p1_agreement(run_a: list[dict[str, Any]], run_b: list[dict[str, Any]], vocab
     per_field: dict[str, list[int]] = {p: [0, 0] for p in enum_paths}
     per_title: dict[str, list[int]] = {}
     for tid in sorted(set(a) & set(b)):
-        shared = [p for p in enum_paths if p in set(active_paths(a[tid], vocab)) & set(active_paths(b[tid], vocab))]
+        shared = [p for p in enum_paths if p in set(active_paths(a[tid], vocab)) & set(active_paths(b[tid], vocab))
+                  and _present(a[tid], p) and _present(b[tid], p)]
         per_title[tid] = [0, 0]
         for p in shared:
             same = int(_fv(a[tid], p)["value"] == _fv(b[tid], p)["value"])

@@ -13,6 +13,7 @@ from animedex.ontology import get_vocab
 from animedex.pipeline import check, p2, p3, p4
 from animedex.pipeline.census import CensusItem
 from animedex.pipeline.census import render_user as census_user
+from animedex.pipeline.common import render_value
 from animedex.pipeline.verify import Pending, render_user_native
 from animedex.pipeline.verify import render_user as verify_web_user
 from animedex.store.runlog import TransientText, redact
@@ -36,9 +37,11 @@ def profile_lines(record: dict, *, verification: bool) -> list[str]:
     vocab, out = get_vocab(), []
     for block in ["core", *record["modules_active"]]:
         for f in vocab.block_fields(block):
-            fv = record[block][f.name]
+            fv = record[block].get(f.name)
+            if not fv or fv["value"] is None:  # render_profile lists non-null fields only
+                continue
             when = f"; when: {fv['condition']}" if fv.get("condition") else ""
-            out.append(f"{f.path}: {fv['value']}{when}" + (f" [{fv['verification']}]" if verification else ""))
+            out.append(f"{f.path}: {render_value(fv['value'])}{when}" + (f" [{fv['verification']}]" if verification else ""))
     return out
 
 

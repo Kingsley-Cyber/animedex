@@ -139,6 +139,8 @@
             "relationships",
             "resource",
             "moral",
+            "self_imposed_restriction",
+            "imposed_penalty",
             "none",
             "other"
           ],
@@ -215,6 +217,29 @@
       "default": null,
       "title": "Has Power System"
     },
+    "mc_archetype": {
+      "anyOf": [
+        {
+          "enum": [
+            "underdog",
+            "chosen_one",
+            "prodigy",
+            "villain_protagonist",
+            "everyman",
+            "already_overpowered",
+            "veteran",
+            "other"
+          ],
+          "type": "string",
+          "x-vocab": "core.mc_archetype"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Mc Archetype"
+    },
     "medium": {
       "enum": [
         "anime",
@@ -280,6 +305,56 @@
     "provenance": {
       "$ref": "#/$defs/Provenance"
     },
+    "set_structure": {
+      "anyOf": [
+        {
+          "enum": [
+            "closed_set",
+            "hierarchical",
+            "open_variety",
+            "pantheon",
+            "universal_energy",
+            "unique_to_few",
+            "none",
+            "other"
+          ],
+          "type": "string",
+          "x-vocab": "power_combat.set_structure"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Set Structure"
+    },
+    "story_engine": {
+      "anyOf": [
+        {
+          "enum": [
+            "tournament",
+            "journey_quest",
+            "ladder_climb",
+            "investigation",
+            "war_campaign",
+            "death_game_rounds",
+            "monster_of_the_week",
+            "survival",
+            "political_intrigue",
+            "revenge",
+            "slice_of_life",
+            "other"
+          ],
+          "type": "string",
+          "x-vocab": "core.story_engine"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Story Engine"
+    },
     "title": {
       "minLength": 1,
       "title": "Title",
@@ -299,6 +374,7 @@
             "rank_tier",
             "collectible_count",
             "transformation_stage",
+            "gauge",
             "none",
             "other"
           ],

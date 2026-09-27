@@ -11,7 +11,7 @@ from animedex.config import live_problems, load_settings
 from animedex.content_guards import GuardConfig, record_problems
 from animedex.guards import load_corpus
 from animedex.integrity import integrity_errors
-from animedex.models import RECORD_TYPES, record_paths
+from animedex.models import CQ_RECORD_FIELDS, RECORD_TYPES, record_paths
 from animedex.ontology import coverage_report, get_bridge, get_cqs, get_vocab
 from animedex.paths import Paths
 from animedex.schemas import stale_schemas
@@ -35,7 +35,7 @@ def validate_repo(paths: Paths) -> ValidationReport:
     report = ValidationReport()
     vocab, bridge, cqs = get_vocab(paths), get_bridge(paths), get_cqs(paths)
 
-    cov = coverage_report(vocab, bridge, cqs, record_paths())
+    cov = coverage_report(vocab, bridge, cqs, record_paths(), CQ_RECORD_FIELDS)
     atomic_write_text(paths.reports / "cq_coverage.md", cov.to_markdown())
     report.errors.extend(f"ontology: {e}" for e in cov.errors)
     report.errors.extend(f"ontology: orphan {r.kind} {r.name} (no competency question)" for r in cov.orphans)

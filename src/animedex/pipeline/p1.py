@@ -22,10 +22,12 @@ from animedex.budget import BudgetExceeded
 from animedex.config import Settings
 from animedex.content_guards import GuardConfig, dialogue_problems, framing_problems, quote_problems
 from animedex.guards import LiveRunRefused
+from animedex.integrity import proper_nouns
 from animedex.models import CorpusEntry, Moment, title_profile_model
-from animedex.ontology import Vocab
+from animedex.ontology import LensField, Vocab
 from animedex.paths import Paths
 from animedex.pipeline.common import supersede
+from animedex.pipeline.lens_values import ENUM_HINT, describe, phrase_texts, shape_problems
 from animedex.prompts import RenderedPrompt, read_prompt
 from animedex.providers.base import ProviderError, Usage
 from animedex.providers.cli_common import CliAuthError, RateLimited
@@ -35,19 +37,39 @@ from animedex.store.cache import upstream_hash
 from animedex.store.canonical import normalize_record
 from animedex.store.jsonl import dumps_jsonl, read_jsonl
 from animedex.store.quarantine import quarantine
-from animedex.textutil import word_count
+from animedex.textutil import medium_words, word_count
 
 EPISTEMIC = ["observed", "derived", "interpretive"]
 MOMENTS = (3, 5)
 
 
 # ---------------------------------------------------------------- prompt
+def enum_lines(vocab: Vocab) -> list[str]:
+    """Every enum the lens asks for (list and group parts included), each value's discrimination test
+    under it where the vocab has one (grid reliability ruling: the tests live in vocab.json only)."""
+    lines: list[str] = []
+    tested: dict[str, str] = {}
+    for f in vocab.lens_fields():
+        for sub, vf in f.enum_vocabs():
+            label = f"{f.path}{sub}" + (" (one or more)" if f.kind == "enum_multi" else "")
+            if vf in tested:
+                lines.append(f"- {label}: the values and tests of {tested[vf]}")
+                continue
+            lines.append(f"- {label}: {' | '.join(vocab.enum(vf))}")
+            tests = vocab.tests(vf)
+            if tests:
+                tested[vf] = f"{f.path}{sub}"
+                lines.append("  Tests (choose the value whose test holds):")
+                lines += [f"  - {v}: {tests[v]}" for v in vocab.enum(vf) if v in tests]
+    return lines
+
+
 def render_prompt(paths: Paths, vocab: Vocab, settings: Settings) -> RenderedPrompt:
     main = read_prompt(paths.prompts / "p1_what.md")
     blocks = ["core", *vocab.module_names]
     fragments = [read_prompt(paths.prompts / "p1_modules" / f"{b}.md").body for b in blocks]
     example = read_prompt(paths.prompts / "p1_example.md").body
-    enums = [f"- {f.path}: {' | '.join(vocab.enum(f.vocab))}" for f in vocab.lens_fields() if f.kind == "enum"]
+    enums = enum_lines(vocab)
     enums.append(f"- moments[].moment_type: {' | '.join(vocab.enum('moment_type'))}")
     threshold = str(settings.verify.get("conf_threshold", 0.7))
     system = "\n".join([
@@ -79,15 +101,31 @@ def render_user(entry: CorpusEntry) -> str:
 NOTE_MAX_WORDS = 15  # condition and uncertainty_reason (04; vocab 1.4.0 caps, owner-approved)
 
 
-def _field_schema(conditional: bool, max_words: int | None = None) -> dict[str, Any]:
-    value = f"a phrase of {max_words} words or fewer" if max_words else "a listed enum value"
+def _value_schema(f: LensField, vocab: Vocab) -> dict[str, Any]:
+    """The draft shape of a value by kind (vocab 1.5.0). Enum members stay free strings so the model can
+    write other:<phrase>; item limits are in the description and checked in code."""
+    description = describe(f, vocab, values=False)
+    if f.kind in ("phrase", "enum"):
+        return {"type": ["string", "null"], "description": description}
+    if f.kind == "enum_multi":
+        return {"type": ["array", "null"], "items": {"type": "string"}, "description": description}
+    parts = {p.name: {"type": "string" if f.kind == "list" else ["string", "null"],
+                      "description": f"{p.max_words} words or fewer" if p.kind == "phrase" else "a listed value"}
+             for p in f.parts}
+    obj = {"type": "object", "properties": parts, "required": list(parts), "additionalProperties": False}
+    if f.kind == "list":
+        return {"type": ["array", "null"], "items": obj, "description": description}
+    return {**obj, "type": ["object", "null"], "description": description}
+
+
+def _field_schema(f: LensField, vocab: Vocab) -> dict[str, Any]:
     props: dict[str, Any] = {
-        "value": {"type": ["string", "null"], "description": value},
+        "value": _value_schema(f, vocab),
         "conf": {"type": "number"},
         "uncertainty_reason": {"type": ["string", "null"], "description": f"{NOTE_MAX_WORDS} words or fewer"},
         "epistemic": {"type": "string", "enum": EPISTEMIC},
     }
-    if conditional:
+    if f.conditional:
         props["condition"] = {"type": ["string", "null"], "description": f"{NOTE_MAX_WORDS} words or fewer"}
     return {"type": "object", "properties": props, "required": list(props), "additionalProperties": False}
 
@@ -117,6 +155,34 @@ def _all_null(block: Any) -> bool:
 
 
 UNKNOWN_REASON = "no reliable recall"
+NO_SECONDARY = "no second value as strong as the first"
+OUTCOME_BOUND = "only for {outcomes} titles"
+
+
+def _unset(fv: dict[str, Any], reason: str) -> None:
+    fv.update(value=None, conf=0, uncertainty_reason=reason)
+
+
+def _normalize_kinds(d: dict[str, Any], vocab: Vocab) -> None:
+    """vocab 1.5.0 kinds: an empty multi-value list or an all-null group is unknown; a secondary equal
+    to its primary (or without one) adds nothing; an outcome-bound field on another outcome is cleared."""
+    outcome = ((d.get("core") or {}).get("outcome") or {}).get("value")
+    for block in ["core", *d["modules_active"]]:
+        body = d.get(block) or {}
+        for f in vocab.block_fields(block):
+            fv = body.get(f.name)
+            if not isinstance(fv, dict) or fv.get("value") is None:
+                continue
+            value = fv["value"]
+            if (f.kind == "enum_multi" and value == []) or (
+                    f.kind == "group" and isinstance(value, dict) and all(v is None for v in value.values())):
+                fv["value"] = None
+            elif f.differs_from:
+                primary = (body.get(f.differs_from) or {}).get("value")
+                if primary is None or primary == value:
+                    _unset(fv, NO_SECONDARY)
+            elif f.outcome_in and outcome not in f.outcome_in:
+                _unset(fv, OUTCOME_BOUND.format(outcomes=" or ".join(f.outcome_in)))
 
 
 def normalize_draft(draft: dict[str, Any], entry: CorpusEntry, vocab: Vocab) -> dict[str, Any]:
@@ -125,6 +191,7 @@ def normalize_draft(draft: dict[str, Any], entry: CorpusEntry, vocab: Vocab) -> 
     - a module that is not rule-required and whose every field is null is dropped (it does not apply);
     - sensory outside animation stays only if power_combat does (activation rule);
     - `modules_active` is derived from the blocks that remain, never taken from the model;
+    - vocab 1.5.0 kinds: see `_normalize_kinds`;
     - a null field is unknown: its conf becomes 0, and without a reason it gets 'no reliable recall'.
     A non-null guess below the confidence floor without a reason is left for the checks to reject."""
     d = {k: v for k, v in draft.items()}
@@ -139,6 +206,7 @@ def normalize_draft(draft: dict[str, Any], entry: CorpusEntry, vocab: Vocab) -> 
         d.pop("sensory")
         active.discard("sensory")
     d["modules_active"] = [m for m in vocab.module_names if m in active]
+    _normalize_kinds(d, vocab)
     for block in ["core", *d["modules_active"]]:
         for fv in (d.get(block) or {}).values():
             if not isinstance(fv, dict) or fv.get("value") is not None:
@@ -154,7 +222,7 @@ def output_schema(vocab: Vocab, entry: CorpusEntry | None = None) -> dict[str, A
     ones are required, and `modules_active` is derived afterwards (normalize_draft)."""
     def block(name: str) -> dict[str, Any]:
         fields = vocab.block_fields(name)
-        return {"type": "object", "properties": {f.name: _field_schema(f.conditional, f.max_words) for f in fields},
+        return {"type": "object", "properties": {f.name: _field_schema(f, vocab) for f in fields},
                 "required": [f.name for f in fields], "additionalProperties": False}
 
     moment = {"type": "object", "additionalProperties": False, "properties": {
@@ -179,6 +247,31 @@ def output_schema(vocab: Vocab, entry: CorpusEntry | None = None) -> dict[str, A
 # ---------------------------------------------------------------- draft checks (drive the one repair)
 def _enum_ok(vocab: Vocab, vocab_field: str, value: str) -> bool:
     return value in vocab.enum(vocab_field) or (value.lower().startswith("other:") and bool(value[6:].strip()))
+
+
+def value_problems(f: LensField, value: Any, vocab: Vocab, guards: GuardConfig, title: str) -> list[str]:
+    """What is wrong with a non-null draft value: shape and enum problems (vocab 1.5.0 kinds), word caps
+    (each phrase its own; tagged for the length-only repair), quotes and dialogue, framing claims in
+    sensory fields, and names or medium words in an abstract phrase."""
+    problems = []
+    for sub, msg in shape_problems(f, value, vocab):
+        problems.append(f"{f.path}={value!r}: {ENUM_HINT}" if (sub, f.kind) == ("", "enum") and ENUM_HINT in msg
+                        else f"{f.path}{sub}: {msg}")
+    for sub, text, cap in phrase_texts(f, value):
+        where = f"{f.path}{sub}"
+        if word_count(text) > (cap or NOTE_MAX_WORDS):
+            problems.append(f"{where}: has {word_count(text)} words; {LENGTH_TAG} {cap} or fewer")
+        problems += [f"{where}: {p}" for p in quote_problems(text, guards.min_quote_words) + dialogue_problems(text)]
+        if f.block == "sensory":
+            problems += [f"{where}: {p}" for p in framing_problems(text, guards.framing_terms)]
+        if f.abstract:
+            if found := medium_words(text):
+                problems.append(f"{where}: no medium words ({', '.join(found)})")
+            if title and title.lower() in text.lower():
+                problems.append(f"{where}: no names (it names the title)")
+            if found := proper_nouns(text):
+                problems.append(f"{where}: no names ({', '.join(found)})")
+    return problems
 
 
 def draft_problems(draft: dict[str, Any], entry: CorpusEntry, vocab: Vocab, threshold: float,
@@ -206,15 +299,8 @@ def draft_problems(draft: dict[str, Any], entry: CorpusEntry, vocab: Vocab, thre
                 continue
             if value is None and conf != 0:
                 problems.append(f"{f.path}: unknown value must carry conf 0")
-            if isinstance(value, str):
-                if f.kind == "enum" and not _enum_ok(vocab, f.vocab or f.path, value):
-                    problems.append(f"{f.path}={value!r}: use a listed value or other:<phrase>")
-                if f.kind == "phrase" and word_count(value) > (f.max_words or NOTE_MAX_WORDS):
-                    problems.append(f"{f.path}: has {word_count(value)} words; {LENGTH_TAG} {f.max_words} or fewer")
-                problems += [f"{f.path}: {p}" for p in quote_problems(value, guards.min_quote_words)
-                             + dialogue_problems(value)]
-                if f.block == "sensory":
-                    problems += [f"{f.path}: {p}" for p in framing_problems(value, guards.framing_terms)]
+            if value is not None:
+                problems += value_problems(f, value, vocab, guards, entry.title)
             if f.conditional and value is not None and not (fv.get("condition") or "").strip():
                 problems.append(f"{f.path}: needs a condition")
             if conf < threshold and not (fv.get("uncertainty_reason") or "").strip():
@@ -242,9 +328,12 @@ def verify_list(record: dict[str, Any], moment_ids: list[str], vocab: Vocab, set
                 advisory: list[str]) -> list[str]:
     threshold = float(settings.verify.get("conf_threshold", 0.7))
     patterns = list(settings.verify.get("always_verify", []))
-    active_paths = [f.path for f in vocab.lens_fields() if f.block == "core" or f.block in record["modules_active"]]
+    active = [f for f in vocab.lens_fields() if f.block == "core" or f.block in record["modules_active"]]
+    active_paths = [f.path for f in active]
     candidates = set(active_paths) | {f"moments.{m}.locator" for m in moment_ids}
     out = {p for p in active_paths if record[p.split(".")[0]][p.split(".")[1]]["conf"] < threshold}
+    # a value that needs a cited source is always checked (vocab 1.5.0: promise_break)
+    out |= {f.path for f in active if f.needs_source and record[f.block][f.name]["value"] is not None}
     for pattern in patterns:
         out |= {c for c in candidates if fnmatch.fnmatchcase(c, pattern)}
     out |= {a for a in advisory if a in candidates}
@@ -268,7 +357,7 @@ def assemble(draft: dict[str, Any], entry: CorpusEntry, vocab: Vocab, settings: 
         record[block] = {}
         for f in vocab.block_fields(block):
             fv = draft[block][f.name]
-            out = {"value": fv.get("value"), "conf": float(fv.get("conf", 0)),
+            out = {"value": json.loads(json.dumps(fv.get("value"))), "conf": float(fv.get("conf", 0)),
                    "uncertainty_reason": fv.get("uncertainty_reason") or None, "source": "recall",
                    "verification": "not_required", "source_ref": None,
                    "epistemic": "external_metric" if f.path == "core.outcome" else fv.get("epistemic", "interpretive")}
@@ -314,11 +403,27 @@ def _is_length(problem: str) -> bool:
     return LENGTH_TAG in problem
 
 
-def _field_ref(draft: dict[str, Any], path: str) -> tuple[dict[str, Any], str] | None:
+NOTE_KEYS = ("condition", "uncertainty_reason")
+
+
+def _field_ref(draft: dict[str, Any], path: str) -> tuple[Any, Any] | None:
+    """(container, key) of the text a problem path names: `core.tone` (the value), `core.flaw.condition`,
+    `core.thematic_argument.resolution` (a group part), `core.institutions.0.role` (a list item part)."""
     parts = path.split(".")
     if len(parts) < 2 or not isinstance((draft.get(parts[0]) or {}).get(parts[1]), dict):
         return None
-    return draft[parts[0]][parts[1]], (parts[2] if len(parts) > 2 else "value")
+    fv = draft[parts[0]][parts[1]]
+    rest, value = parts[2:], fv.get("value")
+    if not rest:
+        return fv, "value"
+    if len(rest) == 1 and rest[0] in NOTE_KEYS:
+        return fv, rest[0]
+    if len(rest) == 1 and isinstance(value, dict) and rest[0] in value:
+        return value, rest[0]
+    if len(rest) == 2 and rest[0].isdigit() and isinstance(value, list) and int(rest[0]) < len(value) \
+            and isinstance(value[int(rest[0])], dict):
+        return value[int(rest[0])], rest[1]
+    return None
 
 
 def shorten_phrases(client: LLMClient, entry: CorpusEntry, draft: dict[str, Any], problems: list[str],

@@ -6,7 +6,9 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
 
+from animedex.models import characters
 from animedex.models.atoms import CheckRecord, MechanismAtom, PatternCard, ProofRecord, TransferAtom
+from animedex.models.characters import CharacterRecord
 from animedex.models.common import FieldValue, Provenance, Scope, StrictModel
 from animedex.models.evidence import Episode, Link, Moment, Outcome
 from animedex.models.ideation import (
@@ -15,6 +17,13 @@ from animedex.models.ideation import (
     CoverageLedger,
     IdeaCard,
     PriorArtCheck,
+)
+from animedex.models.steering import (
+    SteeringCheck,
+    SteeringLibrary,
+    SteeringRule,
+    load_steering,
+    load_steering_rules,
 )
 from animedex.models.title import CorpusEntry, TitleProfileBase, title_profile_model
 
@@ -46,6 +55,7 @@ RECORD_TYPES: dict[str, RecordType] = {
     for rt in (
         RecordType("title", "titles.jsonl", title_profile_model, _field("title_id")),
         RecordType("moment", "moments.jsonl", lambda: Moment, _field("moment_id")),
+        RecordType("character", "characters.jsonl", lambda: CharacterRecord, _field("character_id")),
         RecordType("outcome", "outcomes.jsonl", lambda: Outcome, _field("title_id")),
         RecordType("mechanism", "mechanisms.jsonl", lambda: MechanismAtom, _field("atom_id")),
         RecordType("proof", "proofs.jsonl", lambda: ProofRecord, _field("atom_id")),
@@ -77,6 +87,18 @@ def _walk(schema: dict[str, Any], defs: dict[str, Any], prefix: str, out: set[st
         _walk(sub, defs, path, out)
 
 
+# v1.8 record fields that need a competency question, as lens fields do (the orphan check)
+CQ_RECORD_FIELDS: tuple[str, ...] = (
+    *(f"character.{name}" for name in characters.cq_fields()),
+    "outcome.failure_patterns",
+    "transfer.mechanism", "transfer.principle", "transfer.anti_pattern",
+    "pattern.predictive", "pattern.predictive_evidence",
+    "idea.mc", "idea.power_kit", "idea.thematic_argument", "idea.audience_promise", "idea.escalation_model",
+    "idea.core_fantasy", "idea.premise_abstraction", "idea.rules",
+    "census.set_structure", "census.story_engine", "census.mc_archetype",
+)
+
+
 def record_paths() -> set[str]:
     """Every addressable field path, as `<record>.<dotted.path>` (used to check CQ `requires:`)."""
     out: set[str] = set()
@@ -87,9 +109,11 @@ def record_paths() -> set[str]:
 
 
 __all__ = [
+    "CQ_RECORD_FIELDS",
     "RECORD_TYPES",
     "ArchiveRecord",
     "CensusEntry",
+    "CharacterRecord",
     "CheckRecord",
     "CorpusEntry",
     "CoverageLedger",
@@ -106,9 +130,14 @@ __all__ = [
     "Provenance",
     "RecordType",
     "Scope",
+    "SteeringCheck",
+    "SteeringLibrary",
+    "SteeringRule",
     "StrictModel",
     "TitleProfileBase",
     "TransferAtom",
+    "load_steering",
+    "load_steering_rules",
     "record_paths",
     "title_profile_model",
 ]

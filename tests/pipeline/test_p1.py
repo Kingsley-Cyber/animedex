@@ -25,6 +25,7 @@ from animedex.providers.mock import MockProvider
 from animedex.store.cache import ResponseCache
 from animedex.store.jsonl import read_jsonl
 from animedex.store.runlog import RunLog
+from tests.conftest import lens_value
 
 pytestmark = pytest.mark.pipeline
 
@@ -46,9 +47,10 @@ def make_draft(modules: tuple[str, ...] = ("power_combat", "sensory", "anime_pro
     for block in ["core", *modules]:
         draft[block] = {}
         for f in vocab.block_fields(block):
-            value = vocab.enum(f.vocab)[0] if f.kind == "enum" else f"synthetic {f.name.replace('_', ' ')}"
+            value = lens_value(f) if f.kind != "phrase" or f.outcome_in else f"synthetic {f.name.replace('_', ' ')}"
             cond = "shows when the grid fails" if f.conditional else None
-            draft[block][f.name] = fv(value, condition=cond) if f.conditional else fv(value)
+            draft[block][f.name] = (fv(value, condition=cond) if f.conditional else fv(value) if value is not None
+                                    else fv(None, conf=0, reason="not a mixed or flop title"))
     draft["core"]["central_mystery"] = fv(None, conf=0, reason="no open question in scope")
     draft["core"]["tone"] = fv("wry and tense", conf=0.5, reason="tone shifts across the season")
     draft["moments"] = [{"description": f"Synthetic moment {i} where the courier reroutes power.", "season": 1,

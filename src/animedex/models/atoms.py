@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from typing import Annotated, Any, Literal
 
 from pydantic import Field, field_validator, model_validator
@@ -151,6 +152,17 @@ class CheckRecord(StrictModel):
         return self
 
 
+# v1.8 abstraction ladder: a principle reads "when X, do Y, because Z"
+PRINCIPLE_FORM = re.compile(r"\bwhen\b.+\bbecause\b", re.IGNORECASE | re.DOTALL)
+LADDER = ("mechanism", "principle", "anti_pattern")
+
+
+def principle_problem(text: str) -> str | None:
+    if PRINCIPLE_FORM.search(text):
+        return None
+    return 'principle must read "when X, do Y, because Z" (it needs "when", then "because")'
+
+
 class TransferAtom(StrictModel):
     transfer_id: str
     source_atom_id: str
@@ -160,7 +172,18 @@ class TransferAtom(StrictModel):
     essential_conditions: list[Words12] = Field(min_length=1)
     variable_details: list[Words12] = Field(min_length=1)
     failure_conditions: list[Words12] = Field(min_length=1)
+    # v1.8 abstraction ladder: optional here so earlier transfers stay valid; P4 requires all three
+    mechanism: Words20 | None = None      # how the pattern works
+    principle: Words25 | None = None      # "when X, do Y, because Z"
+    anti_pattern: Words12 | None = None   # the failure the principle prevents
     provenance: Provenance
+
+    @field_validator("principle")
+    @classmethod
+    def _principle(cls, value: str | None) -> str | None:
+        if value is not None and (problem := principle_problem(value)):
+            raise ValueError(problem)
+        return value
 
     @model_validator(mode="after")
     def _ids(self) -> TransferAtom:
@@ -176,8 +199,25 @@ class Counterexample(StrictModel):
     why: Words25
 
 
+class PredictiveEvidence(StrictModel):
+    """A load-bearing atom in a held-out title (one the principle was not extracted from) that the
+    card's principle explains (v1.8 M7 principle test)."""
+
+    title_id: str
+    atom_id: str
+
+    @model_validator(mode="after")
+    def _ids(self) -> PredictiveEvidence:
+        check_id(TITLE_ID, self.title_id, "title_id")
+        check_id(ATOM_ID, self.atom_id, "atom_id")
+        if title_of(self.atom_id) != self.title_id:
+            raise ValueError("predictive evidence atom_id must belong to its title_id")
+        return self
+
+
 class PatternCard(StrictModel):
-    """Pattern card (M7). 04 requires a recorded counterexample search; see AC-40."""
+    """Pattern card (M7). 04 requires a recorded counterexample search; see AC-40. v1.8: a card is
+    `predictive` only with evidence from a held-out title; only predictive principles feed ideation."""
 
     pattern_id: str
     statement: Words40
@@ -187,9 +227,18 @@ class PatternCard(StrictModel):
     boundary_conditions: list[Words12] = Field(default_factory=list)
     alternative_explanations: list[Words25] = Field(default_factory=list)
     scope: Literal["title", "corpus_subset", "corpus"]
+    predictive: bool = False
+    predictive_evidence: list[PredictiveEvidence] = Field(default_factory=list)
     provenance: Provenance
 
     @field_validator("pattern_id")
     @classmethod
     def _id(cls, value: str) -> str:
         return check_id(PATTERN_ID, value, "pattern_id")
+
+    @model_validator(mode="after")
+    def _predictive(self) -> PatternCard:
+        held_out = [e for e in self.predictive_evidence if e.title_id not in self.supporting_titles]
+        if self.predictive and not held_out:
+            raise ValueError("a predictive principle needs evidence from a held-out title (not a supporting title)")
+        return self

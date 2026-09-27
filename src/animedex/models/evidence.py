@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Literal
+from typing import Annotated, Any, Literal
 
-from pydantic import Field, field_validator, model_validator
+from pydantic import Field, field_validator, model_serializer, model_validator
 
 from animedex.models.common import (
     EPISODE_ID,
@@ -63,6 +63,22 @@ class Confounders(StrictModel):
     release_context: str = ""
 
 
+class FailurePattern(StrictModel):
+    """v1.8: how a mixed/flop title failed, with the page that says so. Pre-mortems and graveyard
+    warnings cite these."""
+
+    pattern: Annotated[str, VocabEnum("outcome.failure_pattern")]
+    source_ref: str
+    note: Words12
+
+    @field_validator("source_ref")
+    @classmethod
+    def _url(cls, value: str) -> str:
+        if not value.startswith(("http://", "https://")):
+            raise ValueError("a failure pattern needs its source URL")
+        return value
+
+
 class Outcome(StrictModel):
     """External-metric outcome record (VERIFY)."""
 
@@ -76,6 +92,8 @@ class Outcome(StrictModel):
     failure_evidence: Words25 | None = None
     failure_evidence_ref: str | None = None
     failure_level_source: Literal["verify", "owner", "migration"] | None = None
+    # v1.8: mixed/flop only, each with a source; omitted when empty, so earlier outcomes keep their form
+    failure_patterns: list[FailurePattern] = Field(default_factory=list)
     provenance: Provenance
 
     @field_validator("title_id")
@@ -83,11 +101,23 @@ class Outcome(StrictModel):
     def _id(cls, value: str) -> str:
         return check_id(TITLE_ID, value, "title_id")
 
+    @model_serializer(mode="wrap")
+    def _omit_empty_patterns(self, handler: Any) -> dict[str, Any]:
+        data = handler(self)
+        if not data.get("failure_patterns"):
+            data.pop("failure_patterns", None)
+        return data
+
     @model_validator(mode="after")
     def _failure_level(self) -> Outcome:
+        patterns = [p.pattern for p in self.failure_patterns]
+        if len(set(patterns)) != len(patterns):
+            raise ValueError("failure_patterns lists a pattern twice")
         if self.label == "hit":
             if self.failure_level is not None:
                 raise ValueError("a hit carries failure_level null")
+            if self.failure_patterns:
+                raise ValueError("failure_patterns are for mixed and flop titles only")
             return self
         if self.failure_level is None:
             raise ValueError(f"a {self.label} outcome needs failure_level (premise|execution|external|unknown)")

@@ -30,6 +30,10 @@ from animedex.providers.client import LLMClient
 from animedex.store.canonical import CanonicalStore
 from animedex.textutil import sha256_text, stable_json
 
+# v1.8: counted too, so gap counts cover them (set_structure only for titles with a power system)
+CENSUS_FIELDS = {**PROFILE_PATHS, "set_structure": "power_combat.set_structure", "story_engine": "core.story_engine",
+                 "mc_archetype": "core.mc_archetype"}
+
 
 @dataclass(frozen=True)
 class CensusItem:
@@ -73,7 +77,7 @@ def _obj(props: dict[str, Any]) -> dict[str, Any]:
 
 def output_schema(vocab: Vocab, ids: list[str]) -> dict[str, Any]:
     fields = {k: {"type": ["string", "null"], "enum": [*[v for v in vocab.enum(path) if v != "other"], None]}
-              for k, path in PROFILE_PATHS.items()}
+              for k, path in CENSUS_FIELDS.items()}
     item = _obj({"census_id": {"type": "string", "enum": ids}, "has_power_system": {"type": ["boolean", "null"]},
                  **fields, "borrowed_system": {"type": ["string", "null"], "enum": [*BORROWED_SYSTEMS, None]}})
     return _obj({"titles": {"type": "array", "items": item}})
@@ -119,7 +123,7 @@ def run_census(paths: Paths, items: list[CensusItem], client: LLMClient, vocab: 
             b = by_id[t["census_id"]]
             rec = {"census_id": b.census_id, "title": b.title, "year": b.year, "medium": b.medium, "format": b.format,
                    "popularity": b.popularity, "has_power_system": t.get("has_power_system"),
-                   **{k: t.get(k) for k in PROFILE_PATHS}, "borrowed_system": t.get("borrowed_system"),
+                   **{k: t.get(k) for k in CENSUS_FIELDS}, "borrowed_system": t.get("borrowed_system"),
                    "trust": "recall", "batch_id": batch_id, "provenance": prov}
             CensusEntry.model_validate(rec)
             records.append(rec)

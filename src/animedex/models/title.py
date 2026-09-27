@@ -1,7 +1,8 @@
 """Title profile (P1, `titles.jsonl`) and corpus entry (`corpus/titles.yaml`), 04.
 
 The core block and module blocks are built from the lens in ontology/vocab.json, so module
-definitions stay out of src/ (10 §6).
+definitions stay out of src/ (10 §6). A lens field added in a later vocab (`since`) may be absent
+from a record made under an older one; it is omitted, not null-filled (vocab 1.5.0).
 """
 
 from __future__ import annotations
@@ -12,6 +13,7 @@ from pydantic import Field, create_model, field_validator, model_serializer, mod
 
 from animedex.models.common import (
     TITLE_ID,
+    FieldValue,
     Provenance,
     RoleTag,
     Scope,
@@ -20,7 +22,8 @@ from animedex.models.common import (
     check_id,
     field_value_type,
 )
-from animedex.ontology import Vocab, get_vocab
+from animedex.ontology import LensField, Vocab, get_vocab, version_tuple
+from animedex.textutil import medium_words
 
 Medium = Annotated[str, VocabEnum("medium")]
 Format = Annotated[str, VocabEnum("format")]
@@ -107,14 +110,60 @@ class TitleProfileBase(StrictModel):
                 data.pop(m, None)
         return data
 
+    @model_validator(mode="after")
+    def _lens_rules(self) -> TitleProfileBase:
+        """Cross-field rules from the lens (vocab 1.5.0): fields a record's vocab version requires are
+        present; a secondary value differs from its primary; outcome-bound fields only on those outcomes;
+        abstract phrases carry no medium words."""
+        version = version_tuple(self.provenance.vocab_version)
+        outcome_fv = getattr(self.core, "outcome", None)
+        outcome = outcome_fv.value if isinstance(outcome_fv, FieldValue) else None
+        for block in ["core", *self.modules_active]:
+            body = getattr(self, block)
+            for name, f in type(body).__lens__.items():
+                fv = getattr(body, name)
+                if fv is None:
+                    if f.since and version >= version_tuple(f.since):
+                        raise ValueError(f"{f.path} is missing (a lens field since vocab {f.since})")
+                    continue
+                if fv.value is None:
+                    continue
+                if f.differs_from:
+                    primary = getattr(body, f.differs_from)
+                    if primary is None or primary.value is None:
+                        raise ValueError(f"{f.path} needs {block}.{f.differs_from} (a secondary needs its primary)")
+                    if primary.value == fv.value:
+                        raise ValueError(f"{f.path} must differ from {block}.{f.differs_from}")
+                if f.outcome_in and outcome not in f.outcome_in:
+                    raise ValueError(f"{f.path} is only for {'/'.join(f.outcome_in)} titles (core.outcome is {outcome})")
+                if f.abstract and (found := medium_words(fv.value)):
+                    raise ValueError(f"{f.path} uses medium words {found}")
+        return self
 
-def _block_model(vocab: Vocab, block: str) -> type[StrictModel]:
+
+class LensBlock(StrictModel):
+    """The core block or a module block. A field the record's vocab predates stays absent (omitted)."""
+
+    __lens__: ClassVar[dict[str, LensField]] = {}
+
+    @model_serializer(mode="wrap")
+    def _omit_absent(self, handler: Any) -> dict[str, Any]:
+        data = handler(self)
+        for name, f in type(self).__lens__.items():
+            if f.since and name in data and data[name] is None:
+                data.pop(name)
+        return data
+
+
+def _block_model(vocab: Vocab, block: str) -> type[LensBlock]:
     fields: dict[str, Any] = {}
     for f in vocab.block_fields(block):
-        enum = vocab.enum(f.vocab) if f.kind == "enum" and f.vocab else None
-        fields[f.name] = (field_value_type(f.path, enum, f.conditional, f.vocab, f.max_words), ...)
+        fv = field_value_type(f, vocab)
+        fields[f.name] = (fv | None, None) if f.since else (fv, ...)
     name = "Core" if block == "core" else "".join(p.title() for p in block.split("_"))
-    return create_model(f"{name}Block", __base__=StrictModel, **fields)
+    model = create_model(f"{name}Block", __base__=LensBlock, **fields)
+    model.__lens__ = {f.name: f for f in vocab.block_fields(block)}
+    return model
 
 
 _title_models: dict[tuple[int, str], type[TitleProfileBase]] = {}
