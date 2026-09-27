@@ -26,3 +26,6 @@ graft/
 
 # External-engine indexes (URCP: derived, never committed)
 .codegraph/
+
+# Generated ontology proposals (canonicalize): model values, gold ones included, so never committed while the blind test is pending. Hand-written plans stay as top-level .md files.
+ontology/proposals/*/
