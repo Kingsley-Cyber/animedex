@@ -1,0 +1,19 @@
+# M2 finish (2026-09-27): the last live steps on fixed code, max 3 titles at once (owner OK).
+# Gold titles get every check; the others skip visual details and moment episodes (owner rule).
+name: m2_finish
+max_parallel: 3
+jobs:
+  - title: future_diary_2011            # MAL re-verify (reset to its P1 draft, no model call)
+    steps: [verify]
+  - title: hunter_x_hunter_2011         # gold: MAL re-verify, then the AC-12 second P1 run
+    steps: [verify, "p1 --agreement"]
+  - title: avatar_the_last_airbender_2005   # P1 was stuck on the old 12-word cap
+    steps: [p1, verify]
+  - title: solo_leveling_2024           # gold: AC-12 second P1 runs
+    steps: ["p1 --agreement"]
+  - title: fullmetal_alchemist_brotherhood_2009
+    steps: ["p1 --agreement"]
+  - title: btooom_2012
+    steps: ["p1 --agreement"]
+  - title: platinum_end_2021
+    steps: ["p1 --agreement"]
