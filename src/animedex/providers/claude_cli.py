@@ -84,9 +84,10 @@ def web_evidence(events: list[dict[str, Any]]) -> dict[str, Any]:
 def event_timing(timed: list[tuple[float | None, dict[str, Any]]], wall_s: float | None,
                  result: dict[str, Any] | None = None) -> dict[str, Any]:
     """Where one call's wall time went (seconds). Each gap between stdout events is charged to what
-    ended it: startup (the init event), model (an assistant message), web (a WebSearch/WebFetch
-    result), tools (another tool's result), other (the result event, shutdown). Without event times
-    (a test runner) only the wall time is known."""
+    ended it: startup (the init event), model (an assistant message, or the result event: the CLI
+    delivers the structured answer there, so the gap before it is the model writing that answer),
+    web (a WebSearch/WebFetch result), tools (another tool's result), other (anything else, and
+    shutdown after the result). Without event times (a test runner) only the wall time is known."""
     res = result or {}
     out: dict[str, Any] = {"wall_s": round(wall_s, 2) if wall_s is not None else None, "turns": res.get("num_turns")}
     if isinstance(res.get("duration_api_ms"), (int, float)):
@@ -101,7 +102,7 @@ def event_timing(timed: list[tuple[float | None, dict[str, Any]]], wall_s: float
         blocks = [b for b in (e.get("message") or {}).get("content") or [] if isinstance(b, dict)]
         if e.get("type") == "system" and e.get("subtype") == "init":
             key = "startup_s"
-        elif e.get("type") == "assistant":
+        elif e.get("type") in ("assistant", "result"):
             key = "model_s"
             names.update({str(b.get("id")): str(b.get("name")) for b in blocks if b.get("type") == "tool_use"})
         elif e.get("type") == "user":
@@ -111,7 +112,7 @@ def event_timing(timed: list[tuple[float | None, dict[str, Any]]], wall_s: float
             key = "other_s"
         spent[key] += gap
     spent["other_s"] += max(0.0, wall_s - prev)
-    return {**out, **{k: round(v, 2) for k, v in spent.items()}}
+    return {**out, "v": 2, **{k: round(v, 2) for k, v in spent.items()}}
 
 
 def served_model(requested: str, init: dict[str, Any] | None, model_usage: dict[str, Any]) -> tuple[str, list[str]]:

@@ -568,7 +568,7 @@ def test_claude_call_time_is_split_by_what_each_gap_waited_on():
              (12.0, ev("assistant", message={"content": [{"type": "text", "text": "done"}]})),
              (12.5, ev("result", num_turns=4, duration_api_ms=7000))]
     t = event_timing(timed, 13.0, timed[-1][1])
-    assert (t["startup_s"], t["model_s"], t["web_s"], t["tools_s"], t["other_s"]) == (1.0, 5.5, 5.5, 0.0, 1.0)
+    assert (t["startup_s"], t["model_s"], t["web_s"], t["tools_s"], t["other_s"]) == (1.0, 6.0, 5.5, 0.0, 0.5)
     assert t["wall_s"] == 13.0 and t["turns"] == 4 and t["api_s"] == 7.0
     assert event_timing([(None, ev("result"))], 2.0) == {"wall_s": 2.0, "turns": None}  # no event times: wall only
 

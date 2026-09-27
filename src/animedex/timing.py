@@ -57,10 +57,16 @@ def load_calls(runs_dir: Path) -> list[CallTime]:
             seconds = timing.get("call_s") if "call_s" in timing else gap
             if seconds is None:
                 continue
+            parts = {k: float(timing[k]) for k in PARTS if k in timing}
+            if parts and "api_s" in timing and timing.get("v") != 2:
+                # rows logged before v2 charged the final structured answer (the gap before the CLI's
+                # result event) to other; it is model time (the CLI's API time matches the wall time)
+                parts["model_s"] += parts.get("other_s", 0.0)
+                parts["other_s"] = 0.0
             out.append(CallTime(run=run.name, stage=str(row.get("pass")), title=record.removesuffix(".shorten"),
                                 seconds=float(seconds), retry=shorten or int(row.get("attempt") or 0) > 0,
                                 estimated="call_s" not in timing, pacing=float(timing.get("pacing_s") or 0.0),
-                                parts={k: float(timing[k]) for k in PARTS if k in timing}))
+                                parts=parts))
     return out
 
 

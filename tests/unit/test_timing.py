@@ -46,3 +46,16 @@ def test_timed_rows_break_down_and_older_rows_are_estimated(tmp_path):
 
 def test_durations_read_plainly():
     assert (fmt(4), fmt(75), fmt(3725)) == ("4s", "1m 15s", "1h 02m")
+
+
+def test_rows_from_before_v2_move_the_final_answer_into_model_time(tmp_path):
+    runs = tmp_path / "runs"
+    old = {"startup_s": 1.0, "model_s": 30.0, "web_s": 0.0, "tools_s": 0.0, "other_s": 40.0, "api_s": 70.5,
+           "call_s": 71.0, "pacing_s": 0.0}
+    write(runs, "run_20260927_050000_000001", [row("2026-09-27T05:01:11+00:00", "iron_2020", pass_="P1", timing=old),
+                                               row("2026-09-27T05:02:11+00:00", "iron_2020", pass_="P1",
+                                                   timing={**old, "v": 2})])
+    first, second = load_calls(runs)
+    assert (first.parts["model_s"], first.parts["other_s"]) == (70.0, 0.0)
+    assert (second.parts["model_s"], second.parts["other_s"]) == (30.0, 40.0)  # v2 rows are taken as logged
+
