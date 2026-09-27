@@ -3,7 +3,78 @@
 # here once approved. Partner scopes below are set by the agent (06 decision rights); episode counts
 # were fetched 2026-09-26 from the linked pages. Numbering is broadcast order unless noted.
 titles:
+  # --- gold set (approved by Kingsley at G1b, 2026-09-26; eval/gold/G1B_PROPOSAL.md) ---
+  - title_id: solo_leveling_2024
+    title: Solo Leveling
+    year: 2024
+    medium: anime
+    format: serialized
+    scope:
+      version: "A-1 Pictures TV anime, seasons 1-2 (12 + 13 eps, 2024-25); broadcast numbers season 2 as 13-25"
+      seasons: [1, 2]
+      numbering: broadcast
+      exclude: ["recap episode 7.5", "ReAwakening compilation film", "Beyond the System film", "source material past season 2"]
+    role_tags: [gold, hit]
+  - title_id: fullmetal_alchemist_brotherhood_2009
+    title: "Fullmetal Alchemist: Brotherhood"
+    year: 2009
+    medium: anime
+    format: serialized
+    scope:
+      version: "Bones TV series (64 eps, 2009-10); adapts the whole manga"
+      seasons: [1]
+      numbering: broadcast
+      exclude: ["Fullmetal Alchemist (2003) series and film", "Brotherhood OVAs", "The Sacred Star of Milos film",
+                "4-Koma Theater shorts", "live-action films"]
+    role_tags: [gold, hit]
+  - title_id: hunter_x_hunter_2011
+    title: Hunter x Hunter
+    year: 2011
+    medium: anime
+    format: serialized
+    scope:
+      version: "Madhouse TV series (148 eps, 2011-14)"
+      seasons: [1]
+      numbering: broadcast
+      exclude: ["1999 TV series", "2002-2004 OVAs", "2013 films", "manga beyond the anime"]
+    role_tags: [gold, hit]
+  - title_id: sword_art_online_2012
+    title: Sword Art Online
+    year: 2012
+    medium: anime
+    format: serialized
+    scope:
+      version: "A-1 Pictures TV series (25 eps, 2012)"
+      seasons: [1]
+      numbering: broadcast
+      exclude: ["Extra Edition", "Sword Art Offline shorts", "SAO II onward", "films", "manga versions", "light novels volume 5 onward"]
+    role_tags: [gold, mixed]
+  - title_id: big_order_2016
+    title: Big Order
+    year: 2016
+    medium: anime
+    format: serialized
+    scope:
+      version: "asread TV series (10 eps, 2016)"
+      seasons: [1]
+      numbering: broadcast
+      exclude: ["2015 OVA", "manga beyond the anime"]
+    role_tags: [gold, flop]
+    partners: {nearest_neighbor: future_diary_2011}   # same author, better received (G1b request)
+
   # --- partner batch (non-gold): nearest-neighbor and cross-medium candidates for P3 ---
+  - title_id: future_diary_2011
+    title: Future Diary
+    year: 2011
+    medium: anime
+    format: serialized
+    scope:
+      version: "Asread TV anime (26 eps, 2011-10 to 2012-04)"   # anilist.co/anime/10620
+      seasons: [1]
+      numbering: broadcast
+      exclude: ["Mirai Nikki OVA (2010)", "Ura Mirai Nikki specials", "Redial OVA (2013)", "live-action adaptations",
+                "spin-off manga"]
+    role_tags: [contrast]
   - title_id: jujutsu_kaisen_2020
     title: Jujutsu Kaisen
     year: 2020
