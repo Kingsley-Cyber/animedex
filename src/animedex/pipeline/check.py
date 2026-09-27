@@ -18,8 +18,10 @@ from typing import Any
 
 from pydantic import ValidationError
 
+from animedex.budget import BudgetExceeded
 from animedex.config import Settings
 from animedex.content_guards import GuardConfig, record_problems
+from animedex.guards import LiveRunRefused
 from animedex.models import CheckRecord, MechanismAtom, ProofRecord
 from animedex.models.common import title_of
 from animedex.ontology import Vocab
@@ -198,6 +200,31 @@ def _later(created_at: str | None, seconds: int) -> str | None:
     return (datetime.fromisoformat(created_at) + timedelta(seconds=seconds)).isoformat()
 
 
+def _admit_group(client: LLMClient, group: list[str], result: StageResult, label: str) -> str | None:
+    """A batched call names a label, not a title: the corpus/blind guard and the per-title call cap are
+    applied here to every title of the group. Returns "refused" or "stopped" when the call must not go out."""
+    try:
+        for tid in group:
+            if client.provider.live and client.title_guard is not None:
+                client.title_guard(tid)
+            if client.provider.live and client.billing == "subscription" and client.budget is not None:
+                client.budget.check_calls(tid)
+    except LiveRunRefused as exc:
+        result.refused.append((label, str(exc)))
+        return "refused"
+    except BudgetExceeded as exc:
+        result.stopped = str(exc)
+        return "stopped"
+    return None
+
+
+def _count_group(client: LLMClient, group: list[str]) -> None:
+    """The client counted the shared call once for the run; count it for each title."""
+    if client.provider.live and client.billing == "subscription" and client.budget is not None:
+        for tid in group:
+            client.budget.count_title(tid)
+
+
 def run_check(paths: Paths, title_ids: list[str], client: LLMClient, vocab: Vocab, settings: Settings, *, run_id: str,
               guards: GuardConfig | None = None, created_at: str | None = None,
               params: dict[str, Any] | None = None, batch_titles: int = 1) -> StageResult:
@@ -260,13 +287,18 @@ def _check_group(paths: Paths, group: list[str], client: LLMClient, vocab: Vocab
             sections.append((f"=== title {tid}\n" if len(group) > 1 else "") + text)
             upstream += [titles[tid], *moments, *t_atoms, *t_proofs, {"context": context},
                          *(partner_recs[k] for k in sorted(partner_recs))]
+        why = _admit_group(client, group, result, label)
+        if why is not None:
+            return why == "refused"   # a refused group lets the run go on; a cap stops it
         call = guarded_call(result, paths, "CHECK", "check", label, client, prompt.system, "\n\n".join(sections),
                             output_schema(vocab, ids), upstream=upstream_hash(upstream), params=params,
-                            validate=validate, record_id=label if round_no == 0 else f"{label}.recheck")
+                            validate=validate, record_id=label if round_no == 0 else f"{label}.recheck",
+                            about_title=False)
         if call.stop:
             return False
         if call.completion is None:
             return True
+        _count_group(client, group)
         prov = provenance("CHECK", run_id, call.completion, prompt.version, vocab, _later(created_at, round_no))
         revised_atoms: dict[str, dict[str, Any]] = {}
         revised_proofs: dict[str, dict[str, Any]] = {}

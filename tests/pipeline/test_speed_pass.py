@@ -11,8 +11,9 @@ import pytest
 import yaml
 
 from animedex import SCHEMA_VERSION
-from animedex.budget import Budget
+from animedex.budget import Budget, BudgetExceeded
 from animedex.config import ModelSpec, load_settings
+from animedex.guards import LiveRunRefused
 from animedex.ontology import get_vocab
 from animedex.pipeline.orchestrate import run_batch
 from animedex.providers.client import LLMClient
@@ -177,3 +178,47 @@ def test_fast_verify_list_is_the_outcome_and_the_moments(repo):
                 reception=reception)
     verify = json.loads((repo.candidates / "verify" / f"{TID}.json").read_text())["verify"]
     assert verify and all(p.startswith("moments.") for p in verify)
+
+
+def test_a_stage_view_shares_the_run_cap_and_starts_its_own_title_count():
+    """The run cap is one for the whole run; the per-title cap is per stage (each stage's client gets a view),
+    so a title's 7 fast-path calls never trip a cap meant for one stage."""
+    root = Budget(None, None, None, 40, 6)
+    a, b = root.stage_view(), root.stage_view()
+    for _ in range(6):
+        a.count_call(T1)
+    with pytest.raises(BudgetExceeded, match="call cap reached for"):
+        a.check_calls(T1)
+    b.check_calls(T1)   # a new stage: the title's count starts again
+    assert root.calls_run == 6 and b.calls_title[T1] == 0 and a.root is root and b.root is root
+    b.count_title(T1)   # a shared call: counted for the title, not again for the run
+    assert root.calls_run == 6 and b.calls_title[T1] == 1
+    root.calls_run = 40
+    with pytest.raises(BudgetExceeded, match="this run"):
+        b.check_calls(T4)
+
+
+def test_a_check_group_is_guarded_and_charged_per_title_not_by_its_label():
+    """The critic's batched call names `a+b`; the corpus guard and the per-title cap still see each title."""
+    from types import SimpleNamespace
+
+    from animedex.pipeline.check import _admit_group, _count_group
+    from animedex.pipeline.common import StageResult
+
+    seen: list[str] = []
+    budget = Budget(None, None, None, 40, 6)
+    client = SimpleNamespace(provider=SimpleNamespace(live=True), billing="subscription", budget=budget,
+                             title_guard=seen.append)
+    result = StageResult()
+    assert _admit_group(client, [T1, T4], result, f"{T1}+{T4}") is None and seen == [T1, T4]
+    _count_group(client, [T1, T4])
+    assert budget.calls_title[T1] == 1 and budget.calls_title[T4] == 1 and budget.calls_run == 0
+
+    def refuse(tid: str) -> None:
+        raise LiveRunRefused(f"{tid} is not in corpus/titles.yaml")
+
+    client.title_guard = refuse
+    assert _admit_group(client, [T1, T4], result, "x") == "refused" and result.refused[0][0] == "x"
+    client.title_guard = seen.append
+    budget.calls_title[T4] = 6
+    assert _admit_group(client, [T1, T4], result, "x") == "stopped" and "call cap reached for" in result.stopped

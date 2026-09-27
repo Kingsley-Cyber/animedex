@@ -779,3 +779,72 @@ titles:
       - later print beyond the range
     role_tags: []
     catalog_ref: anilist:126693
+
+  # --- backfill 2026-09-27 from priority_1.txt: catalog-resolved; check the choices in build/reports/backfill.md ---
+  - title_id: dragon_raja_the_blazing_dawn_2022
+    title: Dragon Raja -The Blazing Dawn-
+    year: 2022
+    medium: donghua
+    format: serialized
+    scope:
+      version: GARDEN donghua series (41 eps, 2022-2025)
+      seasons:
+      - 1
+      - 2
+      numbering: broadcast
+      exclude:
+      - films
+      - OVAs, specials, and recaps
+      - source material beyond the adaptation
+      - Dragon Raja I (alternative)
+    role_tags: []
+    catalog_ref: anilist:122511
+  - title_id: levius_2019
+    title: Levius
+    year: 2019
+    medium: anime
+    format: serialized
+    scope:
+      version: POLYGON PICTURES TV anime (12 eps, 2019-2019)
+      seasons:
+      - 1
+      numbering: broadcast
+      exclude:
+      - films
+      - OVAs, specials, and recaps
+      - source material beyond the adaptation
+    role_tags: []
+    catalog_ref: anilist:108598
+  - title_id: witch_hat_atelier_2026
+    title: Witch Hat Atelier
+    year: 2026
+    medium: anime
+    format: serialized
+    scope:
+      version: BUG FILMS TV anime (13 eps, 2026-2026)
+      seasons:
+      - 1
+      numbering: broadcast
+      exclude:
+      - films
+      - OVAs, specials, and recaps
+      - source material beyond the adaptation
+    role_tags: []
+    catalog_ref: anilist:147105
+  - title_id: the_bugle_call_song_of_war_2022
+    title: 'The Bugle Call: Song of War'
+    year: 2022
+    medium: manga
+    format: serialized
+    scope:
+      version: manga (? chapters, 2022-ongoing)
+      seasons: []
+      numbering: chapters
+      range: null
+      exclude:
+      - screen adaptations
+      - spin-offs and side stories
+      - later print beyond the range
+      - 'The Bugle Call: Song of War (adaptation)'
+    role_tags: []
+    catalog_ref: anilist:153007

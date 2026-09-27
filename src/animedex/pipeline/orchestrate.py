@@ -166,7 +166,7 @@ def run_batch(paths: Paths, title_ids: list[str], settings: Settings, env: dict[
     corpus = load_corpus(paths)
     shared = None if clients else Budget.from_settings(settings)   # one cap for the whole run, across workers
     make = clients or (lambda key, runlog: build_client(key, paths=paths, settings=settings, env=env,
-                                                          runlog=runlog, prompt_version="unset", budget=shared))
+                                                          runlog=runlog, prompt_version="unset", budget=shared.stage_view()))
     logs: list[RunLog] = []
     speed = (settings.model_extra or {}).get("speed") or {}
     # the fast path, unless the caller asked for the classic gather/interpret stages by name (tests, `animedex run`)
