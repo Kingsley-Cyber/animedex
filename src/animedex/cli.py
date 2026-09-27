@@ -131,6 +131,41 @@ def p1(title: str = TitleOpt, all_: bool = AllOpt, dry_run: bool = DryOpt,
 
 
 @app.command()
+def gather(title: str = TitleOpt, all_: bool = AllOpt) -> None:
+    """GATHER (v1.7): documented facts with source URLs (web) + API reception numbers -> candidates/gathered/."""
+    from animedex.catalog.anilist import AniList
+    from animedex.catalog.reception import ReceptionClient, reception_for
+    from animedex.ontology import get_vocab
+    from animedex.pipeline.gather import run_gather
+    from animedex.providers.factory import build_client
+    from animedex.store.runlog import RunLog, new_run_id
+
+    paths = _paths()
+    settings, vocab = load_settings(paths), get_vocab(paths)
+    entries = _entries(paths, title, all_)
+    env = environment(paths)
+    run_id = new_run_id()
+    runlog = RunLog(paths.raw_runs, run_id)
+    client = build_client("gather", paths=paths, settings=settings, env=env, runlog=runlog, prompt_version="unset")
+    anilist = AniList(cache_dir=paths.cache / "anilist")
+    rec_client = ReceptionClient.from_env(paths, env)
+
+    def reception(entry):  # API numbers for deep-indexed titles only (owner rule A2)
+        rec_client.notes.clear()
+        return reception_for(entry, anilist=anilist, client=rec_client), list(rec_client.notes)
+
+    result = run_gather(paths, entries, client, vocab, settings, run_id=run_id, reception=reception)
+    runlog.write_ledger()
+    for r in result.titles:
+        typer.echo(f"{r.title_id}: {r.kept} fact(s) kept ({r.unplaced} unplaced), {len(r.dropped)} dropped; "
+                   f"reception from {', '.join(r.reception) or 'no API source'}")
+    for tid, why in result.skipped + result.quarantined:
+        typer.echo(f"  not gathered {tid}: {why[:200]}", err=True)
+    if result.stopped:
+        typer.echo(f"  stopped: {result.stopped}", err=True)
+
+
+@app.command()
 def verify(title: str = TitleOpt, all_: bool = AllOpt, dry_run: bool = DryOpt,
            outcome_only: bool = typer.Option(False, "--outcome-only",
                                              help="v1.3: re-check only canonical mixed/flop outcomes for failure_level")

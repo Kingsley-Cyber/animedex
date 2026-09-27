@@ -46,6 +46,7 @@ models:   # G1a, approved 2026-09-26; routed to subscription CLIs 2026-09-26. Co
           # so a moved alias cannot change the model. `strict_model`: any other served model is refused.
   p1:              {provider: claude_cli, model: claude-sonnet-5, params: {effort: high}}
   verify:          {provider: claude_cli, model: claude-sonnet-5, params: {effort: high}}
+  gather:          {provider: claude_cli, model: claude-haiku-4-5-20251001}   # v1.7 GATHER: web facts on the cheapest plan model
   p2:              {provider: claude_cli, model: claude-opus-5-5, params: {effort: high}}
   p3:              {provider: claude_cli, model: claude-opus-5-5, params: {effort: high}}
   check:           {provider: codex_cli, model: gpt-5.6-terra, strict_model: true}   # owner: an older model is enough
@@ -156,3 +157,14 @@ data_repo:   # owner ruling 2026-09-27: private backups of data that never goes 
   clone: ../animedex-data          # local clone, next to the code checkout
   paths: [data/canonical, data/blind, data/diagnose, eval/blind, eval/gold, steering, seeds, studio]   # no cache, no raw run logs
   push_after_batch: true           # once the clone exists (a first `make data-push` creates it)
+gather:   # v1.7 GATHER: documented fields it may fill (only those the vocab has count), and its web limits
+  max_searches: 4
+  max_fetches: 8
+  paths: [anime_production.source_medium, anime_production.demographic, anime_production.adaptation_fidelity,
+          anime_production.arc_cour_structure, power_combat.power_source, power_combat.gate, power_combat.progression,
+          power_combat.cost_of_power, power_combat.cost_of_power_secondary, power_combat.visible_counter,
+          power_combat.ranking_ladder, power_combat.fight_medium, power_combat.signature_technique,
+          power_combat.power_embodiment, power_combat.set_structure, power_combat.subset_mechanics,
+          power_combat.set_scaffold, power_combat.rarity, power_combat.power_up_mode, power_combat.power_up_cost,
+          relationships.rival, relationships.mentor, relationships.team_structure, core.world_rules,
+          core.ending_type, core.setting_type, core.world_visibility, core.conflict_scale, core.institutions]
