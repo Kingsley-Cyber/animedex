@@ -1,15 +1,15 @@
 # Competency questions (01, spec v1.2). `requires:` lists the fields each question
 # reads: P1 lens paths (core.*, <module>.*) or record paths (<record>.<field>).
 # Every lens field, module, vocab field, and bridge concept must trace to >= 1 CQ.
-version: "1.2.0"
+version: 1.3.0
 questions:
   # Gap analysis
   - id: CQ-G01
     text: Which gate x cost-of-power combinations have zero titles, given adequate coverage?
     requires: [power_combat.gate, power_combat.cost_of_power, coverage.field_completion, coverage.modules_active]
   - id: CQ-G02
-    text: For each empty cell, untried or tried by a mixed/flop title, and what was its recorded failure reason?
-    requires: [power_combat.gate, power_combat.cost_of_power, core.outcome, outcome.label, outcome.failure_reason]
+    text: For each empty cell, untried or tried by a mixed/flop title? Was that failure premise-level or execution-level, and what was the recorded reason?
+    requires: [power_combat.gate, power_combat.cost_of_power, core.outcome, outcome.label, outcome.failure_reason, outcome.failure_level]
   - id: CQ-G03
     text: Which unserved appetites (and the borrowed templates and broken rules that served them) appear in hits but in only one title's load-bearing atoms?
     requires: [core.unserved_appetite, core.borrowed_template, core.broken_rule, core.outcome, mechanism.atom_kind, proof.ablation.verdict]
@@ -71,6 +71,9 @@ questions:
   - id: CQ-I13
     text: Which transformation operators produce champions, and which mostly fail gates?
     requires: [idea.transformation.operator, idea.status, idea.gates]
+  - id: CQ-I14
+    text: Which execution-level failures offer a T5 "retold better" lane (a sound premise whose execution failed)?
+    requires: [outcome.failure_level, outcome.failure_reason, outcome.failure_evidence, mechanism.atom_kind, proof.ablation.verdict]
   # Episodes and moments
   - id: CQ-E01
     text: Which moment types recur across the most iconic fights, and what mechanism and primary feeling explain each?

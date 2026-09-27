@@ -152,6 +152,66 @@
     "confounders": {
       "$ref": "#/$defs/Confounders"
     },
+    "failure_evidence": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Failure Evidence"
+    },
+    "failure_evidence_ref": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Failure Evidence Ref"
+    },
+    "failure_level": {
+      "anyOf": [
+        {
+          "enum": [
+            "premise",
+            "execution",
+            "external",
+            "unknown"
+          ],
+          "type": "string",
+          "x-vocab": "outcome.failure_level"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Failure Level"
+    },
+    "failure_level_source": {
+      "anyOf": [
+        {
+          "enum": [
+            "verify",
+            "owner",
+            "migration"
+          ],
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Failure Level Source"
+    },
     "failure_reason": {
       "anyOf": [
         {

@@ -80,6 +80,37 @@
   "additionalProperties": false,
   "description": "One title in corpus/titles.yaml (01): medium, format, scope, role tags, partner overrides.",
   "properties": {
+    "catalog_ref": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Catalog Ref"
+    },
+    "failure_level_override": {
+      "anyOf": [
+        {
+          "enum": [
+            "premise",
+            "execution",
+            "external",
+            "unknown"
+          ],
+          "type": "string",
+          "x-vocab": "outcome.failure_level"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Failure Level Override"
+    },
     "format": {
       "enum": [
         "film",

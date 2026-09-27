@@ -1,5 +1,5 @@
 {
-  "version": "1.2.1",
+  "version": "1.3.0",
   "notes": "Enums are the 04 v1.1.0 starter set. The lens section declares P1 fields and modules (spec v1.2: four orphan fields deleted at G0). Change only through ontology/proposals and owner approval. 1.2.1: module activation rules (05 table) added to the lens.",
   "fields": {
     "medium": {
@@ -339,6 +339,28 @@
       "alternate_labels": {},
       "cq_refs": [
         "CQ-G09"
+      ]
+    },
+    "outcome.failure_level": {
+      "enum": [
+        "premise",
+        "execution",
+        "external",
+        "unknown"
+      ],
+      "alternate_labels": {
+        "execution": [
+          "production",
+          "adaptation"
+        ],
+        "external": [
+          "release context",
+          "marketing"
+        ]
+      },
+      "cq_refs": [
+        "CQ-G02",
+        "CQ-I14"
       ]
     }
   },

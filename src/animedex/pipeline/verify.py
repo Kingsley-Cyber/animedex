@@ -76,12 +76,16 @@ def output_schema(vocab: Vocab) -> dict[str, Any]:
     signal = {"type": "object", "additionalProperties": False, "required": ["metric", "value", "source_url"],
               "properties": {"metric": {"type": "string"}, "value": {"type": "string"}, "source_url": {"type": "string"}}}
     outcome = {"type": ["object", "null"], "additionalProperties": False,
-               "required": ["label", "signals", "confounders", "failure_reason"],
+               "required": ["label", "signals", "confounders", "failure_reason", "failure_level", "failure_evidence",
+                            "failure_evidence_url"],
                "properties": {"label": {"type": "string", "enum": list(vocab.enum("core.outcome"))},
                               "signals": {"type": "array", "items": signal},
                               "confounders": {"type": "object", "additionalProperties": False, "required": CONFOUNDERS,
                                               "properties": {k: {"type": "string"} for k in CONFOUNDERS}},
-                              "failure_reason": nullable}}
+                              "failure_reason": nullable,
+                              "failure_level": {"type": ["string", "null"],
+                                                "enum": [*vocab.enum("outcome.failure_level"), None]},
+                              "failure_evidence": nullable, "failure_evidence_url": nullable}}
     return {"type": "object", "additionalProperties": False, "required": ["fields", "moments", "outcome"],
             "properties": {"fields": {"type": "array", "items": field_item},
                            "moments": {"type": "array", "items": moment_item}, "outcome": outcome}}
@@ -237,6 +241,21 @@ def output_problems(out: dict[str, Any], pending: Pending, vocab: Vocab, pages: 
             problems.append("outcome: mixed/flop needs a failure_reason")
         if reason and word_count(reason) > 25:
             problems.append("outcome.failure_reason: 25 words max")
+        level, evidence = oc.get("failure_level"), oc.get("failure_evidence")
+        if oc.get("label") == "hit" and level is not None:
+            problems.append("outcome: a hit carries failure_level null")
+        if oc.get("label") in ("mixed", "flop"):
+            if level is None:
+                problems.append("outcome: mixed/flop needs failure_level (premise|execution|external|unknown)")
+            elif level != "unknown":
+                if not evidence:
+                    problems.append(f"outcome: failure_level {level} needs failure_evidence (25 words max)")
+                if oc.get("failure_evidence_url") not in urls:
+                    problems.append(f"outcome.failure_evidence_url: {cite}")
+        if evidence:
+            if word_count(evidence) > 25:
+                problems.append("outcome.failure_evidence: 25 words max")
+            problems += [f"outcome.failure_evidence: {p}" for p in quote_problems(str(evidence), guards.min_quote_words)]
     return problems
 
 
@@ -295,10 +314,19 @@ def apply(pending: Pending, out: dict[str, Any], pages: dict[str, TransientText]
     outcome = None
     oc = out.get("outcome")
     if oc and all(s["source_url"] in pages for s in oc.get("signals", [])) and oc.get("signals"):
+        level = oc.get("failure_level") if oc["label"] != "hit" else None
+        sourced = level not in (None, "unknown") and oc.get("failure_evidence_url") in pages
+        if level not in (None, "unknown") and not sourced:
+            level = "unknown"  # an unsourced level is not evidence
         outcome = {"title_id": record["title_id"], "label": oc["label"],
                    "signals": [{"metric": s["metric"], "value": s["value"], "source_ref": s["source_url"]} for s in oc["signals"]],
                    "confounders": {k: (oc.get("confounders") or {}).get(k, "") for k in CONFOUNDERS},
-                   "failure_reason": oc.get("failure_reason"), "provenance": prov}
+                   "failure_reason": oc.get("failure_reason"),
+                   "failure_level": level,
+                   "failure_evidence": oc.get("failure_evidence") if sourced else None,
+                   "failure_evidence_ref": oc.get("failure_evidence_url") if sourced else None,
+                   "failure_level_source": "verify" if level is not None else None,
+                   "provenance": prov}
         res.outcome = True
     return record, moments, outcome, res
 
@@ -312,10 +340,17 @@ class VerifyResult:
     stopped: str | None = None
 
 
+def canonical_pending(paths: Paths, title_id: str) -> Pending | None:
+    """Outcome-only re-verify (v1.3 boundary): the canonical profile, with only the outcome to check."""
+    record = next((t for t in read_jsonl(paths.canonical / "titles.jsonl") if t["title_id"] == title_id), None)
+    return None if record is None else Pending(record, [], ["core.outcome"])
+
+
 def run_verify(paths: Paths, entries: list[CorpusEntry], client: LLMClient, search: SearchBackend | None,
                vocab: Vocab, settings: Settings, *, run_id: str, guards: GuardConfig | None = None,
-               created_at: str | None = None) -> VerifyResult:
-    """`search=None` is native mode: the model's own web tools do the searching."""
+               created_at: str | None = None, outcome_only: bool = False) -> VerifyResult:
+    """`search=None` is native mode: the model's own web tools do the searching. `outcome_only`
+    re-checks just the outcome of canonical titles (v1.3 `failure_level`) and writes only outcomes."""
     guards = guards or GuardConfig.from_settings(settings)
     native = search is None
     prompt = render_prompt(paths, native=native)
@@ -325,9 +360,10 @@ def run_verify(paths: Paths, entries: list[CorpusEntry], client: LLMClient, sear
     result = VerifyResult()
     for entry in entries:
         tid = entry.title_id
-        pending = load_pending(paths, tid)
+        pending = canonical_pending(paths, tid) if outcome_only else load_pending(paths, tid)
         if pending is None:
-            result.skipped.append((tid, "no P1 candidate; run `animedex p1` first"))
+            result.skipped.append((tid, "no canonical profile" if outcome_only else
+                                   "no P1 candidate; run `animedex p1` first"))
             continue
         budget = SearchBudget(int(settings.verify.get("max_searches_per_title", 3)),
                               int(settings.verify.get("outcome_extra_searches", 2)))
@@ -343,6 +379,11 @@ def run_verify(paths: Paths, entries: list[CorpusEntry], client: LLMClient, sear
         sources: dict[str, TransientText] | set[str] = pages
         if native and (pending.verify or pending.moments):
             limits = native_limits(pending, settings)
+            if outcome_only:  # the outcome's own extra searches are the whole budget
+                extra = int(settings.verify.get("outcome_extra_searches", 2))
+                fetches = extra * int(settings.verify.get("pages_per_search", 2))
+                limits = {"max_searches": extra, "outcome_extra": extra, "max_fetches": fetches,
+                          "max_turns": extra + fetches + 2}
             ctx = CallContext(pass_="VERIFY", record_id=tid, title_id=tid,
                               upstream=upstream_hash([pending.record, *pending.moments, {"verify": pending.verify},
                                                       {"search": "native", "limits": limits}]))
@@ -397,14 +438,19 @@ def run_verify(paths: Paths, entries: list[CorpusEntry], client: LLMClient, sear
                 "cache_key": completion.cache_key if completion else None,
                 "created_at": created_at or datetime.now(UTC).isoformat()}
         record, moments, outcome, res = apply(pending, out, sources, prov=prov, threshold=threshold)
+        if outcome and entry.failure_level_override and outcome["label"] != "hit":
+            outcome.update(failure_level=entry.failure_level_override, failure_level_source="owner")
+            notes.append(f"failure_level set by owner override: {entry.failure_level_override}")
         res.searches, res.notes = budget.log, notes
-        atomic_write_text(paths.candidates / "title" / f"{tid}.jsonl", dumps_jsonl([record]))
-        atomic_write_text(paths.candidates / "moment" / f"{tid}.jsonl", dumps_jsonl(moments))
+        if not outcome_only:
+            atomic_write_text(paths.candidates / "title" / f"{tid}.jsonl", dumps_jsonl([record]))
+            atomic_write_text(paths.candidates / "moment" / f"{tid}.jsonl", dumps_jsonl(moments))
         if outcome:
             atomic_write_text(paths.candidates / "outcome" / f"{tid}.jsonl", dumps_jsonl([outcome]))
         summary = {"title_id": tid, "run_id": run_id, "statuses": res.statuses, "conflicts": res.conflicts,
                    "dropped_moments": res.dropped_moments, "outcome": res.outcome, "searches": res.searches,
                    "notes": res.notes, "sources": sorted(sources)}
-        atomic_write_text(paths.candidates / "verify" / f"{tid}.result.json", json.dumps(summary, indent=2) + "\n")
+        name = f"{tid}.outcome.result.json" if outcome_only else f"{tid}.result.json"
+        atomic_write_text(paths.candidates / "verify" / name, json.dumps(summary, indent=2) + "\n")
         result.titles.append(res)
     return result

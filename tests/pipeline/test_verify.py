@@ -237,3 +237,68 @@ def test_native_backend_needs_a_claude_cli_verify_slot(repo):
     assert not [p for p in live_problems(s, {}, ["p1", "verify"]) if p.startswith("search")]
     s.models["verify"].provider = "codex_cli"
     assert "search.backend native: models.verify must use a claude_cli provider" in live_problems(s, {}, ["verify"])
+
+
+# ---------------------------------------------------------------- v1.3 failure_level
+def flop_out(level="execution", evidence="Reviews fault pacing and production, not the idea.", url=None):
+    out = verify_out()
+    out["fields"] = [f for f in out["fields"] if f["path"] != "sensory.color_motif"]  # drop the deliberate bad cite
+    out["outcome"] = {**out["outcome"], "label": "flop", "failure_reason": "Rushed adaptation undercut a strong idea.",
+                      "failure_level": level, "failure_evidence": evidence, "failure_evidence_url": url or REVIEW}
+    return out
+
+
+def test_failure_level_needs_a_retrieved_source(repo):
+    bad = flop_out(url="https://not-fetched.example/review")
+    good = flop_out()
+    result, mock, _ = verify(repo, {("VERIFY", TID): [bad, good]})
+    assert "outcome.failure_evidence_url: cite one of the provided page URLs" in mock.calls[1]["user"]
+    [outcome] = read_jsonl(repo.candidates / "outcome" / f"{TID}.jsonl")
+    assert (outcome["failure_level"], outcome["failure_level_source"], outcome["failure_evidence_ref"]) == (
+        "execution", "verify", REVIEW)
+
+
+def test_mixed_or_flop_without_a_level_is_repaired(repo):
+    missing = flop_out(level=None, evidence=None)
+    result, mock, _ = verify(repo, {("VERIFY", TID): [missing, flop_out(level="unknown", evidence=None)]})
+    assert "needs failure_level" in mock.calls[1]["user"]
+    [outcome] = read_jsonl(repo.candidates / "outcome" / f"{TID}.jsonl")
+    assert outcome["failure_level"] == "unknown" and outcome["failure_evidence"] is None
+
+
+def test_owner_override_wins(repo):
+    ENTRY_OVERRIDE = {**ENTRY, "failure_level_override": "premise"}
+    run(repo, {KEY: make_draft()})
+    settings = load_settings(repo)
+    mock = MockProvider(responses={("VERIFY", TID): [flop_out()]})
+    client = LLMClient(provider=mock, provider_name="mock", spec=ModelSpec(provider="mock", model="v"),
+                       prompt_version="unset", schema_version=SCHEMA_VERSION, vocab_version=get_vocab().version,
+                       cache=ResponseCache(repo.cache), runlog=RunLog(repo.raw_runs, "run_o"))
+    result = run_verify(repo, [CorpusEntry.model_validate(ENTRY_OVERRIDE)], client, search(), get_vocab(), settings,
+                        run_id="run_o")
+    [outcome] = read_jsonl(repo.candidates / "outcome" / f"{TID}.jsonl")
+    assert (outcome["failure_level"], outcome["failure_level_source"]) == ("premise", "owner")
+    assert any("owner override" in n for n in result.titles[0].notes)
+
+
+def test_outcome_only_rechecks_canonical_outcomes_and_writes_only_outcomes(repo):
+    verify(repo, {("VERIFY", TID): [verify_out()]})
+    canonicalize(repo, "run_c")
+    for d in ("title", "moment"):
+        for f in (repo.candidates / d).glob("*.jsonl"):
+            f.unlink()
+    settings = load_settings(repo)
+    only = flop_out()
+    only["fields"] = [f for f in only["fields"] if f["path"] == "core.outcome"]
+    only["moments"] = []
+    mock = MockProvider(responses={("VERIFY", TID): [only]})
+    client = LLMClient(provider=mock, provider_name="mock", spec=ModelSpec(provider="mock", model="v"),
+                       prompt_version="unset", schema_version=SCHEMA_VERSION, vocab_version=get_vocab().version,
+                       cache=ResponseCache(repo.cache), runlog=RunLog(repo.raw_runs, "run_oo"))
+    result = run_verify(repo, [CorpusEntry.model_validate(ENTRY)], client, search(), get_vocab(), settings,
+                        run_id="run_oo", outcome_only=True)
+    assert result.titles and not list((repo.candidates / "title").glob("*.jsonl"))
+    assert (repo.candidates / "verify" / f"{TID}.outcome.result.json").is_file()
+    [outcome] = read_jsonl(repo.candidates / "outcome" / f"{TID}.jsonl")
+    assert outcome["failure_level"] == "execution"
+    assert "Fields to check" in mock.calls[0]["user"] and "core.outcome" in mock.calls[0]["user"]

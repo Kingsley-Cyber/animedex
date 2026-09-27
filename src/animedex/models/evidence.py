@@ -71,12 +71,30 @@ class Outcome(StrictModel):
     signals: list[Signal] = Field(default_factory=list)
     confounders: Confounders = Field(default_factory=Confounders)
     failure_reason: Words25 | None = None
+    # v1.3: premise | execution | external | unknown; required for mixed/flop, null for hits
+    failure_level: Annotated[str, VocabEnum("outcome.failure_level")] | None = None
+    failure_evidence: Words25 | None = None
+    failure_evidence_ref: str | None = None
+    failure_level_source: Literal["verify", "owner", "migration"] | None = None
     provenance: Provenance
 
     @field_validator("title_id")
     @classmethod
     def _id(cls, value: str) -> str:
         return check_id(TITLE_ID, value, "title_id")
+
+    @model_validator(mode="after")
+    def _failure_level(self) -> Outcome:
+        if self.label == "hit":
+            if self.failure_level is not None:
+                raise ValueError("a hit carries failure_level null")
+            return self
+        if self.failure_level is None:
+            raise ValueError(f"a {self.label} outcome needs failure_level (premise|execution|external|unknown)")
+        sourced = self.failure_level_source == "verify" and self.failure_level != "unknown"
+        if sourced and not (self.failure_evidence and self.failure_evidence_ref):
+            raise ValueError("a web-sourced failure_level needs failure_evidence and its failure_evidence_ref URL")
+        return self
 
 
 # ---------------------------------------------------------------- episodes (M6)

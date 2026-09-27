@@ -43,6 +43,10 @@ class CorpusEntry(StrictModel):
     scope: Scope
     role_tags: list[RoleTag] = Field(default_factory=list)
     partners: PartnerOverrides | None = None
+    # v1.3: Kingsley's call on premise vs. execution failure wins over VERIFY's
+    failure_level_override: Annotated[str, VocabEnum("outcome.failure_level")] | None = None
+    # catalog entry the title was resolved to, e.g. "anilist:127401" (backfill, census)
+    catalog_ref: str | None = None
 
     @field_validator("title_id")
     @classmethod

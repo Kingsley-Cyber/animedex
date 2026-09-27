@@ -112,7 +112,10 @@ def p1(title: str = TitleOpt, all_: bool = AllOpt, dry_run: bool = DryOpt,
 
 
 @app.command()
-def verify(title: str = TitleOpt, all_: bool = AllOpt, dry_run: bool = DryOpt) -> None:
+def verify(title: str = TitleOpt, all_: bool = AllOpt, dry_run: bool = DryOpt,
+           outcome_only: bool = typer.Option(False, "--outcome-only",
+                                             help="v1.3: re-check only canonical mixed/flop outcomes for failure_level")
+           ) -> None:
     """VERIFY: web-check flagged fields, moment locators, and the outcome (capped searches)."""
     from animedex.ontology import get_vocab
     from animedex.pipeline.verify import load_pending, run_verify
@@ -135,7 +138,14 @@ def verify(title: str = TitleOpt, all_: bool = AllOpt, dry_run: bool = DryOpt) -
     run_id = new_run_id()
     runlog = RunLog(paths.raw_runs, run_id)
     client = build_client("verify", paths=paths, settings=settings, env=env, runlog=runlog, prompt_version="unset")
-    result = run_verify(paths, entries, client, build_search(settings, env), vocab, settings, run_id=run_id)
+    if outcome_only:
+        from animedex.store.jsonl import read_jsonl
+
+        non_hits = {o["title_id"] for o in read_jsonl(paths.canonical / "outcomes.jsonl") if o.get("label") != "hit"}
+        entries = [e for e in entries if e.title_id in non_hits]
+        typer.echo(f"outcome-only re-verify: {len(entries)} mixed/flop title(s)")
+    result = run_verify(paths, entries, client, build_search(settings, env), vocab, settings, run_id=run_id,
+                        outcome_only=outcome_only)
     runlog.write_ledger()
     for r in result.titles:
         counts: dict[str, int] = {}
@@ -207,6 +217,19 @@ def patterns() -> None:
 def ideate(generations: int = typer.Option(3, "--generations")) -> None:
     """MAP-Elites ideation (M5)."""
     _stub("ideate")
+
+
+@app.command()
+def migrate(to: str = typer.Option(..., "--to", help="Spec version to migrate canonical data to, e.g. 1.3.0")) -> None:
+    """Mechanical data migration between spec versions (no hand edits, no re-extraction)."""
+    from animedex.migrations import MIGRATIONS
+    from animedex.store.runlog import new_run_id
+
+    if to not in MIGRATIONS:
+        typer.echo(f"no migration to {to}; known: {sorted(MIGRATIONS)}", err=True)
+        raise typer.Exit(2)
+    changed = MIGRATIONS[to](_paths(), new_run_id())
+    typer.echo(f"migrated to {to}: {len(changed)} record(s) updated")
 
 
 @app.command()

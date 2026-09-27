@@ -202,7 +202,10 @@ def synthetic_state() -> dict[str, list[dict[str, Any]]]:
                "signals": [{"metric": "synthetic score", "value": "4.1", "source_ref": "https://example.org/score"}],
                "confounders": {"studio": "synthetic studio", "budget_signal": "low", "source_popularity": "low",
                                "platform": "theatrical", "release_context": "crowded season"},
-               "failure_reason": "Execution problems buried a clear premise.", "provenance": prov("VERIFY")}
+               "failure_reason": "Execution problems buried a clear premise.",
+               "failure_level": "execution", "failure_evidence": "Reviews blame pacing and production, not the premise.",
+               "failure_evidence_ref": "https://example.org/review", "failure_level_source": "verify",
+               "provenance": prov("VERIFY")}
     idea = make_idea()
     archive = {"cell_key": idea["grid_cell"], "idea_id": idea["idea_id"], "fitness": [1.0, 1.0, 0.0, -0.3],
                "replaced_idea_id": None, "generation": 1, "provenance": prov("IDEATE")}
