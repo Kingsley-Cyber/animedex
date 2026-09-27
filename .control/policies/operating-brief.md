@@ -147,3 +147,26 @@ Supersedes the provider, key and dollar-cap lines of the G1 rulings. The model c
   - Future Diary becomes Platinum End's nearest neighbor: both are god-candidate battle royales.
 - **Gold blind:** gold live runs are allowed without annotations. Gold-title outputs are shown only as counts until "annotations done" or "annotations waived". ACs that need Kingsley's input are marked "deferred (owner: Kingsley)".
 
+## Owner ruling: priority order, scope frozen until blind review #1 (Kingsley, 2026-09-27)
+- **Critical path, the only build work until blind review #1:**
+  1. M2 finish.
+  2. v1.3 `failure_level` (between M2 and M3).
+  3. M3, then M4.
+  4. The v1.6 census and prior-art check.
+  5. M5, then the blind-review packet.
+- **Donghua:** the vocab change lands at a milestone boundary (the census needs it). Deep-indexing donghua waits.
+- **Backfill and ideas:** building `make backfill` and `make ideas` stays in scope. Running the big backfill queue waits.
+- **Blind-review page:** a small local page on localhost only. Shuffled cards, a 1–5 rating, greenlight y/n, and T1–T5 tags; keyboard-driven; ratings saved to `eval/blind/`. Not the full dashboard. This is an owner exception to the 02 "no UI before V1.1" non-goal.
+- **Parked** (planning is fine; build nothing until Kingsley has seen blind review #1 results):
+  - change request A (MCP chat + commentary + `search_atoms`);
+  - change request C (dashboard);
+  - change request B (Studio);
+  - M6 episodes;
+  - the storyboard spike (it never started, so it stays parked);
+  - the big backfill run;
+  - URCP fixes beyond what is already done.
+- **After blind review #1:**
+  - If ANIMEDEX beats both baselines: A, then backfill priority 1, then M6, then C, then storyboards, then the Studio. Kingsley confirms the order then.
+  - If it loses to either baseline: stop building and diagnose, in the order in doc 11.
+- **Updates:** short and plain, one per milestone.
+
