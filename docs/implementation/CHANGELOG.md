@@ -1,5 +1,19 @@
 # Changelog — docs/implementation
 
+## v1.7 plumbing — 2026-09-27
+Change plan v1.7 §2–§3 and controls A1/A2, approved by Kingsley. No data contract changes; config and pipeline behaviour only.
+- **Reception data (A1/A2, 05):** new `catalog/reception.py`. MAL API v2 is primary (`MAL_CLIENT_ID` in `.env`, sent only as the `X-MAL-CLIENT-ID` header), Jikan is the fallback when there is no client ID or MAL fails, and AniList adds its own score and popularity. `reception_for(entry)` follows `catalog_ref` (or the resolver) to AniList's `idMal`.
+  - Records keep only source, the MAL and AniList ids, score, scorers, rank, popularity, a page URL to cite (MAL pages are cited, never fetched) and `fetched_at`.
+  - Responses are cached for 30 days in `data/cache/reception/`; MAL is paced at 1 s and Jikan at 1.1 s, and a 429 waits for Retry-After.
+  - Only deep-indexed titles fetch reception; the census never does (contract test). GATHER wires it in when it lands.
+- **Embeddings (05, config):** Qwen3-Embedding-0.6B, the one allowed local model.
+  - Owner decision: Polymath's embedder sidecar (the same model on the Mac GPU, background priority) is the primary; the Ollama copy (`qwen3-embedding:0.6b`) is the fallback, used only when Polymath's isn't ready. One backend per run, never mixed.
+  - Plain stops: "Ollama is not running…", "The embedding model isn't installed. Run: ollama pull qwen3-embedding:0.6b", and a message naming both backends when neither is ready.
+  - Config: `models.embeddings` takes a `fallback`; new provider type `polymath_embedder` (embeddings only).
+  - `animedex recalibrate` / `make recalibrate`: scores `eval/recalibration/pairs.yaml` (10 similar and 10 different premise pairs, original and name-free) on the primary, compares the fallback, and proposes `premise_cosine_reject` in `build/reports/recalibration.md`. It never changes config; Kingsley approves the numbers.
+- **Compact context (05):** per-call model inputs (P2, P3, CHECK, P4, census, VERIFY, the P1 length repair) are `key: value` lines, never Markdown: no bullets, headings or tables, with the same information. A contract test checks every input. Cache keys are unchanged: they hash the canonical inputs, which did not change.
+- **Timing (05):** `animedex timing` adds input tokens per stage (input + cache reads + cache writes, total and per call).
+
 ## v1.6.6 — 2026-09-27 (private data repo)
 - Canonical data, blind-review files, gold annotations, steering rules, seeds, diagnosed concepts and (later) the Studio are backed up to the private repo `Kingsley-Cyber/animedex-data` with `make data-push [TAG=…]` and restored with `make data-pull`. This replaces "canonical data lives in git" (03). Pushes happen after every batch run (once the local clone exists) and every milestone tag, and the data repo carries the same milestone tags as the code. Cache and raw run logs are skipped.
 

@@ -20,6 +20,8 @@
 | `animedex census --top N` / `make census` | Census of catalog titles, counts only (v1.6) |
 | `animedex backfill --list <file>` / `make backfill LIST=<file>` | Resolve a title list, add it to the corpus, run the full pipeline in paced batches |
 | `animedex migrate --to <version>` | Mechanical data migration |
+| `animedex recalibrate` / `make recalibrate` | Score the recalibration premise pairs with the embedder and propose clone thresholds (v1.7; proposal only) |
+| `animedex timing` / `make timing` | Where the time and input tokens go, per stage, from the run logs |
 | `make validate` / `make build` / `make clean-build` / `make test` / `make eval` / `make smoke TITLE=<id>` | Tooling |
 
 Flags: `--all` (every title in the corpus), `--dry-run` (print prompts and cache status, no model calls).
@@ -60,6 +62,12 @@ Flags: `--all` (every title in the corpus), `--dry-run` (print prompts and cache
   - Outcome: two independent reception sources are enough (for example AniList plus one critic source such as ANN or a Wikipedia reception section). MAL is optional. Uncited signals drop out; a mixed or flop label without a level is stored with `failure_level: unknown`.
   - Blocked sources (owner rule, 2026-09-27): the call cannot fetch myanimelist.net pages, and a myanimelist.net URL is never an admissible citation here or in the prior-art check. MAL numbers come only through AniList, Jikan, or MAL's official API.
 - Recall vs. web conflict: web wins if the source is credible; otherwise `unresolved`. Conflicts are logged.
+- **Reception data** (v1.7, controls A1/A2): outcome signals come from official APIs through `catalog/reception.py`, never from pages.
+  - MAL API v2 is primary (`GET /v2/anime/{id}?fields=mean,num_scoring_users,rank,popularity`, header `X-MAL-CLIENT-ID` from `MAL_CLIENT_ID` in `.env`). Without a client ID, or when MAL fails, Jikan serves the same numbers. AniList adds its own score and popularity.
+  - The lookup follows the corpus entry's `catalog_ref` (`anilist:ID`), or the AniList resolver, to AniList's `idMal`. Titles AniList doesn't know get no reception records.
+  - A record keeps only its source, the MAL and AniList ids, score, scorers, rank, popularity, a page URL to cite and `fetched_at`. MAL pages are cited, never fetched. The client ID is sent only as a header and never appears in a record, the cache or a log.
+  - Responses are cached for 30 days in `data/cache/reception/`. Calls are paced (MAL 1 s, Jikan 1.1 s apart), and a 429 waits for Retry-After.
+  - Only deep-indexed titles fetch reception (GATHER in the full pipeline, when it lands); the census never does (contract test). MAL stays optional in the label rule.
 - **Outcome `failure_level`** (v1.3): for mixed and flop outcomes, VERIFY classifies the main failure as premise, execution, external, or unknown.
   - Any level except `unknown` cites a retrieved page. An unsourced level is stored as `unknown`.
   - `animedex verify --outcome-only` re-checks just the outcomes of canonical mixed/flop titles.
@@ -148,6 +156,8 @@ Deterministic except steps 3 and 5, which call a model.
   The transformation must respect every essential condition of the atoms it uses. The LLM writes the card, including the idea's own **engine** and its **consequences** for choices, relationships, and outcomes.
 - **Deterministic gates, in order:**
   1. **Clone:** Jaccard of the idea's structural set vs. every title. Structural set = enum values of gate, cost_of_power, progression, visible_counter, fight_medium, power_is + bridge concepts of the atoms used. Procedural set = gate, cost_of_power, progression, visible_counter. Premise cosine via embeddings on logline + premise.
+     - **Embeddings (v1.7):** Qwen3-Embedding-0.6B, the one allowed local model. Polymath's embedder sidecar (the same model on the Mac GPU, `POST /infer`, at most 32 texts per request, `representation_kind: child_chunk`, no priority header so it runs at background priority) is used when its `/ready` says ready and its manifest names the configured model. Otherwise the Ollama copy (`qwen3-embedding:0.6b`) is used. One backend serves the whole run and its name is printed; the backends are never mixed. When neither is ready, the run stops with a message naming both and how to start one.
+     - **Recalibration:** each embedding model scores on its own scale. `animedex recalibrate` scores `eval/recalibration/pairs.yaml` (about 10 similar and 10 different premise pairs, original and name-free) on the primary backend, compares the fallback when it is reachable (largest per-pair difference), and proposes `premise_cosine_reject` between the lowest similar-pair score and the highest different-pair score. It writes `build/reports/recalibration.md` and never changes config; Kingsley approves the numbers. `premise_cosine_with_structural` is reported, not recalibrated.
   2. **Novelty:** the idea must contain a pair/triple of atoms or enum values with zero co-occurrence (under adequate coverage), or an explicit inversion of a hit's broken rule.
   3. **Graveyard:** if its key combination matches a **premise**-level flop's load-bearing combination, the card must state why this time is different, or it is rejected. Execution-level matches are not warnings; they are T5 evidence (v1.3).
 - **Judge (different model family when available):**
@@ -186,6 +196,7 @@ Deterministic except steps 3 and 5, which call a model.
   - or resolved queue lines.
 - **Out:** `census.jsonl` records, about 10 titles per call. Values are `trust: recall`, used only as counts: grid occupancy, coverage adequacy, and the `borrow_system` gate.
 - **Model:** Sonnet, unless a sampled accuracy check shows Haiku is good enough.
+- **No reception data (A2):** the census never fetches reception; the census module has no path to the reception client (contract test).
 
 ### BACKFILL
 - **Picking the version:** a version in parentheses is used as given; otherwise the most-watched adaptation is picked, and the choices go to `build/reports/backfill.md`.
@@ -202,19 +213,22 @@ Deterministic except steps 3 and 5, which call a model.
 
 ## Token-efficiency rules
 - Fixed system prompt per pass (cache-friendly); title- or episode-specific content only in the user message.
+- **Compact inputs** (owner ruling v1.7 §3): a per-call model input is a compact structured slice, never a rendered Markdown report. Every line is `key: value`: the title's identity and scope, profile fields as `path: value [verification]`, and groups of records opened by a `key: count` line (`moments: 3`, `atoms: 5`, `partner: <id>; role: <role>`) with one `id: part: value; ...` line per record. No bullets, headings or tables. VERIFY's fetched pages stay raw text under `page: <url>` lines, so the run log can redact them. A contract test checks every per-call input.
 - JSON only; enums wherever possible; length caps per field.
 - Inactive modules omitted.
 - VERIFY runs only on flagged and mandatory fields.
 - P3 batches all of a title's atoms into one call.
 - EP sends a compact atom list (ID + gist), not full atoms; one episode per call.
 - Every call logs tokens and cost to `data/raw/runs/`. Subscription CLI calls log the CLI's own cost estimate as a shadow cost, kept apart from charged cost.
+- `animedex timing` reports input tokens per stage (input + cache reads + cache writes, total and per call) next to where the time goes, for calls that log cache tokens.
 
 ## Config (`config/settings.yaml`) — placeholders to fill before M2
 ```yaml
 providers:        # G1a v1.2.1: subscription CLIs; no model API keys
   claude_cli: {type: claude_cli, binary: claude, send_params: [effort]}
   codex_cli:  {type: codex_cli,  binary: codex,  send_params: [effort]}
-  local:      {type: openai_compatible, base_url: http://localhost:11434/v1}   # Ollama
+  local:      {type: openai_compatible, base_url: http://localhost:11434/v1}   # Ollama: the embeddings fallback
+  polymath_embedder: {type: polymath_embedder, base_url: http://127.0.0.1:8742}  # v1.7: embeddings only
 models:           # concrete model ids, not aliases; strict_model refuses any other served model
   p1:     {provider: claude_cli, model: "<sonnet-id>"}
   verify: {provider: claude_cli, model: "<sonnet-id>"}
@@ -226,7 +240,8 @@ models:           # concrete model ids, not aliases; strict_model refuses any ot
   rollup_match: {provider: claude_cli, model: "<haiku-id>"}
   ideate_generate: {provider: claude_cli, model: "<opus-id>"}
   ideate_judge:    {provider: codex_cli,  model: "<codex-model>", strict_model: true}
-  embeddings:      {provider: local, model: "<embedding-model>"}
+  embeddings:      {provider: polymath_embedder, model: Qwen/Qwen3-Embedding-0.6B,   # v1.7
+                    fallback: {provider: local, model: "qwen3-embedding:0.6b"}}      # one backend per run
   prior_art:       {provider: claude_cli, model: "<sonnet-id>"}   # v1.6 native web search
   census:          {provider: claude_cli, model: "<sonnet-id>"}   # v1.6 counts only
   eval_match:      {provider: claude_cli, model: "<haiku-id>"}
