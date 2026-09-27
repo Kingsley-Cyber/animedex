@@ -199,6 +199,38 @@ def test_a_recheck_can_revise_a_proof_whose_atom_was_not_revised(m3):
     assert proof["ablation"]["verdict"] == "decoration"
 
 
+def test_check_sees_moments_and_context_and_ignores_off_target_verdicts(m3):
+    """Live M3 (2026-09-27): the critic rejected atoms citing moments it was never shown, and answered for
+    proofs that were not targets. Moments are listed, a re-check reads its context, and off-target
+    verdicts change nothing."""
+    first = {"verdicts": [verdict(f"{T1}.m.{i:03d}", t) for i in (1, 2, 3) for t in ("mechanism", "proof")]}
+    first["verdicts"][2] = verdict(f"{T1}.m.002", "mechanism", "REVISE", ["overreach"],
+                                   because="the audience alone can verify a secret the cast cannot")
+    first["verdicts"][5] = verdict(f"{T1}.m.003", "proof", "REJECT", ["unsupported"])
+    recheck = {"verdicts": [verdict(f"{T1}.m.002", "mechanism"), verdict(f"{T1}.m.002", "proof"),
+                            verdict(f"{T1}.m.003", "proof", "REVISE", ["overreach"], ablation_verdict="supporting"),
+                            verdict(f"{T1}.m.001", "mechanism", "REJECT", ["unsupported"])]}  # not targets
+    rc, mock = run_through_check(m3, {("CHECK", T1): [first], ("CHECK", f"{T1}.recheck"): [recheck]})
+    assert rc.done == [T1] and [c["record_id"] for c in mock.calls] == [T1, f"{T1}.recheck"]
+    moments = [m["moment_id"] for m in CanonicalStore(m3).read("moment") if m["title_id"] == T1]
+    assert moments and all(f"{mid}: " in mock.calls[0]["user"] for mid in moments)
+    assert "context: " not in mock.calls[0]["user"] and "context: 0" not in mock.calls[1]["user"]
+    atom_ids = [a["atom_id"] for a in read_candidates(m3, "mechanism", T1)]
+    assert f"{T1}.m.001" in atom_ids  # the off-target REJECT was ignored
+    assert f"{T1}.m.003" not in [p["atom_id"] for p in read_candidates(m3, "proof", T1)]
+
+
+def test_a_recheck_shows_a_revised_proofs_atom_as_context(m3):
+    first = {"verdicts": [verdict(f"{T1}.m.{i:03d}", t) for i in (1, 2, 3) for t in ("mechanism", "proof")]}
+    first["verdicts"][3] = verdict(f"{T1}.m.002", "proof", "REVISE", ["overreach"], ablation_verdict="supporting")
+    recheck = {"verdicts": [verdict(f"{T1}.m.002", "proof")]}
+    _, mock = run_through_check(m3, {("CHECK", T1): [first], ("CHECK", f"{T1}.recheck"): [recheck]})
+    lines = mock.calls[1]["user"].splitlines()
+    assert "context: 1 (already checked: read them, give them no verdict)" in lines
+    assert any(line.startswith(f"context {T1}.m.002: mechanism") for line in lines)
+    assert "atoms: 0" in lines and "proofs: 1" in lines
+
+
 def test_rival_favoring_explanation_forces_revise_or_contested(m3):
     p3 = p3_out(m3, favors=("rival", "because"))
     accept_all = {"verdicts": [verdict(f"{T1}.m.{i:03d}", t) for i in (1, 2, 3) for t in ("mechanism", "proof")]}

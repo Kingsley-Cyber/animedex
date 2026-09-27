@@ -30,6 +30,7 @@ from animedex.pipeline.common import (
     provenance,
     raise_problems,
     read_candidates,
+    render_moments,
     render_profile,
     write_candidates,
 )
@@ -38,6 +39,7 @@ from animedex.prompts import RenderedPrompt, read_prompt
 from animedex.providers.client import LLMClient
 from animedex.store.atomic import atomic_write_text
 from animedex.store.cache import upstream_hash
+from animedex.store.jsonl import read_jsonl
 from animedex.store.quarantine import quarantine
 
 VERDICTS = ["ACCEPT", "REVISE", "REJECT", "CONTESTED", "NEEDS_ADJUDICATION"]
@@ -94,11 +96,15 @@ def _proof_text(p: dict[str, Any]) -> str:
             f"(conf {ab['conf']}), {ab['if_removed']}")
 
 
-def render_user(record: dict[str, Any], atoms: list[dict[str, Any]], proofs: list[dict[str, Any]], vocab: Vocab) -> str:
-    """The verified profile, then `atoms: N` and `proofs: N` groups: `key: value` lines (compact context,
-    v1.7 §3). A proof has its atom's id."""
-    return "\n".join([*render_profile(record, vocab), f"atoms: {len(atoms)}", *map(_atom_text, atoms),
-                      f"proofs: {len(proofs)}", *map(_proof_text, proofs)])
+def render_user(record: dict[str, Any], atoms: list[dict[str, Any]], proofs: list[dict[str, Any]], vocab: Vocab,
+                moments: list[dict[str, Any]] | None = None, context: list[dict[str, Any]] | None = None) -> str:
+    """The verified profile and the title's moments (the evidence atoms may cite), then `atoms: N` and
+    `proofs: N` groups: `key: value` lines (compact context, v1.7 §3). A proof has its atom's id. In the
+    re-check round, `context` holds the already-checked atom or proof a target belongs with (no verdict)."""
+    ctx = [f"context: {len(context)} (already checked: read them, give them no verdict)",
+           *(("context " + (_atom_text(c) if "atom_kind" in c else _proof_text(c))) for c in context)] if context else []
+    return "\n".join([*render_profile(record, vocab), *render_moments(moments or []), *ctx,
+                      f"atoms: {len(atoms)}", *map(_atom_text, atoms), f"proofs: {len(proofs)}", *map(_proof_text, proofs)])
 
 
 def _revised_atom(atom: dict[str, Any], rev: dict[str, Any]) -> dict[str, Any]:
@@ -133,14 +139,14 @@ def output_problems(out: dict[str, Any], atoms: dict[str, dict[str, Any]], proof
     missing = sorted(want - set(got))
     if missing:
         problems.append(f"give one verdict per atom and per proof; missing {[f'{a} {t}' for a, t in missing[:6]]}")
-    dupes = sorted({g for g in got if got.count(g) > 1})
+    dupes = sorted({g for g in got if got.count(g) > 1 and g in want})
     if dupes:
         problems.append(f"one verdict per target; duplicated {[f'{a} {t}' for a, t in dupes[:6]]}")
-    verdict_of = {(v.get("target_id"), v.get("target_type")): v for v in out.get("verdicts") or []}
+    # a verdict on anything but this round's targets (say, the proof of an atom whose proof was rejected)
+    # is ignored: it changes nothing, so it is no reason to reject the whole answer
+    verdict_of = {(v.get("target_id"), v.get("target_type")): v for v in out.get("verdicts") or []
+                  if (v.get("target_id"), v.get("target_type")) in want}
     for (aid, ttype), v in verdict_of.items():
-        if (aid, ttype) not in want:
-            problems.append(f"{aid} {ttype}: no such target")
-            continue
         verdict, reasons = v.get("verdict"), v.get("reasons") or []
         if verdict != "ACCEPT" and not reasons:
             problems.append(f"{aid} {ttype}: {verdict} needs at least one reason")
@@ -180,6 +186,9 @@ def run_check(paths: Paths, title_ids: list[str], client: LLMClient, vocab: Voca
     prompt = render_prompt(paths)
     client.prompt_version = prompt.version
     titles = canonical_titles(paths)
+    moments_by: dict[str, list[dict[str, Any]]] = {}
+    for m in read_jsonl(paths.canonical / "moments.jsonl"):
+        moments_by.setdefault(m["title_id"], []).append(m)
     result = StageResult()
     for tid in title_ids:
         record = titles.get(tid)
@@ -200,11 +209,16 @@ def run_check(paths: Paths, title_ids: list[str], client: LLMClient, vocab: Voca
                 raise_problems(output_problems(out, _a, _p, guards))
 
             ids = sorted(set(targets_atoms) | set(targets_proofs))
+            moments = sorted(moments_by.get(tid, []), key=lambda m: m["moment_id"])
+            # re-check round: a revised proof is read with its atom, a revised atom with its proof
+            context = ([atoms[a] for a in sorted(targets_proofs) if a in atoms and a not in targets_atoms]
+                       + [proofs[a] for a in sorted(targets_atoms) if a in proofs and a not in targets_proofs])
             call = guarded_call(result, paths, "CHECK", "check", tid, client, prompt.system,
                                 render_user(record, [atoms[a] for a in sorted(targets_atoms)],
-                                            [proofs[a] for a in sorted(targets_proofs)], vocab),
+                                            [proofs[a] for a in sorted(targets_proofs)], vocab, moments, context),
                                 output_schema(vocab, ids),
-                                upstream=upstream_hash([record, *targets_atoms.values(), *targets_proofs.values()]),
+                                upstream=upstream_hash([record, *moments, *targets_atoms.values(),
+                                                        *targets_proofs.values(), {"context": context}]),
                                 validate=validate, record_id=tid if round_no == 0 else f"{tid}.recheck")
             if call.stop:
                 stop = True
@@ -214,9 +228,10 @@ def run_check(paths: Paths, title_ids: list[str], client: LLMClient, vocab: Voca
             prov = provenance("CHECK", run_id, call.completion, prompt.version, vocab, _later(created_at, round_no))
             revised_atoms: dict[str, dict[str, Any]] = {}
             revised_proofs: dict[str, dict[str, Any]] = {}
+            round_targets = {(a, "mechanism") for a in targets_atoms} | {(a, "proof") for a in targets_proofs}
             for v in sorted(call.completion.data["verdicts"], key=lambda v: (v["target_id"], v["target_type"])):
                 aid, ttype, verdict = v["target_id"], v["target_type"], v["verdict"]
-                if aid not in atoms:  # rejected earlier in this call
+                if (aid, ttype) not in round_targets or aid not in atoms:  # off-target, or rejected in this call
                     continue
                 rev = _relevant(v.get("revision"), ttype, atoms[aid]["atom_kind"]) if verdict == "REVISE" else None
                 result.bump(f"{ttype}_{verdict.lower()}")
