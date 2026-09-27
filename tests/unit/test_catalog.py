@@ -95,9 +95,9 @@ def test_slug_never_doubles_the_year():
 def test_backfill_skips_known_titles_pairs_versions_and_warns_on_mix(repo, tmp_path):
     lst = tmp_path / "list.txt"
     lst.write_text("# my list\nIron Tide (2015)\nIron Tide (2024)\nGlass Harbor\nGlass Harbor\n\nNo Such Show\n")
-    data = yaml.safe_load(repo.corpus_file.read_text())
-    data["titles"].append({"title_id": "glass_harbor_2019", "title": "Glass Harbor", "year": 2019, "medium": "anime",
-                           "format": "serialized", "scope": {"version": "TV", "seasons": [1], "numbering": "broadcast"}})
+    # the test's own corpus: the real one now holds titles whose catalog ids collide with the fake catalog's
+    data = {"titles": [{"title_id": "glass_harbor_2019", "title": "Glass Harbor", "year": 2019, "medium": "anime",
+                        "format": "serialized", "scope": {"version": "TV", "seasons": [1], "numbering": "broadcast"}}]}
     repo.corpus_file.write_text(yaml.safe_dump(data))
     plan = plan_backfill(fake_anilist(), read_list(lst), load_corpus(repo), suggest=False)
     assert [r.entry["title_id"] for r in plan.new] == ["iron_tide_2015", "iron_tide_2024"]
