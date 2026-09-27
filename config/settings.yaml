@@ -169,7 +169,7 @@ eval:
 data_repo:   # owner ruling 2026-09-27: private backups of data that never goes to the public code repo
   remote: https://github.com/Kingsley-Cyber/animedex-data.git
   clone: ../animedex-data          # local clone, next to the code checkout
-  paths: [data/canonical, data/blind, data/diagnose, eval/audit, eval/blind, eval/gold, steering, seeds, studio]   # no cache, no raw run logs
+  paths: [data/canonical, data/blind, data/diagnose, data/backtest, eval/audit, eval/blind, eval/gold, steering, seeds, studio]   # no cache, no raw run logs
   push_after_batch: true           # once the clone exists (a first `make data-push` creates it)
 gather:   # v1.7 GATHER: documented fields it may fill (only those the vocab has count), and its web limits
   max_searches: 4
