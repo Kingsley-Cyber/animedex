@@ -119,7 +119,7 @@ def normalize_draft(draft: dict[str, Any], entry: CorpusEntry, vocab: Vocab) -> 
     - a module that is not rule-required and whose every field is null is dropped (it does not apply);
     - sensory outside animation stays only if power_combat does (activation rule);
     - `modules_active` is derived from the blocks that remain, never taken from the model;
-    - a null field with conf 0 and no reason gets the reason 'no reliable recall' (what null means).
+    - a null field is unknown: its conf becomes 0, and without a reason it gets 'no reliable recall'.
     A non-null guess below the confidence floor without a reason is left for the checks to reject."""
     d = {k: v for k, v in draft.items()}
     allowed, required = module_rules(vocab, entry.medium, entry.format)
@@ -135,8 +135,10 @@ def normalize_draft(draft: dict[str, Any], entry: CorpusEntry, vocab: Vocab) -> 
     d["modules_active"] = [m for m in vocab.module_names if m in active]
     for block in ["core", *d["modules_active"]]:
         for fv in (d.get(block) or {}).values():
-            if isinstance(fv, dict) and fv.get("value") is None and not fv.get("conf") \
-                    and not (fv.get("uncertainty_reason") or "").strip():
+            if not isinstance(fv, dict) or fv.get("value") is not None:
+                continue
+            fv["conf"] = 0  # a null value is unknown; confidence in an unknown value means nothing
+            if not (fv.get("uncertainty_reason") or "").strip():
                 fv["uncertainty_reason"] = UNKNOWN_REASON
     return d
 

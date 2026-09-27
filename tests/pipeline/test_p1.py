@@ -261,3 +261,14 @@ def test_blank_placeholder_modules_no_longer_cost_a_repair(repo):
     result, mock = run(repo, {KEY: [draft]})
     assert len(result.titles) == 1 and len(mock.calls) == 1
     assert result.titles[0]["modules_active"] == ["power_combat", "sensory", "anime_production", "series_engine"]
+
+
+def test_null_values_carry_conf_zero_after_normalizing():
+    from animedex.pipeline.p1 import normalize_draft
+
+    draft = make_draft()
+    draft["power_combat"]["ranking_ladder"] = fv(None, conf=0.4, reason=None)  # the live Avatar failure
+    out = normalize_draft(draft, entry_for("anime", "serialized"), get_vocab())
+    assert out["power_combat"]["ranking_ladder"]["conf"] == 0
+    assert out["power_combat"]["ranking_ladder"]["uncertainty_reason"] == "no reliable recall"
+
