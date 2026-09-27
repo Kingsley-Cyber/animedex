@@ -39,6 +39,12 @@ Cards appear in `build/reports/ideas.md`, best first. Each card shows:
 
 Run `make ideas` again to keep improving. Each run adds a generation and keeps the best card in each slot of the idea grid.
 
+## Long runs
+
+- `make batch FILE=my_batch.yaml` runs a batch file (titles and their steps; Claude can write one for you) in the background, up to 3 titles at once. It keeps running if you close the chat or the terminal.
+- `make status` shows how far it got, in plain words. For an older batch: `make status NAME=my_batch`.
+- If it pauses on a plan limit, run the same `make batch FILE=...` later. It continues where it stopped; finished steps are kept.
+
 ## Optional
 
 - **Blind review:** `make packet` writes a review packet to `eval/blind/`. It mixes ANIMEDEX cards with two baselines so you can rate them blind.
