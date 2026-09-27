@@ -547,3 +547,62 @@ def test_citations_match_by_page_not_spelling():
 
     a = norm_url("https://www.Example.org/wiki/Page_(x)/#section")
     assert a == norm_url("https://example.org/wiki/Page_(x)") and a != norm_url("https://example.org/wiki/Other")
+
+
+# --- per-stage timing (owner request 2026-09-27) ---------------------------------------------
+
+def test_claude_call_time_is_split_by_what_each_gap_waited_on():
+    from animedex.providers.claude_cli import event_timing
+
+    def ev(kind, **kw):
+        return {"type": kind, **kw}
+
+    use = lambda i, name: {"type": "tool_use", "id": i, "name": name}  # noqa: E731
+    res = lambda i: {"type": "tool_result", "tool_use_id": i}  # noqa: E731
+    timed = [(1.0, ev("system", subtype="init")),
+             (3.0, ev("assistant", message={"content": [use("a", "WebSearch")]})),
+             (5.5, ev("user", message={"content": [res("a")]})),
+             (6.0, ev("assistant", message={"content": [use("b", "WebFetch"), use("c", "WebFetch")]})),
+             (8.0, ev("user", message={"content": [res("b")]})),
+             (9.0, ev("user", message={"content": [res("c")]})),
+             (12.0, ev("assistant", message={"content": [{"type": "text", "text": "done"}]})),
+             (12.5, ev("result", num_turns=4, duration_api_ms=7000))]
+    t = event_timing(timed, 13.0, timed[-1][1])
+    assert (t["startup_s"], t["model_s"], t["web_s"], t["tools_s"], t["other_s"]) == (1.0, 5.5, 5.5, 0.0, 1.0)
+    assert t["wall_s"] == 13.0 and t["turns"] == 4 and t["api_s"] == 7.0
+    assert event_timing([(None, ev("result"))], 2.0) == {"wall_s": 2.0, "turns": None}  # no event times: wall only
+
+
+def test_codex_call_time_is_split_into_startup_model_and_shutdown():
+    from animedex.providers.codex_cli import codex_timing
+
+    t = codex_timing([(0.8, {"type": "thread.started"}), (1.0, {"type": "turn.started"}),
+                      (4.0, {"type": "turn.completed"})], 4.5)
+    assert (t["startup_s"], t["model_s"], t["other_s"], t["wall_s"]) == (0.8, 3.2, 0.5, 4.5)
+
+
+def test_a_real_cli_call_is_streamed_and_its_timing_adds_up(tmp_path):
+    binary = fake_cli(tmp_path, "claude", FAKE_CLAUDE, logged_in=True, auth_method="claude.ai", mode="ok")
+    resp = ClaudeCliProvider(binary=str(binary)).generate("P", "U", SCHEMA, {"model": "claude-sonnet-5"})
+    t = resp.meta["timing"]
+    parts = sum(t[k] for k in ("startup_s", "model_s", "web_s", "tools_s", "other_s"))
+    assert t["wall_s"] > 0 and t["startup_s"] > 0 and abs(parts - t["wall_s"]) < 0.05
+
+
+def test_run_log_rows_carry_call_time_and_pacing(tmp_path):
+    from animedex.providers.mock import MockProvider
+    from animedex.store.jsonl import read_jsonl
+
+    slept: list[float] = []
+    client = LLMClient(provider=MockProvider(default=lambda *a: {"ok": True}), provider_name="mock",
+                       spec=ModelSpec(provider="mock", model="m"), prompt_version="1", schema_version="1",
+                       vocab_version="1", cache=ResponseCache(tmp_path / "cache"), runlog=RunLog(tmp_path / "runs", "r1"),
+                       min_interval_s=5.0, sleep=slept.append)
+    for rid in ("a", "b"):
+        client.complete_ex("S", "U", SCHEMA, None, ctx=CallContext(pass_="P1", record_id=rid, title_id=rid, upstream="u"))
+    rows = read_jsonl(tmp_path / "runs" / "r1" / "calls.jsonl")
+    assert [r["timing"]["pacing_s"] for r in rows] == [0.0, round(slept[0], 2)] and slept[0] > 4.9
+    assert all(r["timing"]["call_s"] >= 0 for r in rows)
+    client.runlog.write_ledger()
+    ledger = json.loads((tmp_path / "runs" / "r1" / "ledger.json").read_text())
+    assert ledger["started"] <= ledger["ended"]

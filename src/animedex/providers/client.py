@@ -188,12 +188,16 @@ class LLMClient:
         result = self.complete_ex(system, user, json_schema, params, ctx=ctx, validate=validate)
         return result.data, result.usage
 
-    def _pace(self) -> None:
+    def _pace(self) -> float:
+        """Sleep out the gap between calls; returns the seconds slept (logged as pacing)."""
+        waited = 0.0
         if self.min_interval_s and self._last_call is not None:
             wait = self.min_interval_s - (time.monotonic() - self._last_call)
             if wait > 0:
                 self._sleep(wait)
+                waited = wait
         self._last_call = time.monotonic()
+        return waited
 
     def _check_budget(self, ctx: CallContext) -> None:
         if not self.provider.live or self.budget is None:
@@ -237,7 +241,8 @@ class LLMClient:
             sent = dict(call_params)
             if not self.provider.live:
                 sent["_meta"] = {"pass": ctx.pass_, "record_id": ctx.record_id, "attempt": attempt}
-            self._pace()
+            paced = self._pace()
+            started = time.monotonic()
             try:
                 resp = self.provider.generate(system, attempt_user, json_schema, sent)
             except ProviderError as exc:
@@ -245,8 +250,11 @@ class LLMClient:
                     self.budget.count_call(ctx.title_id)
                 self.runlog.log_call(**log_common, model=self.spec.model, cache_hit=False, attempt=attempt,
                                      input_tokens=0, output_tokens=0, cost_usd=0.0, user=attempt_user,
-                                     response=None, error=str(exc))
+                                     response=None, error=str(exc),
+                                     timing={"call_s": round(time.monotonic() - started, 2), "pacing_s": round(paced, 2)})
                 raise
+            timing = {**(resp.meta.get("timing") or {}), "call_s": round(time.monotonic() - started, 2),
+                      "pacing_s": round(paced, 2)}
             if self.billing == "subscription":
                 cost = float(resp.meta.get("shadow_cost_usd") or 0.0)  # logged, never charged
                 if self.provider.live and self.budget is not None:
@@ -265,12 +273,12 @@ class LLMClient:
             if substituted and self.spec.strict_model:
                 self.runlog.log_call(**log_common, model=resp.model, cache_hit=False, attempt=attempt,
                                      input_tokens=resp.usage.input_tokens, output_tokens=resp.usage.output_tokens,
-                                     cost_usd=cost, user=attempt_user, response=None, meta=cli_meta,
+                                     cost_usd=cost, user=attempt_user, response=None, meta=cli_meta, timing=timing,
                                      error=f"refused: strict slot answered by {resp.model}, not {self.spec.model}")
                 raise ModelSubstituted(f"{self.spec.model} was substituted by {resp.model}; strict slot refuses it")
             self.runlog.log_call(**log_common, model=resp.model, cache_hit=False, attempt=attempt,
                                  input_tokens=resp.usage.input_tokens, output_tokens=resp.usage.output_tokens,
-                                 cost_usd=cost, user=attempt_user, response=resp.text, meta=cli_meta,
+                                 cost_usd=cost, user=attempt_user, response=resp.text, meta=cli_meta, timing=timing,
                                  error=f"substituted: served by {resp.model}" if substituted else None)
             try:
                 data = parse_json(resp.text)

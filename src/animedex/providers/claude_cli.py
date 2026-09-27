@@ -28,6 +28,7 @@ from animedex.providers.cli_common import (
     login_status,
     run,
     summarize_init,
+    timed_events,
 )
 
 CLI = "claude_cli"
@@ -78,6 +79,39 @@ def web_evidence(events: list[dict[str, Any]]) -> dict[str, Any]:
     queries = [str(inp.get("query", "")) for name, inp in uses.values() if name == "WebSearch"]
     return {"searches": len(queries), "fetches": sum(1 for name, _ in uses.values() if name == "WebFetch"),
             "queries": queries, "fetched": sorted(fetched), "found": sorted(found), "urls": sorted(fetched | found)}
+
+
+def event_timing(timed: list[tuple[float | None, dict[str, Any]]], wall_s: float | None,
+                 result: dict[str, Any] | None = None) -> dict[str, Any]:
+    """Where one call's wall time went (seconds). Each gap between stdout events is charged to what
+    ended it: startup (the init event), model (an assistant message), web (a WebSearch/WebFetch
+    result), tools (another tool's result), other (the result event, shutdown). Without event times
+    (a test runner) only the wall time is known."""
+    res = result or {}
+    out: dict[str, Any] = {"wall_s": round(wall_s, 2) if wall_s is not None else None, "turns": res.get("num_turns")}
+    if isinstance(res.get("duration_api_ms"), (int, float)):
+        out["api_s"] = round(res["duration_api_ms"] / 1000, 2)  # the CLI's own count; includes helper models
+    if wall_s is None or not timed or any(ts is None for ts, _ in timed):
+        return out
+    names: dict[str, str] = {}
+    spent = dict.fromkeys(("startup_s", "model_s", "web_s", "tools_s", "other_s"), 0.0)
+    prev = 0.0
+    for ts, e in timed:
+        gap, prev = max(0.0, ts - prev), max(prev, ts)  # type: ignore[operator, type-var]
+        blocks = [b for b in (e.get("message") or {}).get("content") or [] if isinstance(b, dict)]
+        if e.get("type") == "system" and e.get("subtype") == "init":
+            key = "startup_s"
+        elif e.get("type") == "assistant":
+            key = "model_s"
+            names.update({str(b.get("id")): str(b.get("name")) for b in blocks if b.get("type") == "tool_use"})
+        elif e.get("type") == "user":
+            used = [names.get(str(b.get("tool_use_id"))) for b in blocks if b.get("type") == "tool_result"]
+            key = "web_s" if any(n in WEB_TOOLS for n in used) else "tools_s"
+        else:
+            key = "other_s"
+        spent[key] += gap
+    spent["other_s"] += max(0.0, wall_s - prev)
+    return {**out, **{k: round(v, 2) for k, v in spent.items()}}
 
 
 def served_model(requested: str, init: dict[str, Any] | None, model_usage: dict[str, Any]) -> tuple[str, list[str]]:
@@ -136,14 +170,8 @@ class ClaudeCliProvider:
             text_in = f"Input:\n{user}" if user.lstrip().startswith("/") else user
             proc = run(self.args(system, json_schema, params), input_text=text_in, cwd=cwd,
                        timeout_s=self.timeout_s, runner=self._runner)
-        events = []
-        for line in (proc.stdout or "").splitlines():
-            line = line.strip()
-            if line.startswith("{"):
-                try:
-                    events.append(json.loads(line))
-                except json.JSONDecodeError:
-                    continue
+        timed = timed_events(proc)
+        events = [e for _, e in timed]
         init = next((e for e in events if e.get("type") == "system" and e.get("subtype") == "init"), None)
         result = next((e for e in reversed(events) if e.get("type") == "result"), None)
         self.last_init = summarize_init(init)
@@ -168,6 +196,7 @@ class ClaudeCliProvider:
             meta={"cli": CLI, "cli_version": self.version, "shadow_cost_usd": result.get("total_cost_usd"),
                   "init": self.last_init, "billing": self.billing, "other_models": others,
                   "expected_tools": ["StructuredOutput", *WEB_TOOLS] if params.get("web") else ["StructuredOutput"],
+                  "timing": event_timing(timed, getattr(proc, "wall_s", None), result),
                   **({"web": web_evidence(events)} if params.get("web") else {})},
         )
 

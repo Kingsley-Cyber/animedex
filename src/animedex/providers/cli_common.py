@@ -14,6 +14,8 @@ import json
 import os
 import re
 import subprocess
+import threading
+import time
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
@@ -69,12 +71,75 @@ def classify(name: str, text: str) -> ProviderError:
     return ProviderError(f"{name}: {text.strip()[:400] or 'failed with no output'}")
 
 
+class TimedProcess(subprocess.CompletedProcess):
+    """A finished CLI call, plus when each stdout line arrived (seconds after spawn) and its wall time."""
+
+    timed_lines: list[tuple[float, str]]
+    wall_s: float
+
+
+def stream(args: list[str], *, input_text: str, cwd: str, timeout_s: float,
+           env: dict[str, str] | None = None) -> TimedProcess:
+    """Run a CLI, stamping each stdout line as it arrives (per-stage timing needs the event times)."""
+    t0 = time.monotonic()
+    proc = subprocess.Popen(args, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+                            cwd=cwd, env=clean_env() if env is None else env)
+    lines: list[tuple[float, str]] = []
+    err: list[str] = []
+
+    def pump_out() -> None:
+        for line in proc.stdout:  # type: ignore[union-attr]
+            lines.append((time.monotonic() - t0, line))
+
+    def pump_err() -> None:
+        err.append(proc.stderr.read())  # type: ignore[union-attr]
+
+    pumps = [threading.Thread(target=pump_out, daemon=True), threading.Thread(target=pump_err, daemon=True)]
+    for p in pumps:
+        p.start()
+    try:
+        proc.stdin.write(input_text)  # type: ignore[union-attr]
+        proc.stdin.close()  # type: ignore[union-attr]
+    except OSError:  # the CLI exited early; its stderr says why
+        pass
+    try:
+        code = proc.wait(timeout=timeout_s)
+    except subprocess.TimeoutExpired:
+        proc.kill()
+        proc.wait()
+        raise
+    for p in pumps:
+        p.join(timeout=10)
+    done = TimedProcess(args, code, "".join(line for _, line in lines), "".join(err))
+    done.timed_lines, done.wall_s = lines, time.monotonic() - t0
+    return done
+
+
+def timed_events(proc: subprocess.CompletedProcess) -> list[tuple[float | None, dict[str, Any]]]:
+    """The CLI's JSON events with their arrival times (None when the runner could not stamp them)."""
+    stamped = getattr(proc, "timed_lines", None) or [(None, line) for line in (proc.stdout or "").splitlines()]
+    out: list[tuple[float | None, dict[str, Any]]] = []
+    for ts, line in stamped:
+        line = line.strip()
+        if line.startswith("{"):
+            try:
+                out.append((ts, json.loads(line)))
+            except json.JSONDecodeError:
+                continue
+    return out
+
+
 def run(args: list[str], *, input_text: str, cwd: str, timeout_s: float, runner: Runner = subprocess.run
         ) -> subprocess.CompletedProcess:
     guard(args[0])
     try:
-        return runner(args, input=input_text, capture_output=True, text=True, cwd=cwd, env=clean_env(),
+        if runner is subprocess.run:  # the real CLI: stream it, so each event gets its arrival time
+            return stream(args, input_text=input_text, cwd=cwd, timeout_s=timeout_s)
+        t0 = time.monotonic()
+        done = runner(args, input=input_text, capture_output=True, text=True, cwd=cwd, env=clean_env(),
                       timeout=timeout_s)
+        done.wall_s = time.monotonic() - t0
+        return done
     except subprocess.TimeoutExpired as exc:
         raise ProviderError(f"{args[0]}: timed out after {timeout_s:.0f}s") from exc
     except FileNotFoundError as exc:

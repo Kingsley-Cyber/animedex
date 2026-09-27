@@ -45,3 +45,6 @@ census:
 
 review:
 	$(RUN) animedex review
+
+timing:
+	uv run animedex timing

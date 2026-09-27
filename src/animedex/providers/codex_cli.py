@@ -24,9 +24,28 @@ from pathlib import Path
 from typing import Any
 
 from animedex.providers.base import ProviderError, ProviderResponse, Usage
-from animedex.providers.cli_common import Runner, classify, cli_version, login_status, run
+from animedex.providers.cli_common import (
+    Runner,
+    classify,
+    cli_version,
+    login_status,
+    run,
+    timed_events,
+)
 
 CLI = "codex_cli"
+
+
+def codex_timing(timed: list[tuple[float | None, dict[str, Any]]], wall_s: float | None) -> dict[str, Any]:
+    """Where one call's wall time went (seconds): startup until codex's first event, model until its
+    last (no tools run here), other for shutdown. Without event times only the wall time is known."""
+    out: dict[str, Any] = {"wall_s": round(wall_s, 2) if wall_s is not None else None}
+    times = [ts for ts, _ in timed]
+    if wall_s is None or not times or None in times:
+        return out
+    first, last = min(times), max(times)  # type: ignore[type-var]
+    return {**out, "startup_s": round(first, 2), "model_s": round(last - first, 2),
+            "web_s": 0.0, "tools_s": 0.0, "other_s": round(max(0.0, wall_s - last), 2)}
 PREFIX = ("You are answering one structured-output request. Do not run commands, read files, or browse. "
           "Reply only with the final JSON object.\n\n## Instructions\n")
 _MODEL_LINE = re.compile(r"^\s*model:\s*(\S+)", re.M)
@@ -91,13 +110,8 @@ class CodexCliProvider:
             proc = run(self.args(cwd, schema_path, out_path, params), input_text=f"{PREFIX}{system}\n\n## Input\n{user}",
                        cwd=cwd, timeout_s=self.timeout_s, runner=self._runner)
             last = Path(out_path).read_text(encoding="utf-8") if Path(out_path).is_file() else ""
-        events = []
-        for line in (proc.stdout or "").splitlines():
-            if line.strip().startswith("{"):
-                try:
-                    events.append(json.loads(line))
-                except json.JSONDecodeError:
-                    continue
+        timed = timed_events(proc)
+        events = [e for _, e in timed]
         failures = [e for e in events if e.get("type") in ("error", "turn.failed")]
         commands = [e for e in events if (e.get("item") or {}).get("type") == "command_execution"]
         item_types = sorted({str((e.get("item") or {}).get("type")) for e in events
@@ -129,7 +143,7 @@ class CodexCliProvider:
             stop_reason="completed",
             request_id=self.last_init["thread"],
             meta={"cli": CLI, "cli_version": self.version, "shadow_cost_usd": None, "init": self.last_init,
-                  "billing": self.billing},
+                  "billing": self.billing, "timing": codex_timing(timed, getattr(proc, "wall_s", None))},
         )
 
     def resolve_model(self, model_id: str) -> str:

@@ -499,6 +499,17 @@ def review(port: int = typer.Option(8765, "--port"), open_browser: bool = typer.
 
 
 @app.command()
+def timing() -> None:
+    """Where the time goes: per-stage timing from the run logs -> build/reports/timing.md."""
+    from animedex.timing import write_report
+
+    paths = _paths()
+    out, calls = write_report(paths.raw_runs, paths.root / "build" / "reports" / "timing.md")
+    typer.echo(out.read_text(encoding="utf-8"))
+    typer.echo(f"written to {out.relative_to(paths.root)} ({len(calls)} live calls)")
+
+
+@app.command()
 def canonicalize() -> None:
     """CANONICALIZE: data/candidates -> data/canonical (validate, normalize, quarantine, atomic write)."""
     from animedex.pipeline.canonicalize import canonicalize as run_canonicalize

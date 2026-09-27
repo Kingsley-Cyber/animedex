@@ -63,6 +63,7 @@ class RunLog:
         self.tokens: dict[str, dict[str, int]] = defaultdict(lambda: {"input": 0, "output": 0, "calls": 0})
         self.cost: dict[str, float] = defaultdict(float)
         self.shadow_cost: dict[str, float] = defaultdict(float)
+        self.started = datetime.now(UTC).isoformat()  # process startup = started - the process's own start
 
     def log_call(
         self,
@@ -84,6 +85,7 @@ class RunLog:
         error: str | None = None,
         billing: str = "api",
         meta: dict[str, Any] | None = None,
+        timing: dict[str, Any] | None = None,
     ) -> None:
         shadow = billing == "subscription"
         self.dir.mkdir(parents=True, exist_ok=True)
@@ -105,6 +107,7 @@ class RunLog:
             "cost_usd": 0.0 if shadow else round(cost_usd, 6),
             "shadow_cost_usd": round(cost_usd, 6) if shadow else None,
             "cli": meta,
+            "timing": timing,
             "request": {"system_sha256": system_sha, "user": redact(user, transients)},
             "response": None if response is None else redact(response, transients),
             "error": error,
@@ -123,6 +126,8 @@ class RunLog:
     def write_ledger(self) -> Path:
         ledger = {
             "run_id": self.run_id,
+            "started": self.started,
+            "ended": datetime.now(UTC).isoformat(),
             "by_pass_record": {k: {**self.tokens[k], "cost_usd": round(self.cost[k], 6),
                                    "shadow_cost_usd": round(self.shadow_cost[k], 6)} for k in sorted(self.tokens)},
             "total_cost_usd": round(sum(self.cost.values()), 6),
