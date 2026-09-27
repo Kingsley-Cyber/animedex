@@ -2,7 +2,7 @@
 
 **Owner instruction (2026-09-27):** "Speed pass for non-gold titles (gold keeps full rigor): 1. Merge gather and interpret into one call. 2. Medium effort on every non-gold call. 3. VERIFY only the outcome and moment locators; everything else keeps its gathered source. 4. Run the critic on 3 titles per call instead of 1. 5. 4 titles in parallel. Target: under 6 minutes per show. Report time per stage before and after, and any drop in agreement on the grid fields."
 
-**Status:** in progress on branch `speed/v1.10` (D-048). Gold titles (`role_tags: [gold]`) keep the full path unchanged.
+**Status:** merged to main 2026-09-27 (D-048) and measured on six titles: 12.8 → 8.4 min of machine time per title, about 3–4.5 min of wall clock per title in batches of 4; the 3-title critic batch failed 2 of 3 times and is off by default (D-049); grid-field agreement in `reports/SPEED_PASS.md`. Gold titles (`role_tags: [gold]`) keep the full path unchanged.
 
 ## Before (14 titles, gather-first, sequential; `make timing`)
 | Stage | Per title | Calls per title |
