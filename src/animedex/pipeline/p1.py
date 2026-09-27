@@ -296,6 +296,56 @@ class P1Result:
     stopped: str | None = None
 
 
+LENGTH_TAG = "rewrite it in 12 or fewer"
+SHORTEN_SYSTEM = ("You shorten phrases. Rewrite each listed phrase in 12 words or fewer, keeping its meaning and facts "
+                  "and dropping filler words. Paraphrase only; no quotes. Output JSON only.")
+
+
+def _is_length(problem: str) -> bool:
+    return LENGTH_TAG in problem
+
+
+def _field_ref(draft: dict[str, Any], path: str) -> tuple[dict[str, Any], str] | None:
+    parts = path.split(".")
+    if len(parts) < 2 or not isinstance((draft.get(parts[0]) or {}).get(parts[1]), dict):
+        return None
+    return draft[parts[0]][parts[1]], (parts[2] if len(parts) > 2 else "value")
+
+
+def shorten_phrases(client: LLMClient, entry: CorpusEntry, draft: dict[str, Any], problems: list[str],
+                    params: dict[str, Any] | None) -> dict[str, Any]:
+    """Length-only repair (P1 1.2.0): rewrite just the over-long phrases, keep everything else. The
+    word cap is unchanged; nothing is truncated."""
+    targets = []
+    for prob in problems:
+        path = prob.split(":")[0].strip()
+        ref = _field_ref(draft, path)
+        if ref and isinstance(ref[0].get(ref[1]), str):
+            targets.append((path, ref[0][ref[1]]))
+    paths_ = [t[0] for t in targets]
+    item = {"type": "object", "additionalProperties": False, "required": ["path", "text"],
+            "properties": {"path": {"type": "string", "enum": paths_}, "text": {"type": "string"}}}
+    schema = {"type": "object", "additionalProperties": False, "required": ["items"],
+              "properties": {"items": {"type": "array", "items": item}}}
+
+    def check(out: dict[str, Any]) -> None:
+        got = {i.get("path"): i.get("text") or "" for i in out.get("items") or []}
+        bad = [f"{p}: missing" for p in paths_ if p not in got]
+        bad += [f"{p}: has {word_count(t)} words; 12 or fewer" for p, t in got.items() if word_count(t) > 12 or not t.strip()]
+        if bad:
+            raise ValueError("; ".join(bad))
+
+    ctx = CallContext(pass_="P1", record_id=f"{entry.title_id}.shorten", title_id=entry.title_id,
+                      upstream=upstream_hash([{"shorten": targets}]))
+    done = client.complete_ex(SHORTEN_SYSTEM, "\n".join(f"- {p}: {t}" for p, t in targets), schema, params, ctx=ctx,
+                              validate=check)
+    out = json.loads(json.dumps(draft))
+    for i in done.data["items"]:
+        fv, key = _field_ref(out, i["path"])
+        fv[key] = i["text"]
+    return out
+
+
 def run_p1(paths: Paths, entries: list[CorpusEntry], client: LLMClient, vocab: Vocab, settings: Settings,
            *, run_id: str, guards: GuardConfig | None = None, created_at: str | None = None,
            params: dict[str, Any] | None = None, agreement_dir: Path | None = None) -> P1Result:
@@ -314,8 +364,9 @@ def run_p1(paths: Paths, entries: list[CorpusEntry], client: LLMClient, vocab: V
 
         def check(draft: dict[str, Any], _entry: CorpusEntry = entry) -> None:
             problems = draft_problems(normalize_draft(draft, _entry, vocab), _entry, vocab, threshold, guards)
-            if problems:
-                raise ValueError("; ".join(problems[:25]))
+            other = [p for p in problems if not _is_length(p)]  # over-long phrases get their own small repair
+            if other:
+                raise ValueError("; ".join(other[:25]))
 
         ctx = CallContext(pass_="P1", record_id=tid, title_id=tid,
                           upstream=upstream_hash([entry.model_dump(mode="json")]))
@@ -336,7 +387,27 @@ def run_p1(paths: Paths, entries: list[CorpusEntry], client: LLMClient, vocab: V
             continue
         if completion.substituted:
             result.substituted.append((tid, completion.model))
-        record, moments, to_verify = assemble(normalize_draft(completion.data, entry, vocab), entry, vocab, settings,
+        draft = normalize_draft(completion.data, entry, vocab)
+        long = [p for p in draft_problems(draft, entry, vocab, threshold, guards) if _is_length(p)]
+        if long:
+            try:
+                draft = normalize_draft(shorten_phrases(client, entry, draft, long, params), entry, vocab)
+            except InvalidOutput as exc:
+                quarantine(paths.quarantine, "P1", "title", tid, draft, [*exc.errors, *long])
+                result.quarantined.append((tid, "phrases still over 12 words after the length repair"))
+                continue
+            except (BudgetExceeded, RateLimited, CliAuthError) as exc:
+                result.stopped = str(exc)
+                break
+            except ProviderError as exc:
+                result.failed.append((tid, str(exc)))
+                continue
+            left = draft_problems(draft, entry, vocab, threshold, guards)
+            if left:
+                quarantine(paths.quarantine, "P1", "title", tid, draft, left)
+                result.quarantined.append((tid, left[0][:300]))
+                continue
+        record, moments, to_verify = assemble(draft, entry, vocab, settings,
                                               run_id=run_id,
                                               prompt_version=prompt.version, completion=completion,
                                               created_at=created_at)

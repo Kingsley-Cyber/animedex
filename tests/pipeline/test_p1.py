@@ -272,3 +272,22 @@ def test_null_values_carry_conf_zero_after_normalizing():
     assert out["power_combat"]["ranking_ladder"]["conf"] == 0
     assert out["power_combat"]["ranking_ladder"]["uncertainty_reason"] == "no reliable recall"
 
+
+
+def test_over_long_phrases_get_a_small_length_repair_not_a_full_rewrite(repo):
+    long = make_draft()
+    long["core"]["logline_hook"]["value"] = ("a courier who can see the whole city grid trades her memories for "
+                                             "power every night")  # 17 words
+    short = {"items": [{"path": "core.logline_hook", "text": "a courier trades her memories for city power"}]}
+    result, mock = run(repo, {KEY: [long], ("P1", f"{KEY[1]}.shorten"): [short]})
+    assert len(result.titles) == 1 and [c["record_id"] for c in mock.calls] == [KEY[1], f"{KEY[1]}.shorten"]
+    assert result.titles[0]["core"]["logline_hook"]["value"] == "a courier trades her memories for city power"
+
+
+def test_a_length_repair_that_stays_long_is_quarantined(repo):
+    long = make_draft()
+    long["core"]["logline_hook"]["value"] = "one two three four five six seven eight nine ten eleven twelve thirteen"
+    still = {"items": [{"path": "core.logline_hook", "text": "one two three four five six seven eight nine ten eleven "
+                                                              "twelve thirteen fourteen"}]}
+    result, _ = run(repo, {KEY: [long], ("P1", f"{KEY[1]}.shorten"): [still, still]})
+    assert result.titles == [] and "over 12 words" in result.quarantined[0][1]
