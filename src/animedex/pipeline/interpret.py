@@ -30,7 +30,7 @@ from animedex.models import CorpusEntry, Moment, title_profile_model
 from animedex.ontology import Vocab
 from animedex.paths import Paths
 from animedex.pipeline.common import render_profile, supersede
-from animedex.pipeline.gather import load_gathered
+from animedex.pipeline.gather import gather_paths, load_gathered
 from animedex.pipeline.p1 import (
     _is_length,
     assemble,
@@ -292,6 +292,7 @@ def run_interpret(paths: Paths, entries: list[CorpusEntry], client: LLMClient, v
     client.prompt_version = prompt.version
     threshold = float(settings.verify.get("conf_threshold", 0.7))
     title_model = title_profile_model(vocab)
+    documented = gather_paths(vocab, settings)
     result = InterpretResult()
     for entry in entries:
         tid = entry.title_id
@@ -352,7 +353,16 @@ def run_interpret(paths: Paths, entries: list[CorpusEntry], client: LLMClient, v
                                              source_ref=outcome["signals"][0]["source_ref"],
                                              conf=max(float(record["core"]["outcome"].get("conf") or 0), threshold))
             sourced.append("core.outcome")
-        to_verify = [p for p in to_verify if p not in set(sourced)]
+        # VERIFY checks documented facts only (v1.7): what GATHER could have sourced, the outcome, and the
+        # sensory/moment items VERIFY's gold rule decides; analysis fields have no page that could confirm them
+        checkable = set(documented) | {"core.outcome"}
+        to_verify = [p for p in to_verify if p not in set(sourced)
+                     and (p in checkable or p.startswith(("sensory.", "moments.")))]
+        for block, fields in record.items():
+            if block in ("core", *record.get("modules_active", [])) and isinstance(fields, dict):
+                for name, fv in fields.items():
+                    if isinstance(fv, dict) and fv.get("verification") == "unverified" and f"{block}.{name}" not in to_verify:
+                        fv["verification"] = "not_required"
         try:
             title_model.model_validate(normalize_record("title", record, vocab)[0])
             for m in moments:
