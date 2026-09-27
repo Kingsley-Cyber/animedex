@@ -260,8 +260,14 @@ def rollup(title: str = TitleOpt, dry_run: bool = DryOpt) -> None:
 
 @app.command()
 def analyze() -> None:
-    """Coverage, gaps, lanes, graveyard, CQ answers (M4)."""
-    _stub("analyze")
+    """ANALYZE: coverage, gap cells with adequacy flags, lanes, graveyard, CQ answers -> build/."""
+    from animedex.analyze import run_analyze
+
+    paths = _paths()
+    r = run_analyze(paths, load_settings(paths))
+    typer.echo(f"analyzed: {r.answered} CQ answers -> build/cq_answers/; {r.empty_cells} empty gate x cost cells "
+               f"(zeros are {r.zeros_are}); graveyard {r.graveyard} title(s); lanes imported {r.lanes['imported']}, "
+               f"export {r.lanes['export']}; summary -> build/reports/analysis.md")
 
 
 @app.command()
@@ -325,18 +331,22 @@ def validate() -> None:
 @app.command()
 def build(verify_determinism: bool = typer.Option(False, "--verify-determinism")) -> None:
     """DuckDB build + exports + hashes (make build / make clean-build)."""
+    from animedex.analyze import run_analyze, verify_cq_determinism
     from animedex.build.duckdb_build import build as run_build
     from animedex.build.duckdb_build import verify_determinism as run_verify
 
     paths = _paths()
     if verify_determinism:
         ok, diffs = run_verify(paths)
-        for name, (a, b) in diffs.items():
+        cq_ok, cq_diffs = verify_cq_determinism(paths, load_settings(paths))
+        for name, (a, b) in {**diffs, **cq_diffs}.items():
             typer.echo(f"MISMATCH {name}: {a} != {b}", err=True)
-        typer.echo("clean rebuild: identical hashes" if ok else "clean rebuild: HASH MISMATCH")
-        raise typer.Exit(0 if ok else 1)
+        typer.echo("clean rebuild: identical hashes and CQ answers" if ok and cq_ok else "clean rebuild: HASH MISMATCH")
+        raise typer.Exit(0 if ok and cq_ok else 1)
     hashes = run_build(paths)
-    typer.echo(f"built {len(hashes)} tables/views -> {paths.build_db.relative_to(paths.root)}")
+    r = run_analyze(paths, load_settings(paths))  # make build = BUILD + ANALYZE's deterministic CQ step (M4)
+    typer.echo(f"built {len(hashes)} tables/views -> {paths.build_db.relative_to(paths.root)}; "
+               f"{r.answered} CQ answers -> build/cq_answers/")
 
 
 @app.command()

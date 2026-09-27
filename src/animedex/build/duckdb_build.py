@@ -74,7 +74,8 @@ def _moments(s: State, v: Vocab) -> list[Row]:
 
 def _outcomes(s: State, v: Vocab) -> list[Row]:
     return [(o["title_id"], o["label"], o.get("failure_reason"), *(o["confounders"][k] for k in
-            ("studio", "budget_signal", "source_popularity", "platform", "release_context")))
+            ("studio", "budget_signal", "source_popularity", "platform", "release_context")),
+             o.get("failure_level"), o.get("failure_evidence"), o.get("failure_level_source"))
             for o in s.get("outcome", [])]
 
 
@@ -177,7 +178,8 @@ def _ideas(s: State, v: Vocab) -> list[Row]:
                     i["closest_existing"], i["status"], i["generation"], *(i["profile"][k] for k in _PROFILE),
                     g["structural_jaccard_max"], g["procedural_jaccard_max"], g["premise_cosine_max"],
                     g["novel_combo"], g["consequence_test"]["h1_pass"], g["coherence"],
-                    _j(i["taste"]["criteria_met"]), i["taste"]["hard_fail"], hr.get("rating"), hr.get("greenlight")))
+                    _j(i["taste"]["criteria_met"]), i["taste"]["hard_fail"], hr.get("rating"), hr.get("greenlight"),
+                    _j(g.get("graveyard_hits", []))))
     return out
 
 
@@ -205,7 +207,7 @@ TABLES: tuple[Table, ...] = (
     Table("moments", _cols("moment_id title_id description season:i episode:i timestamp episode_id moment_type "
                            "why_it_hit conf:d verification source_ref"), _moments),
     Table("outcomes", _cols("title_id label failure_reason studio budget_signal source_popularity platform "
-                            "release_context"), _outcomes),
+                            "release_context failure_level failure_evidence failure_level_source"), _outcomes),
     Table("outcome_signals", _cols("title_id idx:i metric value source_ref"), _outcome_signals),
     Table("mechanisms", _cols("atom_id title_id atom_kind module conf:d explanation support_status n_supporting:i "
                               "n_contradicting:i n_reframing:i origin element element_field element_moment_id "
@@ -230,7 +232,7 @@ TABLES: tuple[Table, ...] = (
                          "closest_existing status generation:i gate cost_of_power progression visible_counter "
                          "fight_medium power_is structural_jaccard_max:d procedural_jaccard_max:d "
                          "premise_cosine_max:d novel_combo:b h1_pass:b coherence criteria_met hard_fail:b "
-                         "human_rating:i greenlight:b"), _ideas),
+                         "human_rating:i greenlight:b graveyard_hits"), _ideas),
     Table("archive", _cols("cell_key idea_id fitness replaced_idea_id generation:i"), _archive),
 )
 
@@ -251,7 +253,8 @@ VIEWS: tuple[tuple[str, str], ...] = (
      "AND m.support_status IN ('profile_only', 'episode_backed')"),
     ("v_outcomes",
      "SELECT t.title_id, t.medium, t.format, o.label, o.failure_reason, o.studio, o.budget_signal, "
-     "o.source_popularity, o.platform, o.release_context FROM titles t LEFT JOIN outcomes o USING (title_id)"),
+     "o.source_popularity, o.platform, o.release_context, o.failure_level FROM titles t "
+     "LEFT JOIN outcomes o USING (title_id)"),
 )
 
 
