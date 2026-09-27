@@ -246,9 +246,19 @@ def run_check(paths: Paths, title_ids: list[str], client: LLMClient, vocab: Voca
         ready.append(tid)
     step = max(1, int(batch_titles))
     for i in range(0, len(ready), step):
-        if not _check_group(paths, ready[i:i + step], client, vocab, guards, prompt, titles, moments_by, result,
+        group = ready[i:i + step]
+        before = len(result.quarantined)
+        if not _check_group(paths, group, client, vocab, guards, prompt, titles, moments_by, result,
                             run_id=run_id, created_at=created_at, params=params):
             break
+        if len(group) > 1 and len(result.quarantined) > before:
+            # the batched answer failed twice (live 2026-09-27: REVISE verdicts with no reason): one title per call
+            result.bump("batch_fallback")
+            result.flags.append(f"CHECK batch {'+'.join(group)} quarantined; fell back to one title per call")
+            for tid in group:
+                if not _check_group(paths, [tid], client, vocab, guards, prompt, titles, moments_by, result,
+                                    run_id=run_id, created_at=created_at, params=params):
+                    return result
     return result
 
 

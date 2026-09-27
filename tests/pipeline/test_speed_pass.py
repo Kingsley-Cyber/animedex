@@ -64,6 +64,37 @@ def test_non_gold_titles_take_profile_and_gold_titles_keep_gather(repo):
     assert profile_calls and profile_calls[0]["params"].get("effort") == "medium" and "web" in profile_calls[0]["params"]
 
 
+def p2_for() -> dict:
+    """p2_out without T1's moment references, so it fits any title with the default modules."""
+    out = json.loads(json.dumps(p2_out()))
+    out["engines"][0]["evidence_refs"] = ["power_combat.cost_of_power", "core.premise_engine"]
+    out["effects"][1].update(element_field="core.premise_engine", element_moment_id=None,
+                             evidence_refs=["core.premise_engine"])
+    return out
+
+
+def p3_for(repo, atom_ids: list[str]) -> dict:
+    """A proof per atom for whichever title the schema names, against that title's own partners."""
+    from animedex.pipeline.common import canonical_titles, outcomes
+    from animedex.pipeline.partners import select_partners
+
+    tid = atom_ids[0].split(".m.")[0]
+    titles = canonical_titles(repo)
+    partners = select_partners(titles[tid], titles, outcomes(repo), get_vocab())
+    contrast = [{"partner_title_id": pt["title_id"], "partner_role": pt["role"], "partner_has": "partial",
+                 "difference": "The partner hides its meter from the audience as well."} for pt in partners]
+    proofs = []
+    for i, aid in enumerate(atom_ids):
+        is_effect = i > 0
+        proofs.append({"atom_id": aid, "contrast": contrast,
+                       "explanation_test": ({"favors": "because", "via_partner": partners[0]["title_id"],
+                                             "note": "The partner has the meter but not the shared secret."}
+                                            if is_effect else {"favors": None, "via_partner": None, "note": None}),
+                       "ablation": {"if_removed": "The premise loses its engine and the feeling collapses.",
+                                    "verdict": "load_bearing" if i < 2 else "decoration", "conf": 0.8}})
+    return {"proofs": proofs}
+
+
 def test_the_fast_path_runs_titles_in_parallel_batches_the_critic_and_sends_medium_effort(m3):  # noqa: F811
     """T1 and T2 are canonical non-gold titles: P2 and P3 run for both at once, CHECK sees both in one call,
     every call carries effort medium, and each title's checks are written separately."""
@@ -74,35 +105,6 @@ def test_the_fast_path_runs_titles_in_parallel_batches_the_critic_and_sends_medi
          "variable_details": ["the setting"], "failure_conditions": ["the cost is reversible"], **LADDER} for i in (1, 2)]}
     active = {"n": 0, "peak": 0}
     lock = threading.Lock()
-
-    def p2_for() -> dict:
-        """p2_out without T1's moment references, so it fits any title with the default modules."""
-        out = json.loads(json.dumps(p2_out()))
-        out["engines"][0]["evidence_refs"] = ["power_combat.cost_of_power", "core.premise_engine"]
-        out["effects"][1].update(element_field="core.premise_engine", element_moment_id=None,
-                                 evidence_refs=["core.premise_engine"])
-        return out
-
-    def p3_for(atom_ids: list[str]) -> dict:
-        """A proof per atom for whichever title the schema names, against that title's own partners."""
-        from animedex.pipeline.common import canonical_titles, outcomes
-        from animedex.pipeline.partners import select_partners
-
-        tid = atom_ids[0].split(".m.")[0]
-        titles = canonical_titles(m3)
-        partners = select_partners(titles[tid], titles, outcomes(m3), get_vocab())
-        contrast = [{"partner_title_id": pt["title_id"], "partner_role": pt["role"], "partner_has": "partial",
-                     "difference": "The partner hides its meter from the audience as well."} for pt in partners]
-        proofs = []
-        for i, aid in enumerate(atom_ids):
-            is_effect = i > 0
-            proofs.append({"atom_id": aid, "contrast": contrast,
-                           "explanation_test": ({"favors": "because", "via_partner": partners[0]["title_id"],
-                                                 "note": "The partner has the meter but not the shared secret."}
-                                                if is_effect else {"favors": None, "via_partner": None, "note": None}),
-                           "ablation": {"if_removed": "The premise loses its engine and the feeling collapses.",
-                                        "verdict": "load_bearing" if i < 2 else "decoration", "conf": 0.8}})
-        return {"proofs": proofs}
 
     def answer(system, user, schema, params):
         with lock:
@@ -115,7 +117,7 @@ def test_the_fast_path_runs_titles_in_parallel_batches_the_critic_and_sends_medi
         if "effects" in props:
             return p2_for()
         if "proofs" in props:
-            return p3_for(props["proofs"]["items"]["properties"]["atom_id"]["enum"])
+            return p3_for(m3, props["proofs"]["items"]["properties"]["atom_id"]["enum"])
         if "verdicts" in props:
             ids = props["verdicts"]["items"]["properties"]["target_id"]["enum"]
             return {"verdicts": [v for v in accept["verdicts"] if v["target_id"] in ids]}
@@ -222,3 +224,37 @@ def test_a_check_group_is_guarded_and_charged_per_title_not_by_its_label():
     client.title_guard = seen.append
     budget.calls_title[T4] = 6
     assert _admit_group(client, [T1, T4], result, "x") == "stopped" and "call cap reached for" in result.stopped
+
+
+def test_a_quarantined_batched_check_falls_back_to_one_title_per_call(m3):  # noqa: F811
+    """Live 2026-09-27: the critic's 3-title answer came back twice with REVISE verdicts and no reasons. The
+    group is quarantined, then each title gets its own call; the fallback is counted and flagged."""
+    seen: list[list[str]] = []
+
+    def answer(system, user, schema, params):
+        props = schema.get("properties", {})
+        if "effects" in props:
+            return p2_for()
+        if "proofs" in props:
+            return p3_for(m3, props["proofs"]["items"]["properties"]["atom_id"]["enum"])
+        if "verdicts" in props:
+            ids = props["verdicts"]["items"]["properties"]["target_id"]["enum"]
+            titles = sorted({i.split(".m.")[0] for i in ids})
+            seen.append(titles)
+            if len(titles) > 1:   # the sloppy batched answer
+                return {"verdicts": [{**verdict(i, k), "verdict": "REVISE", "reasons": []}
+                                     for i in ids for k in ("mechanism", "proof")]}
+            return {"verdicts": [verdict(i, k) for i in ids for k in ("mechanism", "proof")]}
+        raise AssertionError(f"unexpected schema {sorted(props)}")
+
+    def clients(key, runlog):
+        return mock_client(m3, {}, runlog, default=answer)
+
+    report = run_batch(m3, [T1, T4], speed_settings(m3, parallel_titles=1), {}, get_vocab(),
+                       stages=("P2", "P3", "CHECK"), clients=clients)
+    assert not report.stopped, report.stopped
+    st = report.stages["CHECK"]
+    assert sorted(st["done"]) == sorted([T1, T4]), st
+    assert st["counts"].get("batch_fallback") == 1 and any("fell back" in f for f in st["flags"])
+    assert [c for c in seen if len(c) > 1] == [sorted([T1, T4])] * 2   # the batched call and its one repair
+    assert {c["target_id"].split(".m.")[0] for c in CanonicalStore(m3).state()["check"]} >= {T1, T4}
