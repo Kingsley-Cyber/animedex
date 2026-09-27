@@ -31,11 +31,14 @@ providers:
     api_key_env: ANTHROPIC_API_KEY
     fallbacks: default               # server-side refusal fallbacks; set to null to disable
     send_params: [max_tokens, effort]
-  local:                        # local OpenAI-compatible endpoint (Ollama, LM Studio); also embeddings
+  local:                        # local OpenAI-compatible endpoint (Ollama, LM Studio); the embeddings fallback
     type: openai_compatible
     base_url: http://localhost:11434/v1
     structured_output: json_object
     send_params: [max_tokens, temperature]
+  polymath_embedder:            # Polymath's embedder sidecar: Qwen3-Embedding-0.6B, full precision, Mac GPU (MPS).
+    type: polymath_embedder     # Embeddings only. Requests carry no priority header, so they run at background
+    base_url: http://127.0.0.1:8742   # priority and never pre-empt Polymath's own work.
   mock:
     type: mock
 
@@ -51,7 +54,11 @@ models:   # G1a, approved 2026-09-26; routed to subscription CLIs 2026-09-26. Co
   rollup_match:    {provider: claude_cli, model: claude-haiku-4-5-20251001}
   ideate_generate: {provider: claude_cli, model: claude-opus-5-5, params: {effort: high}}
   ideate_judge:    {provider: codex_cli, model: gpt-5.6-terra, strict_model: true}   # owner: an older model is enough
-  embeddings:      {provider: local, model: mxbai-embed-large}               # Ollama, local (pulled 2026-09-27)
+  # v1.7 (owner ruling 2026-09-27): Qwen3-Embedding-0.6B, the one allowed local model. Polymath's GPU copy
+  # first; the Ollama copy (`ollama pull qwen3-embedding:0.6b`) only when Polymath's isn't ready. One backend
+  # per run. `make recalibrate` proposes clone thresholds for it and never changes this file.
+  embeddings:      {provider: polymath_embedder, model: Qwen/Qwen3-Embedding-0.6B,
+                    fallback: {provider: local, model: "qwen3-embedding:0.6b"}}
   eval_match:      {provider: claude_cli, model: claude-haiku-4-5-20251001}   # PROPOSED (not in the G1a list); AC-17, M3
   prior_art:       {provider: claude_cli, model: claude-sonnet-5}   # v1.6: native web search for absence claims
   census:          {provider: claude_cli, model: claude-sonnet-5}   # v1.6: counts only; Haiku only if the accuracy check passes
