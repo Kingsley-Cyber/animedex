@@ -93,10 +93,14 @@ def test_list_and_group_phrases_feed_the_name_list():
     assert {"Meridian", "Relay", "Guild", "Grid", "Council"} <= tokens
 
 
-def test_premise_abstraction_names_are_caught():
+def test_premise_abstraction_names_are_caught_within_their_own_title():
     state = synthetic_state()
     state["title"][0]["core"]["premise_abstraction"]["value"] = "Wren keeps a failing city lit at any cost"
-    assert any("premise_abstraction contains names ['Wren']" in e for e in integrity_errors(state, get_vocab()))
+    state["title"][1]["core"]["premise_abstraction"]["value"] = "Wren songs guide a debt collector through the Harbor"
+    errors = integrity_errors(state, get_vocab())
+    assert "title ironvale_circuit_2021: core.premise_abstraction contains names ['Wren']" in errors  # its own cast
+    assert "title lantern_debt_2019: core.premise_abstraction contains names ['Harbor']" in errors  # a capital
+    # another title's cast never counts, so adding a title cannot change this title's result
 
 
 def test_atoms_may_cite_a_character_record():

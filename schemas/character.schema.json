@@ -40,40 +40,6 @@
       "title": "CreativityMove",
       "type": "object"
     },
-    "EpisodeLocator": {
-      "additionalProperties": false,
-      "description": "Where a turning point happens. Non-film titles need the episode (checked against the title).",
-      "properties": {
-        "episode": {
-          "anyOf": [
-            {
-              "minimum": 0,
-              "type": "integer"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Episode"
-        },
-        "season": {
-          "anyOf": [
-            {
-              "minimum": 0,
-              "type": "integer"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Season"
-        }
-      },
-      "title": "EpisodeLocator",
-      "type": "object"
-    },
     "KitForm": {
       "additionalProperties": false,
       "description": "A named stage of the power, with what triggers it and what it costs.",
@@ -342,7 +308,7 @@
           "type": "string"
         },
         "locator": {
-          "$ref": "#/$defs/EpisodeLocator"
+          "$ref": "#/$defs/TurningPointLocator"
         }
       },
       "required": [
@@ -350,6 +316,40 @@
         "locator"
       ],
       "title": "TurningPoint",
+      "type": "object"
+    },
+    "TurningPointLocator": {
+      "additionalProperties": false,
+      "description": "Where a turning point happens. Non-film titles need the episode (checked against the title).",
+      "properties": {
+        "episode": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Episode"
+        },
+        "season": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Season"
+        }
+      },
+      "title": "TurningPointLocator",
       "type": "object"
     },
     "VillainFields": {

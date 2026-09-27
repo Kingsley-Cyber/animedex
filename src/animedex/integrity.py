@@ -207,8 +207,7 @@ def integrity_errors(state: State, vocab: Vocab) -> list[str]:
         if r.get("replaced_idea_id"):
             need(r["replaced_idea_id"] in ideas, f"archive {r['cell_key']}: unknown replaced idea")
 
-    abstract = [f for f in vocab.lens_fields() if f.abstract]
-    if state.get("transfer") or state.get("pattern") or (abstract and state.get("title")):
+    if state.get("transfer") or state.get("pattern"):
         full_titles, tokens = name_list(state, vocab)
         for r in state.get("transfer", []):
             for key in ("pattern", "mechanism", "principle", "anti_pattern"):
@@ -217,11 +216,17 @@ def integrity_errors(state: State, vocab: Vocab) -> list[str]:
         for r in state.get("pattern", []):
             leaks = name_leaks(r.get("statement", ""), full_titles, tokens)
             need(not leaks, f"pattern {r['pattern_id']}: statement contains names {leaks}")
-        for tid, t in titles.items():  # the clone check's text (vocab 1.5.0): no names
-            for f in abstract:
-                text = ((t.get(f.block) or {}).get(f.name) or {}).get("value") or ""
-                leaks = name_leaks(text, full_titles, tokens)
-                need(not leaks, f"title {tid}: {f.path} contains names {leaks}")
+    # the clone check's text (vocab 1.5.0): no names. Checked against the title's own name and cast and
+    # any mid-sentence capital, so adding another title never changes this one's result.
+    cast: dict[str, set[str]] = {}
+    for c in state.get("character", []):
+        cast.setdefault(c["title_id"], set()).update(_name_tokens(str(c.get("name") or "")))
+    for tid, t in titles.items():
+        for f in (f for f in vocab.lens_fields() if f.abstract):
+            text = ((t.get(f.block) or {}).get(f.name) or {}).get("value") or ""
+            leaks = sorted(set(name_leaks(text, {str(t["title"]).lower()}, cast.get(tid, set())))
+                           | set(proper_nouns(text)))
+            need(not leaks, f"title {tid}: {f.path} contains names {leaks}")
     return errors
 
 

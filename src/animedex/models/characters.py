@@ -51,7 +51,7 @@ class ConditionalTrait(StrictModel):
     condition: Words15
 
 
-class EpisodeLocator(StrictModel):
+class TurningPointLocator(StrictModel):
     """Where a turning point happens. Non-film titles need the episode (checked against the title)."""
 
     season: int | None = Field(default=None, ge=0)
@@ -60,7 +60,7 @@ class EpisodeLocator(StrictModel):
 
 class TurningPoint(StrictModel):
     event: Words15
-    locator: EpisodeLocator
+    locator: TurningPointLocator
 
 
 class KitTool(StrictModel):
