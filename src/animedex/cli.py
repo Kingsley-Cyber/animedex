@@ -626,7 +626,7 @@ def migrate(to: str = typer.Option(..., "--to", help="Spec version to migrate ca
 
 @app.command()
 def backfill(list_file: str = typer.Option(..., "--list", help="One title per line; a version in parentheses is used as given."),
-             batch: int = typer.Option(8, "--batch", help="Titles deep-indexed per run (paced for the plan limits)."),
+             batch: int = typer.Option(4, "--batch", help="Titles deep-indexed per run: 4 fits the 40-call cap under gather-first (D-043)."),
              census_only: bool = typer.Option(False, "--census-only", help="Only add the titles to the census."),
              no_run: bool = typer.Option(False, "--no-run", help="Resolve and add to the corpus; run nothing.")) -> None:
     """Resolve a plain title list to scoped corpus entries, then run the full pipeline (counts only)."""

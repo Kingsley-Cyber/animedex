@@ -7,3 +7,7 @@
 - **Versions:** a version in parentheses is used as given. Otherwise the most-watched adaptation is picked, and every choice is listed in the backfill report so it can be corrected.
 - **Berserk:** Berserk (1997) and Berserk (2016) are run as a pair (same story, different execution). Each is the other's nearest-neighbor contrast partner.
 - **Balance:** the queue is mostly hits. The backfill report proposes flops and mixed titles to balance it.
+
+## Held (Kingsley's additions of 2026-09-27 that can't be indexed yet)
+- **The Bugle Call: Song of War (2027):** the anime is announced with no episodes aired. The corpus is screen titles inside a declared scope, so it waits until it airs; then add it to `priority_1.txt`.
+- **Jagaaan, Choujin X:** manga only, no screen version found in the catalog. Indexing manga is a scope change (a new `medium` value and source rules), parked until Kingsley asks for it.

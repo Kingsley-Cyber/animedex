@@ -169,3 +169,577 @@ titles:
       numbering: streaming
       exclude: ["Gen V, Vought Rising, The Boys: Mexico, Diabolical", "shorts and web series", "podcast", "comics"]
     role_tags: [contrast]
+
+  # --- backfill 2026-09-27 from priority_1.txt: catalog-resolved; check the choices in build/reports/backfill.md ---
+  - title_id: frieren_beyond_journeys_end_2023
+    title: 'Frieren: Beyond Journey’s End'
+    year: 2023
+    medium: anime
+    format: serialized
+    scope:
+      version: MADHOUSE TV anime (38 eps, 2023-2026)
+      seasons:
+      - 1
+      - 2
+      numbering: broadcast
+      exclude:
+      - films
+      - OVAs, specials, and recaps
+      - source material beyond the adaptation
+      - 'Sousou no Frieren: ●● no Mahou (side story)'
+      - 'Sousou no Frieren: ●● no Mahou Part 2 (side story)'
+    role_tags: []
+    catalog_ref: anilist:154587
+  - title_id: attack_on_titan_2013
+    title: Attack on Titan
+    year: 2013
+    medium: anime
+    format: serialized
+    scope:
+      version: WIT STUDIO TV anime (87 eps, 2013-2022)
+      seasons:
+      - 1
+      - 2
+      - 3
+      - 4
+      - 5
+      - 6
+      numbering: broadcast
+      exclude:
+      - films
+      - OVAs, specials, and recaps
+      - source material beyond the adaptation
+      - Attack on Titan OVA (side story)
+      - 'Attack on Titan Part I: Crimson Bow and Arrow (alternative)'
+      - 'Attack on Titan Part II: Wings of Freedom (alternative)'
+      - 'Attack on Titan: Junior High (spin off)'
+    role_tags: []
+    catalog_ref: anilist:16498
+  - title_id: bleach_2004
+    title: Bleach
+    year: 2004
+    medium: anime
+    format: serialized
+    scope:
+      version: Studio Pierrot TV anime (366 eps, 2004-2012)
+      seasons:
+      - 1
+      numbering: broadcast
+      exclude:
+      - films
+      - OVAs, specials, and recaps
+      - source material beyond the adaptation
+      - 'BLEACH Colorful!: Gotei Juusan Yatai Daisakusen! (side story)'
+      - 'BLEACH: The Sealed Sword Frenzy (side story)'
+      - 'BLEACH: memories in the rain (alternative)'
+      - 'Bleach the Movie: Fade to Black (side story)'
+    role_tags: []
+    catalog_ref: anilist:269
+  - title_id: bleach_thousand_year_blood_war_2022
+    title: 'BLEACH: Thousand-Year Blood War'
+    year: 2022
+    medium: anime
+    format: serialized
+    scope:
+      version: Studio Pierrot TV anime (50 eps, 2022-2026)
+      seasons:
+      - 1
+      - 2
+      - 3
+      - 4
+      numbering: broadcast
+      exclude:
+      - films
+      - OVAs, specials, and recaps
+      - source material beyond the adaptation
+    role_tags: []
+    catalog_ref: anilist:116674
+  - title_id: one_piece_1999
+    title: ONE PIECE
+    year: 1999
+    medium: anime
+    format: serialized
+    scope:
+      version: Toei Animation TV anime (? eps, 1999-ongoing)
+      seasons:
+      - 1
+      numbering: broadcast
+      exclude:
+      - films
+      - OVAs, specials, and recaps
+      - source material beyond the adaptation
+      - CHOPPER's (spin off)
+      - Koisuru ONE PIECE (side story)
+      - 'ONE PIECE 3D: Gekisou! Trap Coaster (side story)'
+      - ONE PIECE FAN LETTER (side story)
+    role_tags: []
+    catalog_ref: anilist:21
+  - title_id: onigiri_2016
+    title: Onigiri
+    year: 2016
+    medium: anime
+    format: serialized
+    scope:
+      version: Studio Signpost TV anime (13 eps, 2016-2016)
+      seasons:
+      - 1
+      numbering: broadcast
+      exclude:
+      - films
+      - OVAs, specials, and recaps
+      - source material beyond the adaptation
+    role_tags: []
+    catalog_ref: anilist:21612
+  - title_id: chainsaw_man_2022
+    title: Chainsaw Man
+    year: 2022
+    medium: anime
+    format: serialized
+    scope:
+      version: MAPPA TV anime (12 eps, 2022-2022)
+      seasons:
+      - 1
+      numbering: broadcast
+      exclude:
+      - films
+      - OVAs, specials, and recaps
+      - source material beyond the adaptation
+      - Chainsaw Days (side story)
+    role_tags: []
+    catalog_ref: anilist:127230
+  - title_id: soul_eater_2008
+    title: Soul Eater
+    year: 2008
+    medium: anime
+    format: serialized
+    scope:
+      version: bones TV anime (51 eps, 2008-2009)
+      seasons:
+      - 1
+      numbering: broadcast
+      exclude:
+      - films
+      - OVAs, specials, and recaps
+      - source material beyond the adaptation
+      - Soul Eater Late Show (spin off)
+      - Soul Eater Not! (spin off)
+    role_tags: []
+    catalog_ref: anilist:3588
+  - title_id: vinland_saga_2019
+    title: Vinland Saga
+    year: 2019
+    medium: anime
+    format: serialized
+    scope:
+      version: WIT STUDIO TV anime (48 eps, 2019-2023)
+      seasons:
+      - 1
+      - 2
+      numbering: broadcast
+      exclude:
+      - films
+      - OVAs, specials, and recaps
+      - source material beyond the adaptation
+    role_tags: []
+    catalog_ref: anilist:101348
+  - title_id: berserk_1997
+    title: Berserk
+    year: 1997
+    medium: anime
+    format: serialized
+    scope:
+      version: OLM TV anime (25 eps, 1997-1998)
+      seasons:
+      - 1
+      numbering: broadcast
+      exclude:
+      - films
+      - OVAs, specials, and recaps
+      - source material beyond the adaptation
+      - 'Berserk: The Golden Age Arc - Memorial Edition (alternative)'
+      - 'Berserk: The Golden Age Arc I - The Egg of the King (alternative)'
+      - 'Berserk: The Golden Age Arc II - The Battle for Doldrey (alternative)'
+      - 'Berserk: The Golden Age Arc III - The Advent (alternative)'
+    role_tags: []
+    catalog_ref: anilist:33
+    partners:
+      nearest_neighbor: berserk_2016
+  - title_id: berserk_2016
+    title: Berserk
+    year: 2016
+    medium: anime
+    format: serialized
+    scope:
+      version: Millepensee TV anime (24 eps, 2016-2017)
+      seasons:
+      - 1
+      - 2
+      numbering: broadcast
+      exclude:
+      - films
+      - OVAs, specials, and recaps
+      - source material beyond the adaptation
+    role_tags: []
+    catalog_ref: anilist:21560
+    partners:
+      nearest_neighbor: berserk_1997
+  - title_id: code_geass_lelouch_of_the_rebellion_2006
+    title: 'Code Geass: Lelouch of the Rebellion'
+    year: 2006
+    medium: anime
+    format: serialized
+    scope:
+      version: Sunrise TV anime (50 eps, 2006-2008)
+      seasons:
+      - 1
+      - 2
+      numbering: broadcast
+      exclude:
+      - films
+      - OVAs, specials, and recaps
+      - source material beyond the adaptation
+      - 'Code Geass: Hangyaku no Lelouch - Lost Stories (side story)'
+      - 'Code Geass: Hangyaku no Lelouch - Seitokai Jikenbo (side story)'
+      - 'Code Geass: Hangyaku no Lelouch - Shu no Kiseki (side story)'
+      - 'Code Geass: Hangyaku no Lelouch Picture Drama (side story)'
+    role_tags: []
+    catalog_ref: anilist:1575
+  - title_id: puella_magi_madoka_magica_2011
+    title: Puella Magi Madoka Magica
+    year: 2011
+    medium: anime
+    format: serialized
+    scope:
+      version: Shaft TV anime (12 eps, 2011-2011)
+      seasons:
+      - 1
+      numbering: broadcast
+      exclude:
+      - films
+      - OVAs, specials, and recaps
+      - source material beyond the adaptation
+      - Akemi Homura wa Ashita kara Ganbaru! (spin off)
+      - Kaname-ke (spin off)
+      - 'Magia Record: Puella Magi Madoka Magica Side Story (spin off)'
+      - 'Puella Magi Madoka Magica the Movie Part 1: Beginnings (alternative)'
+    role_tags: []
+    catalog_ref: anilist:9756
+  - title_id: gurren_lagann_2007
+    title: Gurren Lagann
+    year: 2007
+    medium: anime
+    format: serialized
+    scope:
+      version: Gainax TV anime (27 eps, 2007-2007)
+      seasons:
+      - 1
+      numbering: broadcast
+      exclude:
+      - films
+      - OVAs, specials, and recaps
+      - source material beyond the adaptation
+      - 'Gurren Lagann The Movie: Childhood''s End (alternative)'
+      - 'Gurren Lagann The Movie: The Lights in the Sky are Stars (alternative)'
+      - 'Tengen Toppa Gurren Lagann 4-koma KINGDOM: Youko no Oheso-hen (spin off)'
+      - 'Tengen Toppa Gurren Lagann: Gurren Gakuen-hen (spin off)'
+    role_tags: []
+    catalog_ref: anilist:2001
+  - title_id: neon_genesis_evangelion_1995
+    title: Neon Genesis Evangelion
+    year: 1995
+    medium: anime
+    format: serialized
+    scope:
+      version: Gainax TV anime (26 eps, 1995-1996)
+      seasons:
+      - 1
+      numbering: broadcast
+      exclude:
+      - films
+      - OVAs, specials, and recaps
+      - source material beyond the adaptation
+      - 'Neon Genesis Evangelion: ANIMA (alternative)'
+      - 'Neon Genesis Evangelion: Legend of the Piko Piko Middle School Students (spin off)'
+      - 'Petit Eva: Evangelion@School (spin off)'
+    role_tags: []
+    catalog_ref: anilist:30
+  - title_id: cowboy_bebop_1998
+    title: Cowboy Bebop
+    year: 1998
+    medium: anime
+    format: serialized
+    scope:
+      version: Sunrise TV anime (26 eps, 1998-1999)
+      seasons:
+      - 1
+      numbering: broadcast
+      exclude:
+      - films
+      - OVAs, specials, and recaps
+      - source material beyond the adaptation
+      - 'Cowboy Bebop: The Movie - Knockin'' on Heaven''s Door (side story)'
+      - Ein's Summer Vacation (side story)
+    role_tags: []
+    catalog_ref: anilist:1
+  - title_id: samurai_champloo_2004
+    title: Samurai Champloo
+    year: 2004
+    medium: anime
+    format: serialized
+    scope:
+      version: Manglobe TV anime (26 eps, 2004-2005)
+      seasons:
+      - 1
+      numbering: broadcast
+      exclude:
+      - films
+      - OVAs, specials, and recaps
+      - source material beyond the adaptation
+    role_tags: []
+    catalog_ref: anilist:205
+  - title_id: jojo_s_bizarre_adventure_tv_2012
+    title: JoJo's Bizarre Adventure (TV)
+    year: 2012
+    medium: anime
+    format: serialized
+    scope:
+      version: david production TV anime (191 eps, 2012-2026)
+      seasons:
+      - 1
+      - 2
+      - 3
+      - 4
+      - 5
+      - 6
+      - 7
+      - 8
+      numbering: broadcast
+      exclude:
+      - films
+      - OVAs, specials, and recaps
+      - source material beyond the adaptation
+      - 'JoJo no Kimyou na Bouken: Phantom Blood (alternative)'
+    role_tags: []
+    catalog_ref: anilist:14719
+  - title_id: made_in_abyss_2017
+    title: Made in Abyss
+    year: 2017
+    medium: anime
+    format: serialized
+    scope:
+      version: Kinema Citrus TV anime (13 eps, 2017-2017)
+      seasons:
+      - 1
+      numbering: broadcast
+      exclude:
+      - films
+      - OVAs, specials, and recaps
+      - source material beyond the adaptation
+    role_tags: []
+    catalog_ref: anilist:97986
+  - title_id: fate_zero_2011
+    title: Fate/Zero
+    year: 2011
+    medium: anime
+    format: serialized
+    scope:
+      version: ufotable TV anime (51 eps, 2011-2015)
+      seasons:
+      - 1
+      - 2
+      - 3
+      - 4
+      numbering: broadcast
+      exclude:
+      - films
+      - OVAs, specials, and recaps
+      - source material beyond the adaptation
+      - Fate/Zero (alternative)
+      - 'Fate/Zero: Please! Einzbern Counseling Room (side story)'
+      - Fate/strange Fake -Whispers of Dawn- (spin off)
+    role_tags: []
+    catalog_ref: anilist:10087
+  - title_id: psycho_pass_2012
+    title: PSYCHO-PASS
+    year: 2012
+    medium: anime
+    format: serialized
+    scope:
+      version: Production I.G TV anime (33 eps, 2012-2014)
+      seasons:
+      - 1
+      - 2
+      numbering: broadcast
+      exclude:
+      - films
+      - OVAs, specials, and recaps
+      - source material beyond the adaptation
+      - High School Psycho Pass (spin off)
+      - 'PSYCHO-PASS 0: Namae no Nai Kaibutsu (side story)'
+    role_tags: []
+    catalog_ref: anilist:13601
+  - title_id: parasyte_the_maxim_2014
+    title: Parasyte -the maxim-
+    year: 2014
+    medium: anime
+    format: serialized
+    scope:
+      version: MADHOUSE TV anime (24 eps, 2014-2015)
+      seasons:
+      - 1
+      numbering: broadcast
+      exclude:
+      - films
+      - OVAs, specials, and recaps
+      - source material beyond the adaptation
+    role_tags: []
+    catalog_ref: anilist:20623
+  - title_id: death_note_2006
+    title: Death Note
+    year: 2006
+    medium: anime
+    format: serialized
+    scope:
+      version: MADHOUSE TV anime (37 eps, 2006-2007)
+      seasons:
+      - 1
+      numbering: broadcast
+      exclude:
+      - films
+      - OVAs, specials, and recaps
+      - source material beyond the adaptation
+    role_tags: []
+    catalog_ref: anilist:1535
+  - title_id: re_zero_starting_life_in_another_world_2016
+    title: Re:ZERO -Starting Life in Another World-
+    year: 2016
+    medium: anime
+    format: serialized
+    scope:
+      version: WHITE FOX TV anime (85 eps, 2016-2026)
+      seasons:
+      - 1
+      - 2
+      - 3
+      - 4
+      - 5
+      numbering: broadcast
+      exclude:
+      - films
+      - OVAs, specials, and recaps
+      - source material beyond the adaptation
+      - 'Re:PETIT ~Re: Starting Life in Another World From PETIT~ (spin off)'
+      - 'Re:ZERO -Starting Life in Another World- Chapter 1: A Day in the Capital (alternative)'
+      - 'Re:ZERO -Starting Life in Another World- Chapter 2: A Week at the Mansion (alternative)'
+      - 'Re:ZERO -Starting Life in Another World- Chapter 3: Truth of Zero (alternative)'
+    role_tags: []
+    catalog_ref: anilist:21355
+  - title_id: dan_da_dan_2024
+    title: DAN DA DAN
+    year: 2024
+    medium: anime
+    format: serialized
+    scope:
+      version: Science SARU TV anime (24 eps, 2024-2025)
+      seasons:
+      - 1
+      - 2
+      numbering: broadcast
+      exclude:
+      - films
+      - OVAs, specials, and recaps
+      - source material beyond the adaptation
+    role_tags: []
+    catalog_ref: anilist:171018
+  - title_id: cyberpunk_edgerunners_2022
+    title: 'Cyberpunk: Edgerunners'
+    year: 2022
+    medium: anime
+    format: serialized
+    scope:
+      version: TRIGGER TV anime (10 eps, 2022-2022)
+      seasons:
+      - 1
+      numbering: broadcast
+      exclude:
+      - films
+      - OVAs, specials, and recaps
+      - source material beyond the adaptation
+    role_tags: []
+    catalog_ref: anilist:120377
+  - title_id: ghost_in_the_shell_stand_alone_complex_2002
+    title: 'Ghost in the Shell: Stand Alone Complex'
+    year: 2002
+    medium: anime
+    format: serialized
+    scope:
+      version: Production I.G TV anime (52 eps, 2002-2005)
+      seasons:
+      - 1
+      - 2
+      numbering: broadcast
+      exclude:
+      - films
+      - OVAs, specials, and recaps
+      - source material beyond the adaptation
+      - Ghost in the Shell (alternative)
+      - 'Ghost in the Shell: Arise - Border:1 Ghost Pain (spin off)'
+      - 'Ghost in the Shell: Stand Alone Complex - Interval (side story)'
+      - 'Ghost in the Shell: Stand Alone Complex: Tachikomatic Days (side story)'
+    role_tags: []
+    catalog_ref: anilist:467
+  - title_id: steins_gate_2011
+    title: Steins;Gate
+    year: 2011
+    medium: anime
+    format: serialized
+    scope:
+      version: WHITE FOX TV anime (24 eps, 2011-2011)
+      seasons:
+      - 1
+      numbering: broadcast
+      exclude:
+      - films
+      - OVAs, specials, and recaps
+      - source material beyond the adaptation
+      - 'STEINS;GATE: Enkan Rensa no Uroborosu (alternative)'
+      - Steins;Gate (alternative)
+      - 'Steins;Gate 0: 23β -Divide by Zero- (alternative)'
+      - Steins;Gate The Movie – Load Region of Déjà Vu (side story)
+    role_tags: []
+    catalog_ref: anilist:9253
+  - title_id: kakegurui_2017
+    title: Kakegurui
+    year: 2017
+    medium: anime
+    format: serialized
+    scope:
+      version: MAPPA TV anime (24 eps, 2017-2019)
+      seasons:
+      - 1
+      - 2
+      numbering: broadcast
+      exclude:
+      - films
+      - OVAs, specials, and recaps
+      - source material beyond the adaptation
+      - Kakegurui Twin (spin off)
+    role_tags: []
+    catalog_ref: anilist:98314
+  - title_id: clevatess_2025
+    title: Clevatess
+    year: 2025
+    medium: anime
+    format: serialized
+    scope:
+      version: Lay-duce TV anime (25 eps, 2025-2026)
+      seasons:
+      - 1
+      - 2
+      numbering: broadcast
+      exclude:
+      - films
+      - OVAs, specials, and recaps
+      - source material beyond the adaptation
+    role_tags: []
+    catalog_ref: anilist:178869
