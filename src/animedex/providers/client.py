@@ -286,6 +286,7 @@ class LLMClient:
                                  cache_write_tokens=resp.usage.cache_write_tokens,
                                  cost_usd=cost, user=attempt_user, response=resp.text, meta=cli_meta, timing=timing,
                                  error=f"substituted: served by {resp.model}" if substituted else None)
+            data: dict[str, Any] | None = None
             try:
                 data = parse_json(resp.text)
                 run_validate(validate, data, kept)
@@ -294,10 +295,40 @@ class LLMClient:
                 if attempt == 0:
                     attempt_user = user + REPAIR_SUFFIX.format(error=str(exc)[:800])
                     continue
-                raise InvalidOutput(errors, resp.text) from exc
+                fixed = self._length_repair(ctx, params, data, str(exc), validate, kept) if data is not None else None
+                if fixed is None:
+                    raise InvalidOutput(errors, resp.text) from exc
+                data, usage = fixed
+                total = total + usage
             if not substituted:  # a fallback answer is never cached: reruns retry the requested model
                 self.cache.put(ctx.pass_, key, {"json": data, "model": resp.model, "usage": asdict(total),
                                                 "provider": self.provider_name, "identity": self.identity,
                                                 "meta": kept})
             return Completion(data, total, resp.model, key, False, substituted, self.identity, kept)
         raise AssertionError("unreachable")  # pragma: no cover
+
+    def _length_repair(self, ctx: CallContext, params: dict[str, Any] | None, data: dict[str, Any], error: str,
+                       validate: Callable[..., Any] | None, kept: dict[str, Any]) -> tuple[dict[str, Any], Usage] | None:
+        """The last resort before quarantine (D-030): when every remaining problem is a text over its word
+        cap, one short call rewrites just those texts; the result must pass the same validation."""
+        from animedex.providers import length_repair as lr
+        from animedex.store.cache import upstream_hash
+
+        items = lr.targets(data, error)
+        if not items:
+            return None
+        user, schema = lr.request(items)
+        sub = CallContext(pass_=ctx.pass_, record_id=f"{ctx.record_id}.shorten", title_id=ctx.title_id,
+                          episode_id=ctx.episode_id,
+                          upstream=upstream_hash([{"shorten": [[lr.dotted(p), t, c] for p, t, c in items]}]))
+        try:
+            done = self.complete_ex(lr.SYSTEM, user, schema, params, ctx=sub,
+                                    validate=lambda out: lr.check(items, out))
+        except InvalidOutput:
+            return None
+        fixed = lr.apply(data, items, done.data)
+        try:
+            run_validate(validate, fixed, kept)
+        except (ValueError, ValidationError):
+            return None
+        return fixed, done.usage

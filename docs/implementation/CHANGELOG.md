@@ -1,5 +1,8 @@
 # Changelog — docs/implementation
 
+## Length repair for every stage — 2026-09-27
+- **D-030.** `providers/length_repair.py`: the client's last resort before quarantine. When the repaired output still fails only on word caps, one `<record>.shorten` call rewrites just the named texts; the result is validated again (guards included) and cached under the original key. P1 and INTERPRET keep their own earlier shorten step.
+
 ## v1.7 comparison — 2026-09-27
 - **Report:** `reports/V17_COMPARISON.md`. Gather-first is 25% faster per title (6m 32s → 4m 54s), retries fell from 39 to 3, gold enum agreement rose from 0.73 to 0.96 on M2's fields, and 36% of values carry a web source (was 10%). The effort A/B keeps INTERPRET at medium (D-029).
 - **`animedex eval`:** the recall-first P1 agreement line no longer compares gather-first gold profiles with recall-first second runs; it says it is superseded and points to the kappa gate.
