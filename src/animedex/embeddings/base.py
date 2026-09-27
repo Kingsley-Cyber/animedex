@@ -104,12 +104,16 @@ class PolymathEmbedder:
                 resp = self._client.post("/infer", json={"texts": chunk, "representation_kind": "child_chunk"})
             except httpx.HTTPError as exc:
                 raise EmbedderUnavailable(f"Polymath's embedder at {self.where} stopped answering "
-                                          f"({type(exc).__name__}). Start it, {AGAIN}") from None
+                                          f"({type(exc).__name__}). Make sure it is running, {AGAIN}") from None
             if resp.status_code != 200:
                 raise EmbedderUnavailable(f"Polymath's embedder at {self.where} refused the request "
-                                          f"(HTTP {resp.status_code}). Check it's ready, {AGAIN}")
-            body = resp.json()
-            vectors, dim = body.get("vectors") or [], body.get("dimension")
+                                          f"(HTTP {resp.status_code}). Check it is ready, {AGAIN}")
+            try:
+                body = resp.json()
+                vectors, dim = body.get("vectors") or [], body.get("dimension")
+            except (ValueError, AttributeError):
+                raise EmbedderUnavailable(f"Polymath's embedder at {self.where} answered without vectors; "
+                                          "nothing was used.") from None
             if len(vectors) != len(chunk) or (dim and any(len(v) != dim for v in vectors)):
                 raise EmbedderUnavailable(f"Polymath's embedder at {self.where} returned {len(vectors)} vectors "
                                           f"for {len(chunk)} texts (dimension {dim}); nothing was used.")
@@ -120,7 +124,7 @@ class PolymathEmbedder:
 def _ollama_error(resp: httpx.Response) -> str:
     try:
         err = resp.json().get("error")
-    except ValueError:
+    except (ValueError, AttributeError):
         return resp.text
     return str(err.get("message") if isinstance(err, dict) else err or "")
 

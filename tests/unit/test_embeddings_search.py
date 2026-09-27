@@ -189,7 +189,7 @@ def test_polymath_failing_mid_run_stops_instead_of_switching_backends():
     services = Services()
     emb = PolymathEmbedder(f"http://{POLYMATH}", QWEN, transport=httpx.MockTransport(services))
     services.polymath = "down"
-    with pytest.raises(EmbedderUnavailable, match="Polymath's embedder at 127.0.0.1:8742 stopped answering"):
+    with pytest.raises(EmbedderUnavailable, match="Polymath.s embedder at 127.0.0.1:8742 stopped answering .ConnectError.. Make sure it is running"):
         emb.embed(["a premise"])
     assert 11434 not in services.ports()
 
