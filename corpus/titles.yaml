@@ -105,11 +105,11 @@ titles:
     medium: anime
     format: serialized
     scope:
-      version: "MAPPA TV anime, season 1 (24 eps, 2020-10 to 2021-03)"   # en.wikipedia.org/wiki/Jujutsu_Kaisen_season_1
-      seasons: [1]
+      version: "MAPPA TV anime, seasons 1-3 (59 eps, 2020-10 to 2026)"   # full aired run (owner ruling 2026-09-27); AniList 113415
+      seasons: [1, 2, 3]
       numbering: broadcast
-      exclude: ["cast special 13.5", "Juju Sanpo post-credit shorts", "season 2 onward", "Jujutsu Kaisen 0 film and prequel manga",
-                "compilation films", "manga beyond season 1", "Jujutsu Kaisen Modulo", "novels, stage plays, games"]
+      exclude: ["cast special 13.5", "Juju Sanpo post-credit shorts", "Jujutsu Kaisen 0 film and prequel manga",
+                "compilation films", "manga beyond the aired seasons", "Jujutsu Kaisen Modulo", "novels, stage plays, games"]
     role_tags: [contrast]
   - title_id: demon_slayer_kimetsu_no_yaiba_2019
     title: "Demon Slayer: Kimetsu no Yaiba"
@@ -117,11 +117,11 @@ titles:
     medium: anime
     format: serialized
     scope:
-      version: "ufotable TV anime, season 1 (26 eps, 2019-04 to 2019-09)"   # en.wikipedia.org/wiki/Demon_Slayer:_Kimetsu_no_Yaiba_season_1
-      seasons: [1]
+      version: "ufotable TV anime, seasons 1-5 (63 eps, 2019-04 to 2024)"   # full aired TV run (owner ruling 2026-09-27); AniList 101922
+      seasons: [1, 2, 3, 4, 5]
       numbering: broadcast
-      exclude: ["Sibling's Bond screening and compilation re-edits", "Mugen Train arc and film", "later arcs",
-                "compilation and Infinity Castle films", "Kimetsu Gakuen shorts", "manga after chapter 54", "spin-off manga",
+      exclude: ["Sibling's Bond screening and compilation re-edits", "Mugen Train film (the TV arc version is in scope)",
+                "Infinity Castle films and the story after the TV run", "Kimetsu Gakuen shorts", "spin-off manga",
                 "light novels, stage plays, games"]
     role_tags: [contrast]
   - title_id: mob_psycho_100_2016
@@ -130,11 +130,10 @@ titles:
     medium: anime
     format: hybrid
     scope:
-      version: "Bones TV anime, season 1 (12 eps, 2016-07 to 2016-09)"   # en.wikipedia.org/wiki/List_of_Mob_Psycho_100_episodes
-      seasons: [1]
+      version: "Bones TV anime, seasons 1-3 (37 eps, 2016-07 to 2022-12)"   # full completed run (owner ruling 2026-09-27); AniList 21507
+      seasons: [1, 2, 3]
       numbering: broadcast
-      exclude: ["Mob Psycho 100 II and III", "OVAs and specials", "live-action drama", "stage plays",
-                "Reigen spin-off manga", "manga beyond season 1"]
+      exclude: ["OVAs and specials", "Mob Psycho mini", "live-action drama", "stage plays", "Reigen spin-off manga"]
     role_tags: [contrast]
   - title_id: avatar_the_last_airbender_2005
     title: "Avatar: The Last Airbender"
@@ -142,11 +141,11 @@ titles:
     medium: western_animation
     format: hybrid
     scope:
-      version: "Nickelodeon animated series, Book One: Water (20 eps, 2005)"   # en.wikipedia.org/wiki/Avatar:_The_Last_Airbender_season_1
-      seasons: [1]
+      version: "Nickelodeon animated series, Books One-Three (61 eps, 2005-02 to 2008-07)"   # full completed run (owner ruling 2026-09-27); TVmaze 555
+      seasons: [1, 2, 3]
       numbering: broadcast
-      exclude: ["unaired pilot", "recap episodes and shorts", "Books Two and Three", "The Legend of Korra",
-                "2010 live-action film", "Netflix live-action series", "later films and series", "comics and novels"]
+      exclude: ["unaired pilot", "recap episodes and shorts", "The Legend of Korra", "2010 live-action film",
+                "Netflix live-action series", "later films, series and specials", "comics and novels"]
     role_tags: [contrast]
   - title_id: invincible_2021
     title: Invincible
@@ -154,10 +153,10 @@ titles:
     medium: adult_animation
     format: serialized
     scope:
-      version: "Amazon Prime Video animated series, season 1 (8 eps, 2021)"   # en.wikipedia.org/wiki/Invincible_season_1
-      seasons: [1]
+      version: "Amazon Prime Video animated series, seasons 1-4 (32 eps, 2021-03 to 2026-04)"   # full aired run (owner ruling 2026-09-27); TVmaze 37196
+      seasons: [1, 2, 3, 4]
       numbering: streaming
-      exclude: ["season 2 onward", "Atom Eve special", "Image Comics series", "live-action film"]
+      exclude: ["season 5 onward (not yet aired)", "Atom Eve special", "Image Comics series", "live-action film"]
     role_tags: [contrast]
   - title_id: the_boys_2019
     title: The Boys
@@ -165,9 +164,8 @@ titles:
     medium: live_action
     format: serialized
     scope:
-      version: "Amazon Prime Video series, season 1 (8 eps, 2019)"   # en.wikipedia.org/wiki/The_Boys_season_1
-      seasons: [1]
+      version: "Amazon Prime Video series, seasons 1-5 (40 eps, 2019-07 to 2026-05)"   # full completed run (owner ruling 2026-09-27); TVmaze 15299
+      seasons: [1, 2, 3, 4, 5]
       numbering: streaming
-      exclude: ["seasons 2 to 5", "Gen V, Vought Rising, The Boys: Mexico, Diabolical", "shorts and web series",
-                "podcast", "comics"]
+      exclude: ["Gen V, Vought Rising, The Boys: Mexico, Diabolical", "shorts and web series", "podcast", "comics"]
     role_tags: [contrast]

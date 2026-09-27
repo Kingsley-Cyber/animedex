@@ -38,9 +38,11 @@ A series defaults to its full completed run, all aired seasons. Avatar, Jujutsu 
 - INTERPRET runs on `claude-opus-5-5` at effort **medium**.
 - An **effort A/B** (medium vs high) runs on 3 titles for gather-first P1 and INTERPRET. It reports agreement and time.
 
-## 2. Embeddings: Qwen3-Embedding-0.6B on local Ollama
-- Switch `embeddings` from `mxbai-embed-large` to `qwen3-embedding:0.6b` from the Ollama library (639 MB). It runs locally, so ANIMEDEX doesn't depend on Polymath's server. This is the one allowed local model; all generation and analysis stay on the subscriptions.
-- If Ollama isn't running, the command stops with: "Ollama is not running. Start it (open the Ollama app, or run `ollama serve`), then run the same command again."
+## 2. Embeddings: Qwen3-Embedding-0.6B (owner decision 2026-09-27: Polymath's GPU copy first, Ollama as fallback)
+- **Primary:** Polymath's embedder sidecar at `127.0.0.1:8742` (`POST /infer`). It already runs the same model (Qwen/Qwen3-Embedding-0.6B) at full precision on the Mac GPU, so ANIMEDEX adds no second copy and no GPU contention. Requests carry no priority header, so they run at background priority and never get ahead of Polymath's interactive work.
+- **Fallback:** the local Ollama copy `qwen3-embedding:0.6b` (pulled 2026-09-27, 639 MB, loaded only when used). A run picks one backend at start and never mixes them.
+- If neither is up, the command stops with a clear message naming both.
+- **Recalibration** runs on the primary. When the fallback is reachable, it also reports the largest per-pair difference between the two backends.
 - **Recalibrate:** score about 10 known-similar and 10 known-different premise pairs, then propose new clone thresholds (today: cosine ≥ .90 with structural ≥ .55). Each model scores on its own scale. The proposal shows every pair's score; Kingsley approves the numbers.
 - Title vectors are embedded fresh on every IDEATE run and never stored, so old vectors can't mix in.
 
