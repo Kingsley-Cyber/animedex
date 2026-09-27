@@ -1,0 +1,902 @@
+{
+  "record": {
+    "title_id": "mob_psycho_100_2016",
+    "title": "Mob Psycho 100",
+    "year": 2016,
+    "medium": "anime",
+    "format": "hybrid",
+    "scope": {
+      "version": "Bones TV anime, seasons 1-3 (37 eps, 2016-07 to 2022-12)",
+      "seasons": [
+        1,
+        2,
+        3
+      ],
+      "numbering": "broadcast",
+      "exclude": [
+        "OVAs and specials",
+        "Mob Psycho mini",
+        "live-action drama",
+        "stage plays",
+        "Reigen spin-off manga"
+      ]
+    },
+    "role_tags": [
+      "contrast"
+    ],
+    "modules_active": [
+      "power_combat",
+      "relationships",
+      "sensory",
+      "anime_production",
+      "series_engine",
+      "comedy_satire"
+    ],
+    "provenance": {
+      "run_id": "run_20260927_075832_251846",
+      "pass": "P1",
+      "model": "claude_cli@2.1.283/claude-opus-5-5",
+      "prompt_version": "1.0.0+p1-1.3.0+4bb66d85+b8e85bb5",
+      "schema_version": "1.4.0",
+      "vocab_version": "1.5.0",
+      "cache_key": "sha256:39a22a356e6d60ede29267fd6007d40a51778cadd0c35a059ca471a4bd9fdb5b",
+      "created_at": "2026-09-27T08:00:10.613156+00:00"
+    },
+    "core": {
+      "logline_hook": {
+        "value": "The world's strongest psychic boy just wants a normal life, working for a con-man medium.",
+        "conf": 0.85,
+        "uncertainty_reason": null,
+        "source": "recall",
+        "verification": "not_required",
+        "source_ref": null,
+        "epistemic": "derived"
+      },
+      "core_question": {
+        "value": "Does special power make you special, or does worth come from who you choose to be?",
+        "conf": 0.85,
+        "uncertainty_reason": null,
+        "source": "recall",
+        "verification": "not_required",
+        "source_ref": null,
+        "epistemic": "interpretive"
+      },
+      "premise_engine": {
+        "value": "A suppressed boy's emotions build toward psychic explosions while he chases ordinary growth and odd exorcism jobs.",
+        "conf": 0.8,
+        "uncertainty_reason": null,
+        "source": "recall",
+        "verification": "not_required",
+        "source_ref": null,
+        "epistemic": "derived"
+      },
+      "primary_feeling": {
+        "value": "warm cathartic growth punctuated by explosive release",
+        "conf": 0.8,
+        "uncertainty_reason": null,
+        "source": "recall",
+        "verification": "not_required",
+        "source_ref": null,
+        "epistemic": "interpretive"
+      },
+      "tone": {
+        "value": "deadpan comedy shifting to sincere, psychedelic action drama",
+        "conf": 0.8,
+        "uncertainty_reason": null,
+        "source": "recall",
+        "verification": "not_required",
+        "source_ref": null,
+        "epistemic": "interpretive"
+      },
+      "want_vs_need": {
+        "value": "Wants to be popular and normal; needs to accept his emotions and whole self, powers included.",
+        "conf": 0.8,
+        "uncertainty_reason": null,
+        "source": "web",
+        "verification": "gathered",
+        "source_ref": "https://lostinanime.com/2022/12/mob-psycho-100-iii-12-end-and-series-review/",
+        "epistemic": "interpretive"
+      },
+      "flaw": {
+        "value": "bottles up emotions and suppresses his own feelings",
+        "conf": 0.8,
+        "uncertainty_reason": null,
+        "source": "web",
+        "verification": "gathered",
+        "source_ref": "https://en.wikipedia.org/wiki/Mob_Psycho_100",
+        "epistemic": "interpretive",
+        "condition": "shows when provoked, cornered, or hurt until the counter hits 100%"
+      },
+      "moral_line": {
+        "value": "will not use psychic power to hurt people or force outcomes",
+        "conf": 0.8,
+        "uncertainty_reason": null,
+        "source": "recall",
+        "verification": "not_required",
+        "source_ref": null,
+        "epistemic": "derived",
+        "condition": "crossed only when loved ones are endangered or emotions overflow"
+      },
+      "central_opposition": {
+        "value": "elitist espers who believe power makes them superior, plus Mob's suppressed self",
+        "conf": 0.8,
+        "uncertainty_reason": null,
+        "source": "web",
+        "verification": "gathered",
+        "source_ref": "https://en.wikipedia.org/wiki/List_of_Mob_Psycho_100_characters",
+        "epistemic": "interpretive"
+      },
+      "opposition_logic": {
+        "value": "They treat psychic power as proof of superiority and a right to rule ordinary people.",
+        "conf": 0.8,
+        "uncertainty_reason": null,
+        "source": "web",
+        "verification": "gathered",
+        "source_ref": "https://en.wikipedia.org/wiki/List_of_Mob_Psycho_100_characters",
+        "epistemic": "interpretive"
+      },
+      "stakes_clock": {
+        "value": "Mob's emotional meter fills toward uncontrolled release; late arcs threaten the whole city.",
+        "conf": 0.7,
+        "uncertainty_reason": null,
+        "source": "web",
+        "verification": "gathered",
+        "source_ref": "https://en.wikipedia.org/wiki/Mob_Psycho_100",
+        "epistemic": "derived"
+      },
+      "world_rules": {
+        "value": "Espers are born with rare psychic power; strong emotion amplifies it past control.",
+        "conf": 0.8,
+        "uncertainty_reason": null,
+        "source": "web",
+        "verification": "gathered",
+        "source_ref": "https://en.wikipedia.org/wiki/Mob_Psycho_100",
+        "epistemic": "observed"
+      },
+      "borrowed_template": {
+        "value": "shonen battle power-fantasy with an overpowered hero",
+        "conf": 0.8,
+        "uncertainty_reason": null,
+        "source": "recall",
+        "verification": "not_required",
+        "source_ref": null,
+        "epistemic": "interpretive"
+      },
+      "broken_rule": {
+        "value": "The strongest hero considers power unimportant; growth happens as a person, not in strength.",
+        "conf": 0.85,
+        "uncertainty_reason": null,
+        "source": "recall",
+        "verification": "not_required",
+        "source_ref": null,
+        "epistemic": "interpretive"
+      },
+      "unserved_appetite": {
+        "value": "a gentle, emotionally honest coming-of-age wrapped in spectacular psychic action",
+        "conf": 0.75,
+        "uncertainty_reason": null,
+        "source": "recall",
+        "verification": "not_required",
+        "source_ref": null,
+        "epistemic": "interpretive"
+      },
+      "central_mystery": {
+        "value": "What is the part of Mob that acts on its own when he blacks out?",
+        "conf": 0.55,
+        "uncertainty_reason": "more a latent threat than a sustained mystery",
+        "source": "recall",
+        "verification": "not_required",
+        "source_ref": null,
+        "epistemic": "interpretive"
+      },
+      "knowledge_gap": {
+        "value": "Viewers know Reigen has no powers while Mob trusts him; Mob doesn't remember what his blackouts do.",
+        "conf": 0.75,
+        "uncertainty_reason": null,
+        "source": "web",
+        "verification": "gathered",
+        "source_ref": "https://en.wikipedia.org/wiki/Mob_Psycho_100",
+        "epistemic": "derived"
+      },
+      "reveal_cadence": {
+        "value": "sparse, arc-ending emotional reveals rather than frequent plot twists",
+        "conf": 0.6,
+        "uncertainty_reason": "cadence inferred from arc structure",
+        "source": "recall",
+        "verification": "not_required",
+        "source_ref": null,
+        "epistemic": "interpretive"
+      },
+      "outcome": {
+        "value": "hit",
+        "conf": 0.95,
+        "uncertainty_reason": null,
+        "source": "web",
+        "verification": "gathered",
+        "source_ref": "https://anilist.co/anime/21507",
+        "epistemic": "external_metric"
+      },
+      "story_engine": {
+        "value": "other:emotional coming-of-age arcs",
+        "conf": 0.6,
+        "uncertainty_reason": "blend of episodic jobs and serialized arcs",
+        "source": "recall",
+        "verification": "not_required",
+        "source_ref": null,
+        "epistemic": "interpretive"
+      },
+      "story_engine_secondary": {
+        "value": "monster_of_the_week",
+        "conf": 0.55,
+        "uncertainty_reason": "episodic spirit jobs dominate early episodes only",
+        "source": "recall",
+        "verification": "not_required",
+        "source_ref": null,
+        "epistemic": "derived"
+      },
+      "pilot_hook_type": {
+        "value": "cold_open_action",
+        "conf": 0.5,
+        "uncertainty_reason": "pilot mixes exorcism action with comedic premise setup",
+        "source": "recall",
+        "verification": "not_required",
+        "source_ref": null,
+        "epistemic": "observed"
+      },
+      "ending_type": {
+        "value": "bittersweet",
+        "conf": 0.9,
+        "uncertainty_reason": null,
+        "source": "web",
+        "verification": "gathered",
+        "source_ref": "https://readysteadycut.com/2022/11/30/mob-psycho-100-season-3-review/",
+        "epistemic": "observed"
+      },
+      "setting_type": {
+        "value": "modern_urban",
+        "conf": 0.95,
+        "uncertainty_reason": null,
+        "source": "web",
+        "verification": "gathered",
+        "source_ref": "https://en.wikipedia.org/wiki/Mob_Psycho_100",
+        "epistemic": "observed"
+      },
+      "world_visibility": {
+        "value": "hidden",
+        "conf": 0.8,
+        "uncertainty_reason": null,
+        "source": "web",
+        "verification": "gathered",
+        "source_ref": "https://en.wikipedia.org/wiki/Mob_Psycho_100",
+        "epistemic": "observed"
+      },
+      "conflict_scale": {
+        "value": "local",
+        "conf": 0.8,
+        "uncertainty_reason": null,
+        "source": "web",
+        "verification": "gathered",
+        "source_ref": "https://en.wikipedia.org/wiki/List_of_Mob_Psycho_100_episodes",
+        "epistemic": "observed"
+      },
+      "institutions": {
+        "value": [
+          {
+            "name": "Claw",
+            "role": "esper syndicate seeking to rule ordinary people",
+            "type": "criminal_org"
+          },
+          {
+            "name": "Spirits and Such consultation office",
+            "role": "Reigen's fraud business giving Mob jobs and guidance",
+            "type": "other"
+          },
+          {
+            "name": "Awakening Lab / Divine Tree cult",
+            "role": "Dimple's movement chasing godhood through mass belief",
+            "type": "religious"
+          }
+        ],
+        "conf": 0.75,
+        "uncertainty_reason": null,
+        "source": "web",
+        "verification": "gathered",
+        "source_ref": "https://en.wikipedia.org/wiki/List_of_Mob_Psycho_100_characters",
+        "epistemic": "observed"
+      },
+      "mc_archetype": {
+        "value": "already_overpowered",
+        "conf": 0.9,
+        "uncertainty_reason": null,
+        "source": "web",
+        "verification": "gathered",
+        "source_ref": "https://en.wikipedia.org/wiki/Mob_Psycho_100",
+        "epistemic": "observed"
+      },
+      "mc_start": {
+        "value": "overpowered",
+        "conf": 0.9,
+        "uncertainty_reason": null,
+        "source": "web",
+        "verification": "gathered",
+        "source_ref": "https://en.wikipedia.org/wiki/Mob_Psycho_100",
+        "epistemic": "observed"
+      },
+      "mc_goal_type": {
+        "value": "other:become a better, ordinary person",
+        "conf": 0.75,
+        "uncertainty_reason": null,
+        "source": "recall",
+        "verification": "not_required",
+        "source_ref": null,
+        "epistemic": "interpretive"
+      },
+      "ensemble_size": {
+        "value": "duo",
+        "conf": 0.6,
+        "uncertainty_reason": "large supporting cast around the central pair",
+        "source": "recall",
+        "verification": "not_required",
+        "source_ref": null,
+        "epistemic": "interpretive"
+      },
+      "rival_type": {
+        "value": "friend_rival",
+        "conf": 0.7,
+        "uncertainty_reason": null,
+        "source": "recall",
+        "verification": "not_required",
+        "source_ref": null,
+        "epistemic": "derived"
+      },
+      "threat_structure": {
+        "value": "escalating_ladder",
+        "conf": 0.7,
+        "uncertainty_reason": null,
+        "source": "recall",
+        "verification": "not_required",
+        "source_ref": null,
+        "epistemic": "derived"
+      },
+      "thematic_argument": {
+        "value": {
+          "antithesis_villain": "espers are superior and should rule the powerless",
+          "resolution": "accepting every part of yourself, flaws included, lets you face rejection and keep growing",
+          "thesis_mc": "power doesn't make you better; kindness and effort do"
+        },
+        "conf": 0.8,
+        "uncertainty_reason": null,
+        "source": "web",
+        "verification": "gathered",
+        "source_ref": "https://lostinanime.com/2022/12/mob-psycho-100-iii-12-end-and-series-review/",
+        "epistemic": "interpretive"
+      },
+      "audience_promise": {
+        "value": "overwhelming psychic spectacle that serves a tender story of growing up",
+        "conf": 0.8,
+        "uncertainty_reason": null,
+        "source": "recall",
+        "verification": "not_required",
+        "source_ref": null,
+        "epistemic": "interpretive"
+      },
+      "promise_mechanism": {
+        "value": "the on-screen percentage meter builds tension toward cathartic explosions tied to emotional beats",
+        "conf": 0.8,
+        "uncertainty_reason": null,
+        "source": "recall",
+        "verification": "not_required",
+        "source_ref": null,
+        "epistemic": "derived"
+      },
+      "promise_break": {
+        "value": null,
+        "conf": 0.0,
+        "uncertainty_reason": "title is a hit; no documented break",
+        "source": "recall",
+        "verification": "not_required",
+        "source_ref": null,
+        "epistemic": "observed"
+      },
+      "escalation_model": {
+        "value": "stakes_over_power",
+        "conf": 0.75,
+        "uncertainty_reason": null,
+        "source": "recall",
+        "verification": "not_required",
+        "source_ref": null,
+        "epistemic": "interpretive"
+      },
+      "anticipation_hooks": {
+        "value": [
+          {
+            "hook": "Mob's meter reaching 100% and exploding",
+            "type": "next_form"
+          },
+          {
+            "hook": "Reigen's fraud being exposed to Mob",
+            "type": "promised_payoff"
+          },
+          {
+            "hook": "Mob confessing his feelings to Tsubomi",
+            "type": "promised_payoff"
+          }
+        ],
+        "conf": 0.75,
+        "uncertainty_reason": null,
+        "source": "recall",
+        "verification": "not_required",
+        "source_ref": null,
+        "epistemic": "interpretive"
+      },
+      "premise_abstraction": {
+        "value": "An immensely powerful but repressed teenager works for a fraudulent mentor while learning emotional self-acceptance.",
+        "conf": 0.85,
+        "uncertainty_reason": null,
+        "source": "recall",
+        "verification": "not_required",
+        "source_ref": null,
+        "epistemic": "derived"
+      },
+      "real_world_isomorphism": {
+        "value": "adolescent emotional repression and the pressure of giftedness",
+        "conf": 0.7,
+        "uncertainty_reason": null,
+        "source": "recall",
+        "verification": "not_required",
+        "source_ref": null,
+        "epistemic": "interpretive"
+      },
+      "core_fantasy": {
+        "value": [
+          "secret_strength",
+          "found_family",
+          "other:self-acceptance"
+        ],
+        "conf": 0.7,
+        "uncertainty_reason": null,
+        "source": "recall",
+        "verification": "not_required",
+        "source_ref": null,
+        "epistemic": "interpretive"
+      },
+      "genre_move": {
+        "value": "subversion",
+        "conf": 0.85,
+        "uncertainty_reason": null,
+        "source": "recall",
+        "verification": "not_required",
+        "source_ref": null,
+        "epistemic": "interpretive"
+      },
+      "reacts_against": {
+        "value": "shonen power fantasies where strength equals worth",
+        "conf": 0.8,
+        "uncertainty_reason": null,
+        "source": "recall",
+        "verification": "not_required",
+        "source_ref": null,
+        "epistemic": "interpretive"
+      }
+    },
+    "power_combat": {
+      "power_source": {
+        "value": "innate psychic esper abilities amplified by emotion",
+        "conf": 0.85,
+        "uncertainty_reason": null,
+        "source": "web",
+        "verification": "gathered",
+        "source_ref": "https://en.wikipedia.org/wiki/Mob_Psycho_100",
+        "epistemic": "observed"
+      },
+      "gate": {
+        "value": "innate",
+        "conf": 0.85,
+        "uncertainty_reason": null,
+        "source": "web",
+        "verification": "gathered",
+        "source_ref": "https://en.wikipedia.org/wiki/Mob_Psycho_100",
+        "epistemic": "observed"
+      },
+      "progression": {
+        "value": "hybrid",
+        "conf": 0.7,
+        "uncertainty_reason": null,
+        "source": "web",
+        "verification": "gathered",
+        "source_ref": "https://en.wikipedia.org/wiki/Mob_Psycho_100",
+        "epistemic": "derived"
+      },
+      "cost_of_power": {
+        "value": "self_imposed_restriction",
+        "conf": 0.7,
+        "uncertainty_reason": "Mob's restraint is more ethical vow than strength-boosting limit",
+        "source": "web",
+        "verification": "gathered",
+        "source_ref": "https://en.wikipedia.org/wiki/Mob_Psycho_100",
+        "epistemic": "derived"
+      },
+      "cost_of_power_secondary": {
+        "value": "identity_or_humanity",
+        "conf": 0.5,
+        "uncertainty_reason": "blackout states suggest a loss of self, weighting unclear",
+        "source": "recall",
+        "verification": "unverified",
+        "source_ref": null,
+        "epistemic": "interpretive"
+      },
+      "visible_counter": {
+        "value": "gauge",
+        "conf": 0.9,
+        "uncertainty_reason": null,
+        "source": "web",
+        "verification": "gathered",
+        "source_ref": "https://en.wikipedia.org/wiki/Mob_Psycho_100",
+        "epistemic": "observed"
+      },
+      "ranking_ladder": {
+        "value": "Claw's Scars and Ultimate 5 elite esper ranks",
+        "conf": 0.7,
+        "uncertainty_reason": null,
+        "source": "web",
+        "verification": "gathered",
+        "source_ref": "https://en.wikipedia.org/wiki/List_of_Mob_Psycho_100_characters",
+        "epistemic": "observed"
+      },
+      "fight_medium": {
+        "value": "energy",
+        "conf": 0.85,
+        "uncertainty_reason": null,
+        "source": "web",
+        "verification": "gathered",
+        "source_ref": "https://en.wikipedia.org/wiki/Mob_Psycho_100",
+        "epistemic": "observed"
+      },
+      "signature_technique": {
+        "value": "overwhelming psychokinesis and barriers unleashed at emotional 100%",
+        "conf": 0.85,
+        "uncertainty_reason": null,
+        "source": "web",
+        "verification": "gathered",
+        "source_ref": "https://en.wikipedia.org/wiki/Mob_Psycho_100",
+        "epistemic": "observed"
+      },
+      "mc_edge": {
+        "value": "biggest_number",
+        "conf": 0.7,
+        "uncertainty_reason": null,
+        "source": "recall",
+        "verification": "not_required",
+        "source_ref": null,
+        "epistemic": "derived"
+      },
+      "power_embodiment": {
+        "value": "energy_or_technique",
+        "conf": 0.85,
+        "uncertainty_reason": null,
+        "source": "web",
+        "verification": "gathered",
+        "source_ref": "https://en.wikipedia.org/wiki/Mob_Psycho_100",
+        "epistemic": "observed"
+      },
+      "set_structure": {
+        "value": "open_variety",
+        "conf": 0.75,
+        "uncertainty_reason": null,
+        "source": "web",
+        "verification": "gathered",
+        "source_ref": "https://en.wikipedia.org/wiki/Mob_Psycho_100",
+        "epistemic": "observed"
+      },
+      "subset_mechanics": {
+        "value": [
+          "specialization"
+        ],
+        "conf": 0.5,
+        "uncertainty_reason": "specialties like pyrokinesis loosely branch from psychokinesis",
+        "source": "recall",
+        "verification": "unverified",
+        "source_ref": null,
+        "epistemic": "interpretive"
+      },
+      "set_scaffold": {
+        "value": "none",
+        "conf": 0.8,
+        "uncertainty_reason": null,
+        "source": "web",
+        "verification": "gathered",
+        "source_ref": "https://en.wikipedia.org/wiki/Mob_Psycho_100",
+        "epistemic": "observed"
+      },
+      "member_depth": {
+        "value": "ability_only",
+        "conf": 0.7,
+        "uncertainty_reason": null,
+        "source": "recall",
+        "verification": "not_required",
+        "source_ref": null,
+        "epistemic": "derived"
+      },
+      "world_integration": {
+        "value": "decorative",
+        "conf": 0.55,
+        "uncertainty_reason": "powers hidden but Claw's power grab touches politics",
+        "source": "recall",
+        "verification": "not_required",
+        "source_ref": null,
+        "epistemic": "interpretive"
+      },
+      "rarity": {
+        "value": "rare",
+        "conf": 0.85,
+        "uncertainty_reason": null,
+        "source": "web",
+        "verification": "gathered",
+        "source_ref": "https://en.wikipedia.org/wiki/Mob_Psycho_100",
+        "epistemic": "observed"
+      },
+      "power_up_mode": {
+        "value": [
+          "staged_forms",
+          "awakening"
+        ],
+        "conf": 0.7,
+        "uncertainty_reason": "emotion-labelled 100% states are not formally named stages",
+        "source": "web",
+        "verification": "gathered",
+        "source_ref": "https://en.wikipedia.org/wiki/Mob_Psycho_100",
+        "epistemic": "observed"
+      },
+      "power_up_cost": {
+        "value": "loss of emotional control and consciousness; collateral destruction",
+        "conf": 0.7,
+        "uncertainty_reason": null,
+        "source": "recall",
+        "verification": "not_required",
+        "source_ref": null,
+        "epistemic": "derived"
+      },
+      "fight_logic": {
+        "value": [
+          "emotional_surge",
+          "power_level"
+        ],
+        "conf": 0.75,
+        "uncertainty_reason": null,
+        "source": "recall",
+        "verification": "not_required",
+        "source_ref": null,
+        "epistemic": "interpretive"
+      }
+    },
+    "relationships": {
+      "core_bond": {
+        "value": "Mob and his fraudulent but caring mentor Reigen",
+        "conf": 0.9,
+        "uncertainty_reason": null,
+        "source": "web",
+        "verification": "gathered",
+        "source_ref": "https://en.wikipedia.org/wiki/Mob_Psycho_100",
+        "epistemic": "observed"
+      },
+      "rival": {
+        "value": "Teru Hanazawa, the arrogant esper who contests whether power makes you special",
+        "conf": 0.7,
+        "uncertainty_reason": null,
+        "source": "recall",
+        "verification": "not_required",
+        "source_ref": null,
+        "epistemic": "observed"
+      },
+      "mentor": {
+        "value": "Reigen passes on ethics and life skills rather than psychic technique",
+        "conf": 0.85,
+        "uncertainty_reason": null,
+        "source": "web",
+        "verification": "gathered",
+        "source_ref": "https://en.wikipedia.org/wiki/Mob_Psycho_100",
+        "epistemic": "interpretive"
+      },
+      "team_structure": {
+        "value": "mentor-apprentice office plus school clubs, brother, and ghost companion Dimple",
+        "conf": 0.7,
+        "uncertainty_reason": null,
+        "source": "web",
+        "verification": "gathered",
+        "source_ref": "https://en.wikipedia.org/wiki/List_of_Mob_Psycho_100_characters",
+        "epistemic": "observed"
+      },
+      "power_is": {
+        "value": "individual",
+        "conf": 0.8,
+        "uncertainty_reason": null,
+        "source": "recall",
+        "verification": "not_required",
+        "source_ref": null,
+        "epistemic": "observed"
+      }
+    },
+    "sensory": {
+      "power_visual_signature": {
+        "value": "rainbow, psychedelic psychic auras and onscreen percentage meter overlays",
+        "conf": 0.7,
+        "uncertainty_reason": null,
+        "source": "recall",
+        "verification": "unverified",
+        "source_ref": null,
+        "epistemic": "observed"
+      },
+      "choreography_style": {
+        "value": "fluid, heavily deforming sakuga effects animation of psychic clashes",
+        "conf": 0.65,
+        "uncertainty_reason": "general description of widely praised action animation",
+        "source": "recall",
+        "verification": "unverified",
+        "source_ref": null,
+        "epistemic": "observed"
+      },
+      "color_motif": {
+        "value": "vivid, shifting rainbow palettes during psychic outbursts",
+        "conf": 0.6,
+        "uncertainty_reason": "documented generally, not as a formal motif",
+        "source": "recall",
+        "verification": "unverified",
+        "source_ref": null,
+        "epistemic": "observed"
+      },
+      "animation_signature": {
+        "value": "Bones; simple ONE-style designs, experimental effects, paint-on-glass sequences",
+        "conf": 0.7,
+        "uncertainty_reason": null,
+        "source": "recall",
+        "verification": "unverified",
+        "source_ref": null,
+        "epistemic": "observed"
+      }
+    },
+    "anime_production": {
+      "source_medium": {
+        "value": "manga",
+        "conf": 0.95,
+        "uncertainty_reason": null,
+        "source": "web",
+        "verification": "gathered",
+        "source_ref": "https://en.wikipedia.org/wiki/Mob_Psycho_100",
+        "epistemic": "observed"
+      },
+      "demographic": {
+        "value": "shonen",
+        "conf": 0.8,
+        "uncertainty_reason": null,
+        "source": "web",
+        "verification": "gathered",
+        "source_ref": "https://en.wikipedia.org/wiki/Mob_Psycho_100",
+        "epistemic": "observed"
+      },
+      "arc_cour_structure": {
+        "value": "three single-cour seasons (12/13/12); each ends on a major arc climax",
+        "conf": 0.8,
+        "uncertainty_reason": null,
+        "source": "recall",
+        "verification": "not_required",
+        "source_ref": null,
+        "epistemic": "observed"
+      },
+      "adaptation_fidelity": {
+        "value": "faithful full adaptation of the manga through its ending",
+        "conf": 0.85,
+        "uncertainty_reason": null,
+        "source": "web",
+        "verification": "gathered",
+        "source_ref": "https://lostinanime.com/2022/12/mob-psycho-100-iii-12-end-and-series-review/",
+        "epistemic": "observed"
+      }
+    },
+    "series_engine": {
+      "episodic_vs_serialized": {
+        "value": "early episodic jobs giving way to serialized multi-episode arcs",
+        "conf": 0.75,
+        "uncertainty_reason": null,
+        "source": "recall",
+        "verification": "not_required",
+        "source_ref": null,
+        "epistemic": "observed"
+      },
+      "status_quo_reset": {
+        "value": "partial; the office baseline returns but characters keep growing",
+        "conf": 0.7,
+        "uncertainty_reason": null,
+        "source": "recall",
+        "verification": "not_required",
+        "source_ref": null,
+        "epistemic": "derived"
+      },
+      "episode_template": {
+        "value": "Mob faces a job or social pressure, suppresses his feelings, the meter climbs, a release brings a lesson",
+        "conf": 0.65,
+        "uncertainty_reason": "template loosens in serialized arcs",
+        "source": "recall",
+        "verification": "not_required",
+        "source_ref": null,
+        "epistemic": "derived"
+      },
+      "season_arc_shape": {
+        "value": "comedic setup building to an escalating esper confrontation and emotional climax",
+        "conf": 0.75,
+        "uncertainty_reason": null,
+        "source": "recall",
+        "verification": "not_required",
+        "source_ref": null,
+        "epistemic": "interpretive"
+      },
+      "cliffhanger_cadence": {
+        "value": "frequent hooks during arcs; lighter in episodic stretches",
+        "conf": 0.55,
+        "uncertainty_reason": "estimate from arc structure",
+        "source": "recall",
+        "verification": "not_required",
+        "source_ref": null,
+        "epistemic": "interpretive"
+      }
+    },
+    "comedy_satire": {
+      "comedic_engine": {
+        "value": "deadpan overpowered boy versus a con-man's bluster and deflated shonen tropes",
+        "conf": 0.8,
+        "uncertainty_reason": null,
+        "source": "recall",
+        "verification": "not_required",
+        "source_ref": null,
+        "epistemic": "interpretive"
+      }
+    }
+  },
+  "outcome": {
+    "title_id": "mob_psycho_100_2016",
+    "label": "hit",
+    "signals": [
+      {
+        "metric": "AniList score / popularity",
+        "value": "84.0 / 628,801",
+        "source_ref": "https://anilist.co/anime/21507"
+      },
+      {
+        "metric": "MAL score / scorers / popularity rank",
+        "value": "8.49 / 1,432,908 / #27",
+        "source_ref": "https://myanimelist.net/anime/32182"
+      },
+      {
+        "metric": "critic verdict",
+        "value": "exemplary adaptation that sticks the landing",
+        "source_ref": "https://lostinanime.com/2022/12/mob-psycho-100-iii-12-end-and-series-review/"
+      },
+      {
+        "metric": "reception verdict",
+        "value": "satisfying conclusion with consistent quality",
+        "source_ref": "https://readysteadycut.com/2022/11/30/mob-psycho-100-season-3-review/"
+      }
+    ],
+    "confounders": {
+      "studio": "Bones",
+      "budget_signal": "high-effort animation praised across all three seasons",
+      "source_popularity": "popular web manga by ONE, the creator of One-Punch Man",
+      "platform": "TV broadcast with global simulcast streaming",
+      "release_context": "seasons spaced 2016, 2019, 2022; full story completed"
+    },
+    "failure_reason": null,
+    "failure_level": null,
+    "failure_evidence": null,
+    "failure_evidence_ref": null,
+    "failure_level_source": null,
+    "provenance": {
+      "run_id": "run_20260927_075832_251846",
+      "pass": "P1",
+      "model": "claude_cli@2.1.283/claude-opus-5-5",
+      "prompt_version": "1.0.0+p1-1.3.0+4bb66d85+b8e85bb5",
+      "schema_version": "1.4.0",
+      "vocab_version": "1.5.0",
+      "cache_key": "sha256:39a22a356e6d60ede29267fd6007d40a51778cadd0c35a059ca471a4bd9fdb5b",
+      "created_at": "2026-09-27T08:00:10.613156+00:00"
+    }
+  }
+}

@@ -185,6 +185,20 @@ def _normalize_kinds(d: dict[str, Any], vocab: Vocab) -> None:
                 _unset(fv, OUTCOME_BOUND.format(outcomes=" or ".join(f.outcome_in)))
 
 
+def coerce_enum(vocab: Vocab, vocab_field: str, value: str, *, other: bool = False) -> str:
+    """A listed value stays; a known alternate label maps to its value. With `other`, anything else
+    becomes `other:<value>`, which the rules allow (CANONICALIZE files it as a vocab proposal) instead
+    of costing the draft its one repair. Lens enums don't take that fallback: an off-list grid value
+    is repaired into a listed one, never pushed out of the grid (D-026)."""
+    v = value.strip()
+    if not v or v in vocab.enum(vocab_field) or v.lower().startswith("other:"):
+        return v
+    for preferred, alts in vocab.alternate_labels(vocab_field).items():
+        if v.lower() == preferred.lower() or v.lower() in {a.lower() for a in alts}:
+            return preferred
+    return f"other:{v}" if other else v
+
+
 def normalize_draft(draft: dict[str, Any], entry: CorpusEntry, vocab: Vocab) -> dict[str, Any]:
     """Deterministic clean-up before the checks (P1 1.1.0), so the one repair is spent on real errors:
     - module blocks the rules forbid for this medium/format are dropped;
@@ -192,6 +206,7 @@ def normalize_draft(draft: dict[str, Any], entry: CorpusEntry, vocab: Vocab) -> 
     - sensory outside animation stays only if power_combat does (activation rule);
     - `modules_active` is derived from the blocks that remain, never taken from the model;
     - vocab 1.5.0 kinds: see `_normalize_kinds`;
+    - an alternate label becomes its listed value; an off-list moment type becomes `other:<value>` (`coerce_enum`);
     - a null field is unknown: its conf becomes 0, and without a reason it gets 'no reliable recall'.
     A non-null guess below the confidence floor without a reason is left for the checks to reject."""
     d = {k: v for k, v in draft.items()}
@@ -207,6 +222,14 @@ def normalize_draft(draft: dict[str, Any], entry: CorpusEntry, vocab: Vocab) -> 
         active.discard("sensory")
     d["modules_active"] = [m for m in vocab.module_names if m in active]
     _normalize_kinds(d, vocab)
+    for block in ["core", *d["modules_active"]]:
+        for f in vocab.block_fields(block):
+            fv = (d.get(block) or {}).get(f.name)
+            if isinstance(fv, dict) and f.kind == "enum" and isinstance(fv.get("value"), str):
+                fv["value"] = coerce_enum(vocab, f.vocab or f.path, fv["value"])
+    for mo in d.get("moments") or []:
+        if isinstance(mo, dict) and isinstance(mo.get("moment_type"), str):
+            mo["moment_type"] = coerce_enum(vocab, "moment_type", mo["moment_type"], other=True)
     for block in ["core", *d["modules_active"]]:
         for fv in (d.get(block) or {}).values():
             if not isinstance(fv, dict) or fv.get("value") is not None:

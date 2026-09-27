@@ -1,0 +1,884 @@
+{
+  "record": {
+    "title_id": "hunter_x_hunter_2011",
+    "title": "Hunter x Hunter",
+    "year": 2011,
+    "medium": "anime",
+    "format": "serialized",
+    "scope": {
+      "version": "Madhouse TV series (148 eps, 2011-14)",
+      "seasons": [
+        1
+      ],
+      "numbering": "broadcast",
+      "exclude": [
+        "1999 TV series",
+        "2002-2004 OVAs",
+        "2013 films",
+        "manga beyond the anime"
+      ]
+    },
+    "role_tags": [
+      "gold",
+      "hit"
+    ],
+    "modules_active": [
+      "power_combat",
+      "relationships",
+      "sensory",
+      "anime_production",
+      "series_engine"
+    ],
+    "provenance": {
+      "run_id": "run_20260927_073950_963434",
+      "pass": "P1",
+      "model": "claude_cli@2.1.283/claude-opus-5-5",
+      "prompt_version": "1.0.0+p1-1.3.0+4bb66d85+b8e85bb5",
+      "schema_version": "1.4.0",
+      "vocab_version": "1.5.0",
+      "cache_key": "sha256:3697d91221d4a31ff00605cb7e336f449af419509635f59321a1c9670ace262c",
+      "created_at": "2026-09-27T07:41:33.941347+00:00"
+    },
+    "core": {
+      "logline_hook": {
+        "value": "A boy passes a deadly elite exam to become a Hunter and track down his absent father.",
+        "conf": 0.9,
+        "uncertainty_reason": null,
+        "source": "web",
+        "verification": "gathered",
+        "source_ref": "https://en.wikipedia.org/wiki/Hunter_%C3%97_Hunter_(2011_TV_series)",
+        "epistemic": "observed"
+      },
+      "core_question": {
+        "value": "What does chasing your own desires cost you and the people who love you?",
+        "conf": 0.7,
+        "uncertainty_reason": null,
+        "source": "recall",
+        "verification": "not_required",
+        "source_ref": null,
+        "epistemic": "interpretive"
+      },
+      "premise_engine": {
+        "value": "Licensed Hunters chase personal goals through arcs, each a new genre with rule-bound battles.",
+        "conf": 0.8,
+        "uncertainty_reason": null,
+        "source": "recall",
+        "verification": "not_required",
+        "source_ref": null,
+        "epistemic": "derived"
+      },
+      "primary_feeling": {
+        "value": "adventurous wonder that curdles into moral dread",
+        "conf": 0.75,
+        "uncertainty_reason": null,
+        "source": "recall",
+        "verification": "not_required",
+        "source_ref": null,
+        "epistemic": "interpretive"
+      },
+      "tone": {
+        "value": "bright boyish adventure turning dark, brutal and morally grey",
+        "conf": 0.8,
+        "uncertainty_reason": null,
+        "source": "recall",
+        "verification": "not_required",
+        "source_ref": null,
+        "epistemic": "interpretive"
+      },
+      "want_vs_need": {
+        "value": "Wants to find his father; needs to see his obsession's cost and value his bonds.",
+        "conf": 0.7,
+        "uncertainty_reason": null,
+        "source": "recall",
+        "verification": "not_required",
+        "source_ref": null,
+        "epistemic": "interpretive"
+      },
+      "flaw": {
+        "value": "single-minded obsession blind to his own safety and friends' feelings",
+        "conf": 0.8,
+        "uncertainty_reason": null,
+        "source": "recall",
+        "verification": "not_required",
+        "source_ref": null,
+        "epistemic": "interpretive",
+        "condition": "shows when a goal or a person he cares about is at stake"
+      },
+      "moral_line": {
+        "value": "will not abandon a friend or take an unearned shortcut",
+        "conf": 0.6,
+        "uncertainty_reason": "his moral line is fluid; he crosses many lines in rage",
+        "source": "recall",
+        "verification": "not_required",
+        "source_ref": null,
+        "epistemic": "interpretive",
+        "condition": "grief and rage over a fallen mentor push him to sacrifice everything"
+      },
+      "central_opposition": {
+        "value": "shifting predators: a thrill-seeking killer, a thief gang, an insect king",
+        "conf": 0.75,
+        "uncertainty_reason": null,
+        "source": "recall",
+        "verification": "not_required",
+        "source_ref": null,
+        "epistemic": "observed"
+      },
+      "opposition_logic": {
+        "value": "Antagonists pursue their own appetites\u2014thrill, loyalty, survival, dominance\u2014mirroring the hero's selfishness.",
+        "conf": 0.65,
+        "uncertainty_reason": "motives differ sharply per arc",
+        "source": "recall",
+        "verification": "not_required",
+        "source_ref": null,
+        "epistemic": "interpretive"
+      },
+      "stakes_clock": {
+        "value": "Arc-specific clocks: exam eliminations, auction deadlines, ant colony breeding before invasion.",
+        "conf": 0.65,
+        "uncertainty_reason": "no single series-wide clock",
+        "source": "recall",
+        "verification": "not_required",
+        "source_ref": null,
+        "epistemic": "derived"
+      },
+      "world_rules": {
+        "value": "Life-energy power grows stronger through self-imposed conditions and vows, with matching risks.",
+        "conf": 0.85,
+        "uncertainty_reason": null,
+        "source": "recall",
+        "verification": "not_required",
+        "source_ref": null,
+        "epistemic": "observed"
+      },
+      "borrowed_template": {
+        "value": "shonen adventure and tournament battle template",
+        "conf": 0.8,
+        "uncertainty_reason": null,
+        "source": "recall",
+        "verification": "not_required",
+        "source_ref": null,
+        "epistemic": "derived"
+      },
+      "broken_rule": {
+        "value": "The hero's climactic victory is self-destruction, and the final villain is not beaten by him.",
+        "conf": 0.75,
+        "uncertainty_reason": null,
+        "source": "recall",
+        "verification": "not_required",
+        "source_ref": null,
+        "epistemic": "interpretive"
+      },
+      "unserved_appetite": {
+        "value": "rigorous rules-based battles carrying real moral weight and genre shifts",
+        "conf": 0.75,
+        "uncertainty_reason": null,
+        "source": "recall",
+        "verification": "not_required",
+        "source_ref": null,
+        "epistemic": "interpretive"
+      },
+      "central_mystery": {
+        "value": "Who is the absent father, and why did he leave his son?",
+        "conf": 0.75,
+        "uncertainty_reason": null,
+        "source": "web",
+        "verification": "gathered",
+        "source_ref": "https://en.wikipedia.org/wiki/Hunter_%C3%97_Hunter_(2011_TV_series)",
+        "epistemic": "observed"
+      },
+      "knowledge_gap": {
+        "value": "Hunters hide the energy system from newcomers; allies conceal family secrets and power conditions.",
+        "conf": 0.65,
+        "uncertainty_reason": "several gaps shift across arcs",
+        "source": "recall",
+        "verification": "not_required",
+        "source_ref": null,
+        "epistemic": "derived"
+      },
+      "reveal_cadence": {
+        "value": "one large reveal per arc, smaller rule reveals within fights",
+        "conf": 0.6,
+        "uncertainty_reason": "cadence varies greatly between arcs",
+        "source": "recall",
+        "verification": "not_required",
+        "source_ref": null,
+        "epistemic": "derived"
+      },
+      "outcome": {
+        "value": "hit",
+        "conf": 0.95,
+        "uncertainty_reason": null,
+        "source": "web",
+        "verification": "gathered",
+        "source_ref": "https://anilist.co/anime/11061",
+        "epistemic": "external_metric"
+      },
+      "story_engine": {
+        "value": "journey_quest",
+        "conf": 0.75,
+        "uncertainty_reason": null,
+        "source": "recall",
+        "verification": "not_required",
+        "source_ref": null,
+        "epistemic": "derived"
+      },
+      "story_engine_secondary": {
+        "value": null,
+        "conf": 0.0,
+        "uncertainty_reason": "no single secondary engine dominates across arcs",
+        "source": "recall",
+        "verification": "not_required",
+        "source_ref": null,
+        "epistemic": "derived"
+      },
+      "pilot_hook_type": {
+        "value": "status_quo_disruption",
+        "conf": 0.6,
+        "uncertainty_reason": "opening mixes father mystery with leaving home",
+        "source": "recall",
+        "verification": "not_required",
+        "source_ref": null,
+        "epistemic": "observed"
+      },
+      "ending_type": {
+        "value": "bittersweet",
+        "conf": 0.6,
+        "uncertainty_reason": "series adapts only to a manga midpoint; could read as open",
+        "source": "recall",
+        "verification": "unverified",
+        "source_ref": null,
+        "epistemic": "interpretive"
+      },
+      "setting_type": {
+        "value": "modern_urban",
+        "conf": 0.7,
+        "uncertainty_reason": null,
+        "source": "web",
+        "verification": "gathered",
+        "source_ref": "https://en.wikipedia.org/wiki/Hunter_%C3%97_Hunter_(2011_TV_series)",
+        "epistemic": "observed"
+      },
+      "world_visibility": {
+        "value": "open",
+        "conf": 0.75,
+        "uncertainty_reason": null,
+        "source": "web",
+        "verification": "gathered",
+        "source_ref": "https://en.wikipedia.org/wiki/Hunter_%C3%97_Hunter_(2011_TV_series)",
+        "epistemic": "observed"
+      },
+      "conflict_scale": {
+        "value": "world",
+        "conf": 0.6,
+        "uncertainty_reason": "gathered fact says personal; ant invasion threatens humanity",
+        "source": "recall",
+        "verification": "unverified",
+        "source_ref": null,
+        "epistemic": "derived"
+      },
+      "institutions": {
+        "value": [
+          {
+            "name": "Hunter Association",
+            "role": "licenses and regulates elite hunters, runs the exam",
+            "type": "government"
+          },
+          {
+            "name": "Phantom Troupe",
+            "role": "thief gang target of an ally's revenge",
+            "type": "criminal_org"
+          },
+          {
+            "name": "Assassin family clan",
+            "role": "controls the best friend's upbringing and freedom",
+            "type": "other"
+          }
+        ],
+        "conf": 0.8,
+        "uncertainty_reason": null,
+        "source": "web",
+        "verification": "gathered",
+        "source_ref": "https://en.wikipedia.org/wiki/Hunter_%C3%97_Hunter_(2011_TV_series)",
+        "epistemic": "observed"
+      },
+      "mc_archetype": {
+        "value": "prodigy",
+        "conf": 0.6,
+        "uncertainty_reason": "also reads as naive everyman adventurer",
+        "source": "recall",
+        "verification": "not_required",
+        "source_ref": null,
+        "epistemic": "interpretive"
+      },
+      "mc_start": {
+        "value": "average",
+        "conf": 0.55,
+        "uncertainty_reason": "physically gifted child but weak relative to hunters",
+        "source": "recall",
+        "verification": "not_required",
+        "source_ref": null,
+        "epistemic": "derived"
+      },
+      "mc_goal_type": {
+        "value": "find_someone",
+        "conf": 0.9,
+        "uncertainty_reason": null,
+        "source": "web",
+        "verification": "gathered",
+        "source_ref": "https://en.wikipedia.org/wiki/Hunter_%C3%97_Hunter_(2011_TV_series)",
+        "epistemic": "observed"
+      },
+      "ensemble_size": {
+        "value": "team",
+        "conf": 0.7,
+        "uncertainty_reason": "four leads, but later arcs narrow to a duo",
+        "source": "web",
+        "verification": "gathered",
+        "source_ref": "https://en.wikipedia.org/wiki/Hunter_%C3%97_Hunter_(2011_TV_series)",
+        "epistemic": "observed"
+      },
+      "rival_type": {
+        "value": "antagonist_rival",
+        "conf": 0.55,
+        "uncertainty_reason": "rivalry with the killer magician is never fully paid off",
+        "source": "recall",
+        "verification": "not_required",
+        "source_ref": null,
+        "epistemic": "interpretive"
+      },
+      "threat_structure": {
+        "value": "rotating_threats",
+        "conf": 0.55,
+        "uncertainty_reason": "threats also escalate toward the ant king",
+        "source": "recall",
+        "verification": "not_required",
+        "source_ref": null,
+        "epistemic": "derived"
+      },
+      "thematic_argument": {
+        "value": {
+          "antithesis_villain": "strength entitles the strong to rule and consume the weak",
+          "resolution": "humanity lies in bonds and small connections, not raw power",
+          "thesis_mc": "pure curiosity drives growth but can blind one to cruelty"
+        },
+        "conf": 0.65,
+        "uncertainty_reason": "themes are ambiguous and contested by fans",
+        "source": "recall",
+        "verification": "not_required",
+        "source_ref": null,
+        "epistemic": "interpretive"
+      },
+      "audience_promise": {
+        "value": "a wondrous, dangerous adventure with inventive, rule-driven battles",
+        "conf": 0.8,
+        "uncertainty_reason": null,
+        "source": "recall",
+        "verification": "not_required",
+        "source_ref": null,
+        "epistemic": "interpretive"
+      },
+      "promise_mechanism": {
+        "value": "Each arc changes genre and introduces new power rules to exploit.",
+        "conf": 0.75,
+        "uncertainty_reason": null,
+        "source": "recall",
+        "verification": "not_required",
+        "source_ref": null,
+        "epistemic": "derived"
+      },
+      "promise_break": {
+        "value": null,
+        "conf": 0.0,
+        "uncertainty_reason": "title is a hit; no break applies",
+        "source": "recall",
+        "verification": "not_required",
+        "source_ref": null,
+        "epistemic": "derived"
+      },
+      "escalation_model": {
+        "value": "stakes_over_power",
+        "conf": 0.6,
+        "uncertainty_reason": "power also rises markedly in later arcs",
+        "source": "recall",
+        "verification": "not_required",
+        "source_ref": null,
+        "epistemic": "interpretive"
+      },
+      "anticipation_hooks": {
+        "value": [
+          {
+            "hook": "finally meeting the absent father",
+            "type": "reunion"
+          },
+          {
+            "hook": "punching the killer magician back",
+            "type": "rematch"
+          },
+          {
+            "hook": "clan survivor's revenge on the thief gang",
+            "type": "promised_payoff"
+          }
+        ],
+        "conf": 0.8,
+        "uncertainty_reason": null,
+        "source": "recall",
+        "verification": "not_required",
+        "source_ref": null,
+        "epistemic": "derived"
+      },
+      "premise_abstraction": {
+        "value": "A boy joins an elite licensed profession to find the father who left him.",
+        "conf": 0.85,
+        "uncertainty_reason": null,
+        "source": "web",
+        "verification": "gathered",
+        "source_ref": "https://en.wikipedia.org/wiki/Hunter_%C3%97_Hunter_(2011_TV_series)",
+        "epistemic": "derived"
+      },
+      "real_world_isomorphism": {
+        "value": "elite professional licensing and a freelance bounty economy",
+        "conf": 0.55,
+        "uncertainty_reason": "mirror is loose; world is mainly adventure",
+        "source": "recall",
+        "verification": "not_required",
+        "source_ref": null,
+        "epistemic": "interpretive"
+      },
+      "core_fantasy": {
+        "value": [
+          "freedom",
+          "mastery",
+          "found_family"
+        ],
+        "conf": 0.7,
+        "uncertainty_reason": null,
+        "source": "recall",
+        "verification": "not_required",
+        "source_ref": null,
+        "epistemic": "interpretive"
+      },
+      "genre_move": {
+        "value": "subversion",
+        "conf": 0.75,
+        "uncertainty_reason": null,
+        "source": "recall",
+        "verification": "not_required",
+        "source_ref": null,
+        "epistemic": "interpretive"
+      },
+      "reacts_against": {
+        "value": "shonen power escalation and clean moral victories",
+        "conf": 0.65,
+        "uncertainty_reason": "authorial intent not documented in facts",
+        "source": "recall",
+        "verification": "not_required",
+        "source_ref": null,
+        "epistemic": "interpretive"
+      }
+    },
+    "power_combat": {
+      "power_source": {
+        "value": "Nen: control of life energy flowing from all living beings",
+        "conf": 0.9,
+        "uncertainty_reason": null,
+        "source": "web",
+        "verification": "gathered",
+        "source_ref": "https://pulseanime.com/power-systems/hxh-nen-system",
+        "epistemic": "observed"
+      },
+      "gate": {
+        "value": "trained",
+        "conf": 0.85,
+        "uncertainty_reason": null,
+        "source": "web",
+        "verification": "gathered",
+        "source_ref": "https://pulseanime.com/power-systems/hxh-nen-system",
+        "epistemic": "observed"
+      },
+      "progression": {
+        "value": "hybrid",
+        "conf": 0.8,
+        "uncertainty_reason": null,
+        "source": "web",
+        "verification": "gathered",
+        "source_ref": "https://pulseanime.com/power-systems/hxh-nen-system",
+        "epistemic": "derived"
+      },
+      "cost_of_power": {
+        "value": "self_imposed_restriction",
+        "conf": 0.85,
+        "uncertainty_reason": null,
+        "source": "web",
+        "verification": "gathered",
+        "source_ref": "https://pulseanime.com/power-systems/hxh-nen-system",
+        "epistemic": "observed"
+      },
+      "cost_of_power_secondary": {
+        "value": null,
+        "conf": 0.0,
+        "uncertainty_reason": "lifespan cost is not weighed as heavily within scope",
+        "source": "recall",
+        "verification": "unverified",
+        "source_ref": null,
+        "epistemic": "derived"
+      },
+      "visible_counter": {
+        "value": "none",
+        "conf": 0.65,
+        "uncertainty_reason": "arena floors and game cards act as partial counters",
+        "source": "recall",
+        "verification": "unverified",
+        "source_ref": null,
+        "epistemic": "observed"
+      },
+      "ranking_ladder": {
+        "value": "star-rated hunter licenses; tiered arena floors",
+        "conf": 0.6,
+        "uncertainty_reason": "ladders are arc-local rather than series-wide",
+        "source": "recall",
+        "verification": "unverified",
+        "source_ref": null,
+        "epistemic": "observed"
+      },
+      "fight_medium": {
+        "value": "mixed",
+        "conf": 0.8,
+        "uncertainty_reason": null,
+        "source": "recall",
+        "verification": "not_required",
+        "source_ref": null,
+        "epistemic": "observed"
+      },
+      "signature_technique": {
+        "value": "rock-paper-scissors aura combo: charged punch, projectile, or blade",
+        "conf": 0.85,
+        "uncertainty_reason": null,
+        "source": "recall",
+        "verification": "not_required",
+        "source_ref": null,
+        "epistemic": "observed"
+      },
+      "mc_edge": {
+        "value": "not_strongest",
+        "conf": 0.65,
+        "uncertainty_reason": "his final transformation briefly makes him overwhelming",
+        "source": "recall",
+        "verification": "not_required",
+        "source_ref": null,
+        "epistemic": "interpretive"
+      },
+      "power_embodiment": {
+        "value": "energy_or_technique",
+        "conf": 0.85,
+        "uncertainty_reason": null,
+        "source": "web",
+        "verification": "gathered",
+        "source_ref": "https://pulseanime.com/power-systems/hxh-nen-system",
+        "epistemic": "observed"
+      },
+      "set_structure": {
+        "value": "open_variety",
+        "conf": 0.8,
+        "uncertainty_reason": null,
+        "source": "web",
+        "verification": "gathered",
+        "source_ref": "https://pulseanime.com/power-systems/hxh-nen-system",
+        "epistemic": "observed"
+      },
+      "subset_mechanics": {
+        "value": [
+          "specialization",
+          "bloodline"
+        ],
+        "conf": 0.55,
+        "uncertainty_reason": "bloodline applies only to one clan's eye trait",
+        "source": "recall",
+        "verification": "unverified",
+        "source_ref": null,
+        "epistemic": "derived"
+      },
+      "set_scaffold": {
+        "value": "other:six aura categories tied to personality",
+        "conf": 0.7,
+        "uncertainty_reason": null,
+        "source": "recall",
+        "verification": "not_required",
+        "source_ref": null,
+        "epistemic": "observed"
+      },
+      "member_depth": {
+        "value": "ability_only",
+        "conf": 0.6,
+        "uncertainty_reason": "abilities often reflect user backstory",
+        "source": "recall",
+        "verification": "not_required",
+        "source_ref": null,
+        "epistemic": "interpretive"
+      },
+      "world_integration": {
+        "value": "social_structure",
+        "conf": 0.55,
+        "uncertainty_reason": "power knowledge is gated but not governmental",
+        "source": "recall",
+        "verification": "not_required",
+        "source_ref": null,
+        "epistemic": "interpretive"
+      },
+      "rarity": {
+        "value": "common",
+        "conf": 0.7,
+        "uncertainty_reason": "users are common among hunters, rarer in public",
+        "source": "web",
+        "verification": "gathered",
+        "source_ref": "https://pulseanime.com/power-systems/hxh-nen-system",
+        "epistemic": "derived"
+      },
+      "power_up_mode": {
+        "value": [
+          "temporary_boost",
+          "other"
+        ],
+        "conf": 0.6,
+        "uncertainty_reason": "'other' covers a vow-driven forced adult transformation",
+        "source": "recall",
+        "verification": "unverified",
+        "source_ref": null,
+        "epistemic": "observed"
+      },
+      "power_up_cost": {
+        "value": "vows and conditions; the ultimate vow wrecks the user's body and power",
+        "conf": 0.75,
+        "uncertainty_reason": null,
+        "source": "recall",
+        "verification": "not_required",
+        "source_ref": null,
+        "epistemic": "observed"
+      },
+      "fight_logic": {
+        "value": [
+          "rules_exploitation",
+          "strategy_information"
+        ],
+        "conf": 0.8,
+        "uncertainty_reason": null,
+        "source": "recall",
+        "verification": "not_required",
+        "source_ref": null,
+        "epistemic": "interpretive"
+      }
+    },
+    "relationships": {
+      "core_bond": {
+        "value": "friendship between the naive hero and the assassin-heir best friend",
+        "conf": 0.9,
+        "uncertainty_reason": null,
+        "source": "web",
+        "verification": "gathered",
+        "source_ref": "https://en.wikipedia.org/wiki/Hunter_%C3%97_Hunter_(2011_TV_series)",
+        "epistemic": "observed"
+      },
+      "rival": {
+        "value": "a killer magician grooms the hero as future prey; contests a debt of pride",
+        "conf": 0.65,
+        "uncertainty_reason": "rivalry left unresolved within scope",
+        "source": "recall",
+        "verification": "unverified",
+        "source_ref": null,
+        "epistemic": "interpretive"
+      },
+      "mentor": {
+        "value": "energy-art tutors teach fundamentals and disciplined training to both boys",
+        "conf": 0.7,
+        "uncertainty_reason": null,
+        "source": "recall",
+        "verification": "not_required",
+        "source_ref": null,
+        "epistemic": "observed"
+      },
+      "team_structure": {
+        "value": "four companions splitting into a core duo with rotating allies",
+        "conf": 0.75,
+        "uncertainty_reason": null,
+        "source": "web",
+        "verification": "gathered",
+        "source_ref": "https://en.wikipedia.org/wiki/Hunter_%C3%97_Hunter_(2011_TV_series)",
+        "epistemic": "observed"
+      },
+      "power_is": {
+        "value": "individual",
+        "conf": 0.8,
+        "uncertainty_reason": null,
+        "source": "recall",
+        "verification": "not_required",
+        "source_ref": null,
+        "epistemic": "derived"
+      }
+    },
+    "sensory": {
+      "power_visual_signature": {
+        "value": "visible flowing auras; the hero's glowing charged fist",
+        "conf": 0.6,
+        "uncertainty_reason": "descriptions of aura rendering vary",
+        "source": "recall",
+        "verification": "unverified",
+        "source_ref": null,
+        "epistemic": "observed"
+      },
+      "choreography_style": {
+        "value": "tactical battles explained through rules, conditions and inner narration",
+        "conf": 0.55,
+        "uncertainty_reason": "style descriptions vary by arc",
+        "source": "recall",
+        "verification": "unverified",
+        "source_ref": null,
+        "epistemic": "interpretive"
+      },
+      "color_motif": {
+        "value": "hero's green, best friend's blue lightning, avenger's scarlet eyes",
+        "conf": 0.6,
+        "uncertainty_reason": "motif not formally documented",
+        "source": "recall",
+        "verification": "unverified",
+        "source_ref": null,
+        "epistemic": "observed"
+      },
+      "animation_signature": {
+        "value": "clean bright designs shifting to darker palette and heavy narration later",
+        "conf": 0.5,
+        "uncertainty_reason": "documented style details not in gathered facts",
+        "source": "recall",
+        "verification": "unverified",
+        "source_ref": null,
+        "epistemic": "observed"
+      }
+    },
+    "anime_production": {
+      "source_medium": {
+        "value": "manga",
+        "conf": 0.95,
+        "uncertainty_reason": null,
+        "source": "web",
+        "verification": "gathered",
+        "source_ref": "https://mangaplus.shueisha.co.jp/titles/100015",
+        "epistemic": "observed"
+      },
+      "demographic": {
+        "value": "shonen",
+        "conf": 0.95,
+        "uncertainty_reason": null,
+        "source": "web",
+        "verification": "gathered",
+        "source_ref": "https://mangaplus.shueisha.co.jp/titles/100015",
+        "epistemic": "observed"
+      },
+      "arc_cour_structure": {
+        "value": "148 continuous episodes covering seven arcs, exam through election",
+        "conf": 0.8,
+        "uncertainty_reason": null,
+        "source": "recall",
+        "verification": "not_required",
+        "source_ref": null,
+        "epistemic": "observed"
+      },
+      "adaptation_fidelity": {
+        "value": "highly faithful, adapting the manga through the election arc",
+        "conf": 0.75,
+        "uncertainty_reason": null,
+        "source": "recall",
+        "verification": "not_required",
+        "source_ref": null,
+        "epistemic": "derived"
+      }
+    },
+    "series_engine": {
+      "episodic_vs_serialized": {
+        "value": "strongly serialized; episodes rarely stand alone",
+        "conf": 0.85,
+        "uncertainty_reason": null,
+        "source": "recall",
+        "verification": "not_required",
+        "source_ref": null,
+        "epistemic": "observed"
+      },
+      "status_quo_reset": {
+        "value": "no reset; each arc permanently changes characters",
+        "conf": 0.8,
+        "uncertainty_reason": null,
+        "source": "recall",
+        "verification": "not_required",
+        "source_ref": null,
+        "epistemic": "observed"
+      },
+      "episode_template": {
+        "value": "rule setup, tactical clash, narration explaining conditions, escalating hook",
+        "conf": 0.5,
+        "uncertainty_reason": "template varies heavily across arcs",
+        "source": "recall",
+        "verification": "not_required",
+        "source_ref": null,
+        "epistemic": "interpretive"
+      },
+      "season_arc_shape": {
+        "value": "arc-by-arc genre shifts building to a long dark war arc, then coda",
+        "conf": 0.75,
+        "uncertainty_reason": null,
+        "source": "recall",
+        "verification": "not_required",
+        "source_ref": null,
+        "epistemic": "derived"
+      },
+      "cliffhanger_cadence": {
+        "value": "most episodes end on a hook, densest in later arcs",
+        "conf": 0.6,
+        "uncertainty_reason": "cadence not documented in facts",
+        "source": "recall",
+        "verification": "not_required",
+        "source_ref": null,
+        "epistemic": "interpretive"
+      }
+    }
+  },
+  "outcome": {
+    "title_id": "hunter_x_hunter_2011",
+    "label": "hit",
+    "signals": [
+      {
+        "metric": "AniList score / popularity",
+        "value": "89.0 / 844021",
+        "source_ref": "https://anilist.co/anime/11061"
+      },
+      {
+        "metric": "MyAnimeList score / rank / popularity",
+        "value": "9.03 from ~2.0M scorers, rank 10, popularity 8",
+        "source_ref": "https://myanimelist.net/anime/11061"
+      },
+      {
+        "metric": "critical verdict",
+        "value": "widespread acclaim; called one of the greatest anime ever",
+        "source_ref": "https://en.wikipedia.org/wiki/Hunter_%C3%97_Hunter_(2011_TV_series)"
+      }
+    ],
+    "confounders": {
+      "studio": "Madhouse",
+      "budget_signal": "long uninterrupted 148-episode run on a major network",
+      "source_popularity": "very popular Weekly Shonen Jump manga by Yoshihiro Togashi",
+      "platform": "Nippon TV broadcast; wide global streaming afterwards",
+      "release_context": "remake of the 1999 series that went past its endpoint while the manga was on hiatus"
+    },
+    "failure_reason": null,
+    "failure_level": null,
+    "failure_evidence": null,
+    "failure_evidence_ref": null,
+    "failure_level_source": null,
+    "provenance": {
+      "run_id": "run_20260927_073950_963434",
+      "pass": "P1",
+      "model": "claude_cli@2.1.283/claude-opus-5-5",
+      "prompt_version": "1.0.0+p1-1.3.0+4bb66d85+b8e85bb5",
+      "schema_version": "1.4.0",
+      "vocab_version": "1.5.0",
+      "cache_key": "sha256:3697d91221d4a31ff00605cb7e336f449af419509635f59321a1c9670ace262c",
+      "created_at": "2026-09-27T07:41:33.941347+00:00"
+    }
+  }
+}

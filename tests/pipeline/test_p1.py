@@ -358,3 +358,17 @@ def test_word_caps_come_from_each_field(repo):
         "core.premise_engine: has 21 words; rewrite it in 20 or fewer",
         "core.tone: has 16 words; rewrite it in 15 or fewer"]
 
+
+def test_off_list_enum_values_become_other_instead_of_a_repair():
+    from animedex.pipeline.p1 import coerce_enum, normalize_draft
+
+    vocab = get_vocab()
+    assert coerce_enum(vocab, "moment_type", "betrayal", other=True) == "other:betrayal"
+    assert coerce_enum(vocab, "moment_type", "reversal", other=True) == "reversal"
+    assert coerce_enum(vocab, "moment_type", "other:heist", other=True) == "other:heist"
+    assert coerce_enum(vocab, "power_combat.gate", "teleport") == "teleport"  # a grid value is repaired, not coerced
+    draft = make_draft()
+    draft["moments"][0]["moment_type"] = "last stand"
+    out = normalize_draft(draft, CorpusEntry.model_validate(ENTRY), vocab)
+    assert out["moments"][0]["moment_type"] == "other:last stand"
+
