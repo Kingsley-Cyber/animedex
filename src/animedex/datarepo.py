@@ -22,8 +22,8 @@ from typing import Any
 
 from animedex.paths import Paths
 
-DEFAULT_PATHS = ("data/canonical", "data/blind", "data/diagnose", "eval/audit", "eval/blind", "eval/gold", "steering",
-                 "seeds", "studio")
+DEFAULT_PATHS = ("data/canonical", "data/blind", "data/diagnose", "data/backtest", "eval/audit", "eval/blind",
+                 "eval/gold", "steering", "seeds", "studio")
 GH_AUTH = ("-c", "credential.helper=!gh auth git-credential")  # https pushes use the gh login
 TRAILER = "Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 
