@@ -14,6 +14,8 @@ from animedex.pipeline import StageNotImplemented
 app = typer.Typer(no_args_is_help=True, add_completion=False, help="ANIMEDEX pipeline and tooling.")
 gold_app = typer.Typer(no_args_is_help=True, help="Gold-set annotation files (G1c/G2).")
 app.add_typer(gold_app, name="gold")
+batch_app = typer.Typer(no_args_is_help=True, help="Long runs in the background: per-title steps from a batch file.")
+app.add_typer(batch_app, name="batch")
 
 
 def _paths():
@@ -820,6 +822,81 @@ def gold_init(title_id: str, title: str = typer.Option(..., "--title", help="Dis
 def gold_status_cmd() -> None:
     """Same as `animedex eval` readiness section."""
     eval_()
+
+
+def _load_batch(paths: Any, file: str) -> Any:
+    from animedex.batch import BatchError, load_batch, mark_failed_to_start
+
+    try:
+        batch = load_batch(file)
+    except BatchError as exc:
+        if exc.name:
+            mark_failed_to_start(paths, exc.name, file, str(exc))
+        typer.echo(f"Not started: {exc}", err=True)
+        raise typer.Exit(2) from exc
+    for note in batch.notes:
+        typer.echo(f"note: {note}")
+    return batch
+
+
+@batch_app.command("run")
+def batch_run(file: str = typer.Argument(..., help="Batch file (YAML).")) -> None:
+    """Run a batch in this window (`batch start` runs this in the background). Exit 3 = paused."""
+    from animedex.batch import run_jobs
+
+    paths = _paths()
+    raise typer.Exit(run_jobs(paths, _load_batch(paths, file), echo=typer.echo))
+
+
+@batch_app.command("start")
+def batch_start(file: str = typer.Argument(..., help="Batch file (YAML).")) -> None:
+    """Start a batch in the background. It keeps running if you close this window or the chat."""
+    from animedex.batch import (
+        BatchRunning,
+        mark_failed_to_start,
+        remaining_steps,
+        start_detached,
+        status_path,
+    )
+
+    paths = _paths()
+    batch = _load_batch(paths, file)
+    md = status_path(paths, batch.name, ".md").relative_to(paths.root)
+    if not remaining_steps(paths, batch):
+        typer.echo(f"Nothing to run: every step of {batch.name} is already done ({md}). "
+                   "To run the steps again, give the batch a new name.")
+        return
+    try:
+        start_detached(paths, batch)
+    except BatchRunning as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(2) from exc
+    except OSError as exc:
+        mark_failed_to_start(paths, batch.name, file, f"could not start the background job: {exc}")
+        typer.echo(f"Not started: {exc}", err=True)
+        raise typer.Exit(2) from exc
+    typer.echo(f"Started batch {batch.name} in the background, up to {batch.max_parallel} title(s) at once. "
+               "It keeps running if you close this window or the chat.")
+    typer.echo(f"status file: {md}")
+    typer.echo(f"check progress: make status NAME={batch.name}")
+
+
+@batch_app.command("status")
+def batch_status(name: str = typer.Argument(None, help="Batch name (default: the latest batch).")) -> None:
+    """How far a batch got, in plain words."""
+    from animedex.batch import known_batches, status_report
+
+    paths = _paths()
+    text = status_report(paths, name)
+    if text is None:
+        if name:
+            known = known_batches(paths)
+            typer.echo(f"No batch named {name}." + (f" Known batches: {', '.join(known)}." if known else ""),
+                       err=True)
+            raise typer.Exit(1)
+        typer.echo("No batches yet. Start one with: make batch FILE=<batch file>")
+        return
+    typer.echo(text)
 
 
 def main() -> None:

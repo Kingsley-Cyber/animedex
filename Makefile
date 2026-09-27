@@ -1,4 +1,4 @@
-.PHONY: validate build clean-build test eval smoke schemas lint ideas packet analyze backfill census review
+.PHONY: validate build clean-build test eval smoke schemas lint ideas packet analyze backfill census review batch status timing
 
 UV ?= uv
 RUN = $(UV) run
@@ -47,4 +47,10 @@ review:
 	$(RUN) animedex review
 
 timing:
-	uv run animedex timing
+	$(RUN) animedex timing
+
+batch:
+	$(RUN) animedex batch start $(FILE)
+
+status:
+	$(RUN) animedex batch status $(NAME)
