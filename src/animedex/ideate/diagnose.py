@@ -284,7 +284,7 @@ def run_diagnose(paths: Paths, settings: Settings, vocab: Vocab, *, text: str, c
     g = run_gates(gate_card, ctx, Similarity(embedder, ctx), settings.gates)
     record["gates"] = {"structural_jaccard_max": g.structural_max, "nearest": g.nearest,
                        "procedural_jaccard_max": g.procedural_max, "premise_cosine_max": g.cosine_max,
-                       "novel_combo": g.novel_combo, "novelty_basis": g.novelty_basis,
+                       "novel_combo": g.novel_combo, "novelty_basis": g.novelty_basis, "pmi_key_pair": g.pmi_key_pair,
                        "graveyard_hits": g.graveyard_hits, "failures": g.failures, "fatal": g.fatal}
     res.checks.append(_clone_check(g, m))
     res.checks.append(Check("novelty", True, g.novelty_basis) if g.novel_combo else

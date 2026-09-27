@@ -197,8 +197,10 @@ def revival_sources(ctx: Context) -> list[dict[str, Any]]:
 
 
 def open_borrowed(ctx: Context) -> list[str]:
-    """v1.6 5b: a borrowed system qualifies only with zero occurrences as a power system in the census."""
-    if not ctx.census_size:
+    """v1.6 5b: a borrowed system qualifies only with zero occurrences as a power system in the census. That zero
+    is census-backed novelty, so it counts only over the 200 powered census rows of the M5 floor, which also
+    clears the rule of three (3/n < 0.02, statistics as gates)."""
+    if not ctx.census_size or not ctx.census_zeros_trusted:
         return []
     return [s for s in BORROWABLE if ctx.census_systems.get(s, 0) == 0]
 
@@ -464,9 +466,15 @@ def _facts(ctx: Context, c: Cand) -> list[str]:
 
 
 def judge_facts(ctx: Context, g: GateResult, card: dict[str, Any]) -> list[str]:
-    """The deterministic facts the judge may cite (the same for generated and diagnosed cards)."""
-    facts = [f"untried combination: {g.novelty_basis}" if g.novel_combo else "no untried combination",
-             f"coverage {'adequate' if ctx.adequate else 'thin (zeros untrusted)'}",
+    """The deterministic facts the judge may cite (the same for generated and diagnosed cards). A novel key
+    pair never seen together is an untried combination (T1 evidence); one seen rarely is only rare."""
+    key = g.pmi_key_pair or {}
+    novelty = ("no untried combination" if not g.novel_combo else
+               f"untried combination: {g.novelty_basis}" if key.get("together") == 0 else
+               f"rare combination, seen before: {g.novelty_basis}")
+    facts = [novelty,
+             f"coverage {'adequate' if ctx.adequate else 'thin (zeros untrusted)'} (rule of three: 3/n = "
+             f"{ctx.rule_of_three:.3f} over {ctx.adequacy_n} rows; open below 0.02)",
              f"graveyard matches: {', '.join(g.graveyard_hits) or 'none'}"]
     lanes = sorted(set(card["bridge"]) & (ctx.lanes["imported"] | ctx.lanes["export"]))
     facts.append(f"lane concepts used: {', '.join(lanes) or 'none'}")
@@ -511,7 +519,7 @@ def _judge_all(r: _Run, cands: list[Cand], batch: int, h1_min: int) -> None:
             g = c.card["gates"]
             g.update(structural_jaccard_max=c.gates.structural_max, procedural_jaccard_max=c.gates.procedural_max,
                      premise_cosine_max=c.gates.cosine_max, novel_combo=c.gates.novel_combo,
-                     graveyard_hits=list(c.gates.graveyard_hits),
+                     pmi_key_pair=c.gates.pmi_key_pair, graveyard_hits=list(c.gates.graveyard_hits),
                      failure_conditions_triggered=list(j["failure_conditions_triggered"]),
                      consequence_test={**dims, "h1_pass": h1}, coherence=j["coherence"])
             c.card["runway"] = {"hurts_by_arc5": bool(j["runway_hurts_by_arc5"]), "reason": j["runway_reason"]}
@@ -546,8 +554,9 @@ def _taste_evidence(ctx: Context, cands: list[Cand]) -> None:
         kept: dict[str, str] = {}
         for t in c.judged.get("taste") or []:
             crit, ev = t["criterion"], t["evidence"]
-            if crit == "T1" and not (g.novel_combo and ctx.adequate and not g.graveyard_hits):
-                continue
+            if crit == "T1" and not (g.novel_combo and (g.pmi_key_pair or {}).get("together") == 0 and ctx.adequate
+                                     and not g.graveyard_hits):
+                continue  # never done: the key pair has zero co-occurrence on an adequate sample
             if crit == "T3" and not ((len(set(card["bridge"])) >= 2 or len(media) >= 2) and card["gates"]["coherence"] == "pass"):
                 continue
             if crit == "T4" and not (set(card["bridge"]) & (ctx.lanes["imported"] | ctx.lanes["export"])
@@ -644,6 +653,7 @@ def _finish_generation(r: _Run, cands: list[Cand], archive: dict, ideas: dict[st
                                      procedural_jaccard_max=c.gates.procedural_max if c.gates else 0.0,
                                      premise_cosine_max=c.gates.cosine_max if c.gates else 0.0,
                                      novel_combo=bool(c.gates and c.gates.novel_combo),
+                                     pmi_key_pair=c.gates.pmi_key_pair if c.gates else None,
                                      graveyard_hits=list(c.gates.graveyard_hits) if c.gates else [])
             res.rejected[c.rejected.split(":")[0]] += 1
         else:

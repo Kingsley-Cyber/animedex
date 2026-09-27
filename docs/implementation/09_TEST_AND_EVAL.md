@@ -31,6 +31,7 @@ Metrics:
 ## Verification metrics
 - Per field: share flagged for verify, share corrected by web.
 - A high correction rate means recall can't be trusted for that field: add it to `always_verify`.
+- Calibration (statistics as gates): per field, the Brier score of the extraction's own confidence (from its stored draft, D-022) against verified correctness (`web_confirmed` or `gathered` right, `web_corrected` wrong, `unresolved` left out), in `build/reports/verify_rates.md`.
 
 ## Compounding eval (M6+)
 - **Status movement:** atoms moved to `episode_backed`, `mixed`, `contradicted`; contested atoms settled by episodes.
@@ -53,8 +54,24 @@ Metrics:
      All arms use the same model, the same taste standard text, the same steering rules and the same length limits. No arm searches the web while generating; every packet card gets the same prior-art check, recorded in the answer key. Never loosen a gate to reach 15; with fewer cards in any arm, every arm shrinks to N.
   2. Strip metadata; format identically (logline + premise only).
   3. Shuffle. Kingsley rates each 1–5, marks "would greenlight" y/n, and tags any taste criterion met (T1–T5).
-  4. Unblind and compare. Record in `eval/blind/<date>.json`.
+  4. Unblind and compare. Record in `eval/blind/<date>.json`. `make review-report` turns the ratings (and any panel picks in `eval/panel/*.json`) into Bradley–Terry strengths per card and per arm and scores the judge's own ordering against them (see Statistics below).
 - Formatting must not leak which side a card came from (no atom IDs, no system vocabulary, no engine fields).
+
+## Statistics (owner ruling 2026-09-27: statistics as gates)
+Snapshots and counts only; pure arithmetic in `src/animedex/stats.py`, each inside the stage whose check it replaced (05). `make stats` collects them on one read-only page, `build/reports/stats.md`.
+
+| Statistic | Where | Rule |
+|---|---|---|
+| Cohen's kappa per enum field, next to raw agreement | agreement eval (AC-12) | grid fields need kappa ≥ 0.8; kappa < 0.6 is unreliable and excluded from gaps and novelty pairs (undefined kappa, one category: judged on raw agreement, D-014) |
+| Rule of three, 3/n | ANALYZE zeros, ideation adequacy, `borrow_system` | a zero is open only when 3/n < 0.02 over the relevant subset |
+| Expected count n × p(x) × p(y) | ANALYZE grid gaps | expected ≥ 3 and none observed: a real gap; else unsurprising |
+| PMI of the key pair (add-half, D-015) | IDEATE novelty gate | novel at PMI ≤ −1.0 on an adequate subset (D-021) |
+| Entropy, normalized entropy, mutual information with outcome | ANALYZE report | normalized entropy < 0.5 flags a low-entropy field |
+| Brier score | VERIFY report | per field; 0 is perfect, a constant 0.5 scores 0.25 (D-022) |
+| Bradley–Terry strengths, ranking agreement | review import | from rating pairs (higher wins, ties skipped) and panel picks (D-017); the judge's fitness order is scored against them |
+| Exact McNemar p-value, sample size needed | backtest | one-sided, on the titles only one brief got right; the smallest n where the same split reaches p < 0.05 (D-016) |
+
+Tests check each function against hand-computed values (`tests/unit/test_stats.py`) and each stage's use of it on synthetic data.
 
 ## Cost eval
 - Tokens and cost per title per pass, per episode, and per ROLLUP re-run; ideation cost per champion. Reported in every completion report.

@@ -5,18 +5,31 @@ logline + premise only (no source, no arm). Keyboard-driven:
   1-5 rating   y / n greenlight   t then 1-5 toggle T1-T5   right or j next, left or k back
 Every change is saved at once to eval/blind/ratings_<date>.yaml. The server binds 127.0.0.1 only
 and loads nothing from the internet.
+
+`animedex review --summary` (`make review-report`) is the review import (statistics as gates, item 7):
+Kingsley's 1-5 ratings become pairwise picks (the higher rating wins; ties and unrated cards are
+skipped, D-017), joined by any panel pick files `eval/panel/*.json` (`{"picks": [{"winner", "loser"}]}`,
+packet card ids). Bradley-Terry strengths come per card and per arm (the arms from the answer key in
+data/blind/), and the judge's own ordering (each card's fitness without the human rating: gates
+passed, taste criteria kept, lower structural overlap, from the idea records) is measured against
+that ranking. Written to build/reports/taste.md and build/stats/taste.json. Until every card is
+rated the report gives counts only, so no arm is revealed mid-review.
 """
 
 from __future__ import annotations
 
 import json
 import threading
+from dataclasses import dataclass, field
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from itertools import combinations
 from pathlib import Path
 from typing import Any
 
 import yaml
 
+from animedex import stats
+from animedex.paths import Paths
 from animedex.store.atomic import atomic_write_text
 
 CRITERIA = ["T1", "T2", "T3", "T4", "T5"]
@@ -195,3 +208,154 @@ def make_handler(store: Store) -> type[BaseHTTPRequestHandler]:
 def serve(blind_dir: Path, port: int = 8765) -> ThreadingHTTPServer:
     store = Store(latest_packet(blind_dir))
     return ThreadingHTTPServer(("127.0.0.1", port), make_handler(store))  # localhost only
+
+
+# ---------------------------------------------------------------- review import: taste (statistics as gates, item 7)
+ARM_ORDER = ("animedex", "baseline_loop", "baseline_single")
+
+
+def load_ratings(blind_dir: Path, date: str) -> dict[str, dict[str, Any]]:
+    f = blind_dir / f"ratings_{date}.yaml"
+    data = yaml.safe_load(f.read_text(encoding="utf-8")) if f.is_file() else None
+    cards = data.get("cards") if isinstance(data, dict) else None
+    return {str(k): dict(v) for k, v in (cards or {}).items() if isinstance(v, dict)}
+
+
+def rating_picks(ratings: dict[str, dict[str, Any]]) -> list[tuple[str, str]]:
+    """Every pair of rated cards with different ratings is one pick: the higher rating wins (D-017)."""
+    rated = sorted((cid, r["rating"]) for cid, r in ratings.items() if isinstance(r.get("rating"), int))
+    return [(a, b) if ra > rb else (b, a) for (a, ra), (b, rb) in combinations(rated, 2) if ra != rb]
+
+
+def panel_picks(panel_dir: Path, card_ids: set[str]) -> tuple[list[tuple[str, str]], int, int]:
+    """(picks, files read, picks skipped) from `eval/panel/*.json`; a pick naming a card outside the packet, or
+    a card against itself, is skipped."""
+    picks: list[tuple[str, str]] = []
+    files = skipped = 0
+    for f in sorted(panel_dir.glob("*.json")) if panel_dir.is_dir() else []:
+        files += 1
+        data = json.loads(f.read_text(encoding="utf-8"))
+        for p in (data.get("picks") if isinstance(data, dict) else None) or []:
+            w, lo = (str(p.get("winner")), str(p.get("loser"))) if isinstance(p, dict) else ("", "")
+            if w in card_ids and lo in card_ids and w != lo:
+                picks.append((w, lo))
+            else:
+                skipped += 1
+    return picks, files, skipped
+
+
+def judge_fitness(card: dict[str, Any]) -> list[float]:
+    """The pipeline's own ordering of a card: its fitness without Kingsley's rating."""
+    from animedex.ideate.run import card_fitness
+
+    return card_fitness({**card, "human_rating": None})[1:]
+
+
+def judge_scores(key: dict[str, dict[str, Any]], ideas: dict[str, dict[str, Any]]) -> dict[str, float]:
+    """Per packet card with an idea record (baseline 2 has none): its rank by judge fitness; equal fitness,
+    equal score (ties are skipped when agreement is measured)."""
+    fit = {cid: tuple(judge_fitness(ideas[k["source"]])) for cid, k in key.items() if k.get("source") in ideas}
+    order = {f: float(i) for i, f in enumerate(sorted(set(fit.values())))}
+    return {cid: order[f] for cid, f in sorted(fit.items())}
+
+
+def compared_pairs(reference: dict[str, float], other: dict[str, float]) -> int:
+    common = sorted(set(reference) & set(other))
+    return sum(1 for a, b in combinations(common, 2) if reference[a] != reference[b] and other[a] != other[b])
+
+
+@dataclass
+class TasteResult:
+    date: str
+    cards: int
+    rated: int
+    complete: bool
+    picks: dict[str, int] = field(default_factory=dict)
+    card_strength: dict[str, float] = field(default_factory=dict)
+    arm_strength: dict[str, float] = field(default_factory=dict)
+    arm_record: dict[str, list[int]] = field(default_factory=dict)   # arm -> [wins, losses] against other arms
+    judge_agreement: float | None = None
+    judge_pairs: int = 0
+    report: str = ""
+
+    def to_dict(self) -> dict[str, Any]:
+        return {"date": self.date, "cards": self.cards, "rated": self.rated, "complete": self.complete,
+                "picks": self.picks, "card_strength": self.card_strength, "arm_strength": self.arm_strength,
+                "arm_record": self.arm_record, "judge_agreement": self.judge_agreement,
+                "judge_pairs": self.judge_pairs}
+
+
+def taste_summary(paths: Paths, date: str | None = None) -> TasteResult:
+    """The review import: picks -> Bradley-Terry strengths per card and per arm -> the judge's agreement."""
+    from animedex.ideate.run import baseline_file
+    from animedex.statgates import write_stage
+    from animedex.store.canonical import CanonicalStore
+    from animedex.store.jsonl import read_jsonl
+
+    blind = paths.root / "eval" / "blind"
+    packet_file = blind / f"packet_{date}.json" if date else latest_packet(blind)
+    if not packet_file.is_file():
+        raise FileNotFoundError(f"no blind packet {packet_file.name}")
+    packet = json.loads(packet_file.read_text(encoding="utf-8"))
+    date = str(packet["date"])
+    ids = [c["id"] for c in packet["cards"]]
+    ratings = {cid: r for cid, r in load_ratings(blind, date).items() if cid in ids}
+    rated = sum(1 for cid in ids if isinstance((ratings.get(cid) or {}).get("rating"), int))
+    res = TasteResult(date=date, cards=len(ids), rated=rated, complete=rated == len(ids) and bool(ids))
+    own = rating_picks(ratings)
+    panel, files, skipped = panel_picks(paths.root / "eval" / "panel", set(ids))
+    res.picks = {"kingsley": len(own), "panel": len(panel), "panel_files": files, "skipped": skipped}
+    if res.complete:
+        key_file = paths.root / "data" / "blind" / f"key_{date}.json"
+        key = json.loads(key_file.read_text(encoding="utf-8")) if key_file.is_file() else {}
+        picks = own + panel
+        res.card_strength = {str(k): v for k, v in stats.bradley_terry(picks).items()}
+        arm_picks = [(key[w]["arm"], key[lo]["arm"]) for w, lo in picks
+                     if w in key and lo in key and key[w]["arm"] != key[lo]["arm"]]
+        res.arm_strength = {str(k): v for k, v in stats.bradley_terry(arm_picks).items()}
+        res.arm_record = {arm: [sum(1 for w, _ in arm_picks if w == arm), sum(1 for _, lo in arm_picks if lo == arm)]
+                          for arm in ARM_ORDER if any(arm in p for p in arm_picks)}
+        ideas = {i["idea_id"]: i for i in CanonicalStore(paths).read("idea")}
+        ideas.update({i["idea_id"]: i for i in read_jsonl(baseline_file(paths, "ideas"))})
+        judge = judge_scores(key, ideas)
+        res.judge_agreement = stats.ranking_agreement(res.card_strength, judge)
+        res.judge_pairs = compared_pairs(res.card_strength, judge)
+        text = _taste_md(res, key, ratings, judge)
+    else:
+        text = _taste_md(res, {}, {}, {})
+    out = paths.reports / "taste.md"
+    atomic_write_text(out, text)
+    write_stage(paths, "taste", res.to_dict())
+    res.report = str(out.relative_to(paths.root))
+    return res
+
+
+def _taste_md(res: TasteResult, key: dict[str, dict[str, Any]], ratings: dict[str, dict[str, Any]],
+              judge: dict[str, float]) -> str:
+    p = res.picks
+    lines = ["# Taste: Bradley-Terry strengths from pairwise picks", "",
+             f"Packet {res.date}: {res.cards} cards, {res.rated} rated. Picks: {p['kingsley']} from Kingsley's ratings "
+             f"(a higher rating wins; equal ratings are skipped), {p['panel']} from {p['panel_files']} panel file(s), "
+             f"{p['skipped']} skipped (a card outside the packet, or a card against itself).", ""]
+    if not res.complete:
+        return "\n".join([*lines, f"{res.cards - res.rated} card(s) still unrated. The arms stay hidden until every "
+                           "card is rated; run `make review-report` again then.", ""]) + "\n"
+    lines += ["Strengths are Bradley-Terry (MM, 0.5 pseudo-picks against an average opponent, D-017), normalized to a "
+              "geometric mean of 1: a card twice as strong as another is picked two times in three.", "",
+              "## Arms", "", "| Arm | Strength | Wins | Losses |", "|---|---|---|---|"]
+    for arm in sorted(res.arm_strength, key=lambda a: (-res.arm_strength[a], a)):
+        w, lo = res.arm_record.get(arm, [0, 0])
+        lines.append(f"| {arm} | {res.arm_strength[arm]:.3f} | {w} | {lo} |")
+    lines += ["", "Only picks between cards of different arms count here.", "",
+              "## Cards, strongest first", "", "| Card | Arm | Strength | Rating | Judge rank |", "|---|---|---|---|---|"]
+    for cid in sorted(res.card_strength, key=lambda c: (-res.card_strength[c], c)):
+        rank = "n/a" if cid not in judge else f"{judge[cid]:.0f}"
+        lines.append(f"| {cid} | {(key.get(cid) or {}).get('arm', '?')} | {res.card_strength[cid]:.3f} | "
+                     f"{(ratings.get(cid) or {}).get('rating')} | {rank} |")
+    agree = "n/a" if res.judge_agreement is None else f"{res.judge_agreement:.2f}"
+    lines += ["", "## The judge against this ranking", "",
+              f"Agreement: {agree} over {res.judge_pairs} card pair(s): the share of pairs the judge's own ordering "
+              "puts the same way as the strengths (ties in either are skipped). The judge's ordering is each card's "
+              "fitness without the human rating (gates passed, taste criteria kept, lower structural overlap), from "
+              "the idea records; baseline 2 cards have none. Judge rank: higher is better.", ""]
+    return "\n".join(lines) + "\n"

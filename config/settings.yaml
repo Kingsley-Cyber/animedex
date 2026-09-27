@@ -105,7 +105,8 @@ p2:
   low_atom_alarm: 5
 p3: {load_bearing_alarm: 8, load_bearing_low_flag: 3}
 check: {reject_rate_alarm: 0.30}
-coverage: {min_titles_with_module: 5, min_field_completion: 0.8}
+coverage: {min_field_completion: 0.8}   # which titles count toward a zero; a zero is open only when 3/n < 0.02
+                                         # (rule of three, statistics as gates; replaced min_titles_with_module: 5)
 episodes:
   selection: [pilot, moment, finale, control]
   max_per_title: 6
@@ -143,6 +144,9 @@ ideate:
   brief_titles: 10              # item 4: the nearest titles to the target shown in the brief
   brief_graveyard_max: 5        # item 4: mixed/flop rows in the target region shown in the brief
   census_novelty_min_rows: 200  # item 5: census-backed zero pairs count only from this many powered rows
+backtest:                       # `make backtest` (controls B1; statistics as gates, item 8): held-out titles only
+  batch: 5                      # titles per judge call (two conditions: blank brief, index brief)
+  neighbors: 5                  # nearest indexed titles in the index brief (anonymous, with outcomes)
 diagnose:                       # `animedex diagnose` (owner ruling 2026-09-27): structure, judge, ablation
   calls_per_run: 6              # 3 calls, each with its one repair
   max_concept_words: 800        # longer concepts are refused before any call

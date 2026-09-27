@@ -145,6 +145,14 @@ def responder(system, user, schema, params):
     return out
 
 
+def census_for_novelty(n: int = 200) -> list[dict]:
+    """Statistics as gates (item 4): a card is novel only when a key pair co-occurs at most half as often as
+    chance over more than 150 rows (rule of three), and three corpus titles are too few. So the pool carries 200
+    powered census rows (the census floor) whose fight medium, energy, never meets the corpus titles' visible
+    counter, numeric_level: the pair every generated card uses (PMI -2.30 over 202 rows)."""
+    return make_census(n, fight_medium="energy")
+
+
 def clients(repo, name="run_i", budget=None, live=False):
     def make(key):
         mock = MockProvider(default=responder)
@@ -162,6 +170,7 @@ def clients(repo, name="run_i", budget=None, live=False):
 def pool(repo):
     _count["n"] = 0
     write_state(repo, state())
+    CanonicalStore(repo).write("census", census_for_novelty())  # novelty needs an adequate sample
     corpus = [{k: t[k] for k in ("title_id", "title", "year", "medium", "format", "scope", "role_tags")}
               for t in state()["title"]]
     repo.corpus_file.write_text(yaml.safe_dump({"titles": corpus}))
@@ -188,8 +197,11 @@ def test_ideate_produces_complete_gated_cards_and_a_sound_archive(pool):
     champions = [c for c in ideas if c["status"] == "champion"]
     assert {c["idea_id"] for c in champions} == {a["idea_id"] for a in archive}
     for c in champions:
-        assert "T5" not in c["taste"]["criteria_met"]  # no revival source -> claim dropped
+        # no revival source -> the claim is dropped (the census lets one-atom revival cards pass novelty now)
+        assert ("T5" in c["taste"]["criteria_met"]) == bool(c.get("revival_of"))
         assert c["runway"]["hurts_by_arc5"] is True and c["premortem"]
+        key = c["gates"]["pmi_key_pair"]  # statistics as gates: the key pair and its PMI are on the card
+        assert key["novel"] and key["pmi"] <= -1.0 and key["n"] > 150 and key["adequate"]
 
 
 def test_a_cells_fitness_never_decreases(pool):
@@ -226,12 +238,14 @@ def test_ideas_report_hides_gold_titles(pool):
     text = write_report(pool)
     assert "# ANIMEDEX idea cards" in text and "[gold title]" in text
     assert "Ironvale Circuit" not in text and "Lantern Debt" not in text
+    # each card shows its key pair's PMI (statistics as gates, item 4)
+    assert "**Novelty.** fight medium energy with visible counter numeric_level: together 0 time(s) in 202" in text
 
 
 def test_blind_packet_has_three_equal_arms_and_hides_the_key(pool):
     # Arms per the accepted controls decision 1 (M5 fair baselines): ANIMEDEX, baseline 1 (the same loop with an
     # empty brief) and baseline 2 (one call). This replaced the v1.6 plain and web arms.
-    CanonicalStore(pool).write("census", make_census(200))  # baseline 1 has no atoms: census-backed novelty only
+    CanonicalStore(pool).write("census", census_for_novelty())  # baseline 1 has no atoms: census-backed novelty only
     settings = load_settings(pool)
     run_ideate(pool, settings, get_vocab(), clients=clients(pool), embedder=MockEmbedder(), run_id="run_p",
                generations=1)

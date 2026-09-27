@@ -71,6 +71,8 @@ Every FAIL comes with a fix. The fix names either one of the idea moves (for exa
 - **Blind review:** first run `make ideas ARM=baseline_loop`. This makes the first baseline: the same idea loop, but without the index. Then `make packet` writes a review packet to `eval/blind/`. It mixes ANIMEDEX cards with that baseline and with a second one, a single plain request. Both baselines get the same model, taste standard and rules, so you can rate everything blind.
 - **Audit:** `make audit` picks 10 facts the index learned and shows the evidence behind each. Mark each one true, plausible or wrong in `eval/audit/`, then run `make audit-report` to see how often it is wrong over time.
 - **Census:** `make census` counts which power-system ideas already exist across about 500 popular anime and donghua, so "never done" claims hold up.
+- **Statistics:** `make stats` writes one page, `build/reports/stats.md`, with the numbers behind the checks (reliability, empty cells worth filling, how novel each card is, calibration, your ratings, the backtest).
+- **Backtest:** `make backtest LIST=held_out.txt` checks whether the index helps predict how shows you haven't indexed were received; the result is in `build/reports/backtest.md`.
 - **Gold titles:** their details stay hidden until you say "annotations done" or "annotations waived".
 
 ## Cost

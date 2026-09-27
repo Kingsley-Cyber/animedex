@@ -4,10 +4,16 @@
 - each title's structural set (the six power/relationship enums + bridge concepts of its
   load-bearing transfers) and procedural set (gate, cost, progression, counter) for the clone gate;
 - the graveyard (premise-level flops warn; execution-level flops feed the revival operator);
-- imported/export lanes for T4 evidence; coverage adequacy for "zero is not novel";
-- optional census counts (v1.6): occupancy only, never ideation input. Census-backed zeros count
-  only with at least `ideate.census_novelty_min_rows` (200) powered census rows (owner ruling
-  2026-09-27, before M5 item 5); until then novelty rests on bridge-concept pairs;
+- imported/export lanes for T4 evidence; coverage adequacy for "zero is not novel": by the rule of
+  three (statistics as gates, item 2), zeros are open only when 3/n < 0.02, with n the corpus titles
+  that have power_combat and good field completion plus the powered census rows;
+- optional census counts (v1.6): occupancy only, never ideation input. Census rows count (for
+  adequacy and the novelty gate's PMI) only with at least `ideate.census_novelty_min_rows` (200)
+  powered census rows (owner ruling 2026-09-27, before M5 item 5; kept, since it is stricter);
+- the rows the novelty gate measures PMI over (statistics as gates, item 4): each title's structural
+  values and bridge concepts, and each powered census row's structural values;
+- the fields the agreement eval flagged unreliable (`eval/agreement/reliability.json`): they leave
+  the novelty pairs and the grid-zero claims;
 - per-cell counts (corpus titles, census rows) and the prior-art verdicts already recorded for
   each cell, for the M5 call brief.
 """
@@ -19,12 +25,14 @@ from dataclasses import dataclass, field
 from itertools import combinations
 from typing import Any
 
+from animedex import stats
 from animedex.analyze import graveyard_index, structural_set
 from animedex.config import Settings
 from animedex.eligibility import eligible_atom_ids
 from animedex.integrity import name_list
 from animedex.ontology import Vocab
 from animedex.paths import Paths
+from animedex.statgates import unreliable_fields
 from animedex.store.canonical import CanonicalStore
 
 PROFILE_PATHS = {"gate": "power_combat.gate", "cost_of_power": "power_combat.cost_of_power",
@@ -68,7 +76,7 @@ class Context:
     lanes: dict[str, set[str]]                      # imported / export bridge concepts
     pair_counts: Counter                            # enum-pair co-occurrence across titles (+ census)
     concept_pairs: set[tuple[str, str]]             # bridge-concept pairs seen together in one title
-    adequate: bool                                  # power_combat coverage adequate for zeros
+    adequate: bool                                  # zeros open by the rule of three (3/n < 0.02)
     themes: list[str]
     names: tuple[set[str], set[str]]
     census_systems: Counter = field(default_factory=Counter)  # borrowed_system -> titles using it as a power
@@ -78,11 +86,33 @@ class Context:
     cell_titles: Counter = field(default_factory=Counter)   # grid cell key -> corpus titles in it
     cell_census: Counter = field(default_factory=Counter)   # grid cell key -> census rows in it (counts only)
     prior_art_by_cell: dict[str, list[dict[str, Any]]] = field(default_factory=dict)
+    census_rows: list[frozenset[str]] = field(default_factory=list)  # powered census rows' structural values
+    adequacy_n: int = 0                             # the rows behind `adequate`
+    unreliable: dict[str, dict[str, Any]] = field(default_factory=dict)  # fields the agreement eval flagged
 
     @property
     def census_zeros_trusted(self) -> bool:
-        """Enum zero pairs are census-backed: they count only with enough powered census rows."""
+        """Census rows count (adequacy, novelty PMI) only with enough powered census rows."""
         return self.powered_census >= self.census_novelty_min_rows
+
+    @property
+    def rule_of_three(self) -> float:
+        return stats.rule_of_three(self.adequacy_n)
+
+    def enum_rows(self) -> list[frozenset[str]]:
+        """Rows for enum-pair PMI: each title's structural values, plus the powered census rows once the
+        census floor holds (the same counts the novelty gate used before PMI replaced "unseen pair")."""
+        titles = [frozenset(i for i in s if not i.startswith("bridge:")) for _, s in sorted(self.title_struct.items())]
+        return [r for r in titles if r] + (list(self.census_rows) if self.census_zeros_trusted else [])
+
+    def concept_rows(self) -> list[frozenset[str]]:
+        """Rows for bridge-pair PMI: the bridge concepts of each title's load-bearing patterns."""
+        rows = [frozenset(i for i in s if i.startswith("bridge:")) for _, s in sorted(self.title_struct.items())]
+        return [r for r in rows if r]
+
+    def unreliable_dims(self, dims: list[str]) -> list[str]:
+        """Grid dimensions the agreement eval flagged unreliable: their zeros are never claimed open."""
+        return [d for d in dims if d in self.unreliable]
 
     def label(self, tid: str) -> str | None:
         o = self.outcomes.get(tid) or {}
@@ -117,8 +147,7 @@ def build_context(paths: Paths, settings: Settings, vocab: Vocab) -> Context:
         title_proc[tid] = {e for e in enums if e.split("=")[0] in {PROFILE_PATHS[k] for k in PROCEDURAL}}
         pair_counts.update(_pairs(enums))
         concept_pairs |= _pairs(concepts_by_title.get(tid, set()))
-    cov = settings.coverage
-    need, completion = int(cov.get("min_titles_with_module", 5)), float(cov.get("min_field_completion", 0.8))
+    completion = float(settings.coverage.get("min_field_completion", 0.8))
     adequate_titles = [c for c in state.get("coverage", []) if "power_combat" in c.get("modules_active", [])
                        and c.get("field_completion", 0) >= completion]
     dims = list(settings.ideate.get("grid_dims") or [])
@@ -126,9 +155,12 @@ def build_context(paths: Paths, settings: Settings, vocab: Vocab) -> Context:
     census = state.get("census", [])
     census_systems: Counter = Counter()
     cell_census: Counter = Counter()
+    census_rows: list[frozenset[str]] = []
     for c in census:  # v1.6: counts only
         values = {f"{PROFILE_PATHS[k]}={c[k]}" for k in PROFILE_PATHS if c.get(k)}
         pair_counts.update(_pairs(values))
+        if c.get("has_power_system"):
+            census_rows.append(frozenset(v for v in values if not v.split("=", 1)[1].startswith("other")))
         if c.get("has_power_system") and c.get("borrowed_system"):
             census_systems[c["borrowed_system"]] += 1
         if dims and all(c.get(d.split(".")[-1]) for d in dims):
@@ -153,10 +185,13 @@ def build_context(paths: Paths, settings: Settings, vocab: Vocab) -> Context:
         if "anime" in media and not any(m in WESTERN for m in media):
             lanes["export"].add(concept)
     themes = sorted({((r.get("core") or {}).get("core_question") or {}).get("value") for r in titles.values()} - {None})
-    # census-backed adequacy needs the same 200 powered rows as census-backed zeros (M5 ruling)
+    # rule of three over the well-covered power_combat titles, plus the powered census rows once the census
+    # floor holds (census-backed adequacy keeps the M5 ruling's 200-row floor)
+    n = len(adequate_titles) + (powered_census if powered_census >= min_rows else 0)
     return Context(titles=titles, outcomes=outcomes, pool=pool, title_struct=title_struct, title_proc=title_proc,
                    graveyard=graveyard_index(state), lanes=lanes, pair_counts=pair_counts,
-                   concept_pairs=concept_pairs, adequate=len(adequate_titles) >= need or powered_census >= min_rows,
+                   concept_pairs=concept_pairs, adequate=stats.zero_is_open(n),
                    themes=themes, names=name_list(state, vocab), census_systems=census_systems,
                    census_size=len(census), powered_census=powered_census, census_novelty_min_rows=min_rows,
-                   cell_titles=cell_titles, cell_census=cell_census, prior_art_by_cell=prior_art_by_cell)
+                   cell_titles=cell_titles, cell_census=cell_census, prior_art_by_cell=prior_art_by_cell,
+                   census_rows=census_rows, adequacy_n=n, unreliable=unreliable_fields(paths))

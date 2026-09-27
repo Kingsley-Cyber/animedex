@@ -26,6 +26,9 @@
 | `animedex migrate --to <version>` | Mechanical data migration |
 | `animedex recalibrate` / `make recalibrate` | Score the recalibration premise pairs with the embedder and propose clone thresholds (v1.7; proposal only) |
 | `animedex timing` / `make timing` | Where the time and input tokens go, per stage, from the run logs |
+| `animedex review --summary` / `make review-report` | Review import: Bradley–Terry strengths per card and per arm from the ratings and panel picks, and the judge's agreement, `build/reports/taste.md` (statistics as gates) |
+| `animedex backtest [--list <file>]` / `make backtest LIST=<file>` | Retrodiction backtest on held-out titles, `build/reports/backtest.md` (controls B1; statistics as gates) |
+| `animedex stats` / `make stats` | Read-only statistics summary collected from the stages, `build/reports/stats.md` (statistics as gates) |
 | `make validate` / `make build` / `make clean-build` / `make test` / `make eval` / `make smoke TITLE=<id>` | Tooling |
 
 Flags: `--all` (every title in the corpus), `--dry-run` (print prompts and cache status, no model calls).
@@ -76,6 +79,7 @@ Flags: `--all` (every title in the corpus), `--dry-run` (print prompts and cache
   - Any level except `unknown` cites a retrieved page. An unsourced level is stored as `unknown`.
   - `animedex verify --outcome-only` re-checks just the outcomes of canonical mixed/flop titles.
   - `animedex migrate --to 1.3.0` gives older records the honest default `unknown`.
+- **Calibration** (statistics as gates, item 6): `make eval` adds to `build/reports/verify_rates.md`, per field, the Brier score of the extraction's confidence against verified correctness: `web_confirmed` or `gathered` = right, `web_corrected` = wrong, `unresolved` left out. VERIFY and INTERPRET's gathered step raise a checked field's stored `conf` to at least `verify.conf_threshold`, so the confidence is read from the stored P1/INTERPRET draft in the response cache (the record's provenance cache key; no call). Where the draft is gone, the stored value stands in and is counted as floored (D-022).
 - Precondition for P2.
 
 ### P2 WHY
@@ -139,6 +143,12 @@ Deterministic except steps 3 and 5, which call a model.
 
 ### ANALYZE
 - Coverage report; gap cells with coverage-adequacy flag; imported/export lanes; graveyard index (load-bearing combinations of mixed/flop titles + `failure_reason` + `failure_level`; M6: flop pilot structures). Only **premise**-level failures warn (v1.3). **Execution**-level failures are listed as T5 "retold better" evidence. External/unknown are listed with no warning.
+- **Statistics as gates** (owner ruling 2026-09-27; see the section below):
+  - **Adequacy:** a zero is `open` only when the rule-of-three bound 3/n is below 0.02 (n ≥ 151). For module questions n is the titles with the module active and `field_completion ≥ coverage.min_field_completion`; for census-backed questions (CQ-G10, CQ-G16, CQ-I23) n is the census rows with `has_power_system`. This replaced `coverage.min_titles_with_module` (5).
+  - **Gap ranking:** the grid-gap questions (CQ-G01, CQ-G04, CQ-G10, CQ-G17) rank their empty cells by the count expected under independence, n × p(x) × p(y), over the n rows with both fields known (`gap_ranking` in the answer): expected ≥ 3 with none observed is a **real gap**; the rest are **unsurprising**. Ties by value, so the order is deterministic.
+  - **Reliability:** a question whose zeros rest on a field that `eval/agreement/reliability.json` flags `unreliable` (kappa < 0.6) is excluded from the gap reports (`zeros_are: excluded: unreliable field`, with the field and its kappa). No file, no exclusion.
+  - **Field health:** per single-value enum field, entropy, normalized entropy (by the number of allowed values; under 0.5 is flagged low) and mutual information with the outcome label over the titles that have one, in `build/reports/analysis.md`.
+  - The numbers go to `build/stats/analysis.json` for `animedex stats`.
 - M6 episode analytics: pilot structures (CQ-E02), engine presence in control episodes (CQ-E05), setup→payoff distances and unresolved setups (CQ-E06), atom support statuses (CQ-E07), decision shapes (CQ-E08).
 - Saves CQ answers to `build/cq_answers/*.json` for regression.
 
@@ -164,7 +174,7 @@ Deterministic except steps 3 and 5, which call a model.
   1. **Clone:** Jaccard of the idea's structural set vs. every title. Structural set = enum values of gate, cost_of_power, progression, visible_counter, fight_medium, power_is + bridge concepts of the atoms used. Procedural set = gate, cost_of_power, progression, visible_counter. Premise cosine via embeddings on logline + premise.
      - **Embeddings (v1.7):** Qwen3-Embedding-0.6B, the one allowed local model. Polymath's embedder sidecar (the same model on the Mac GPU, `POST /infer`, at most 32 texts per request, `representation_kind: child_chunk`, no priority header so it runs at background priority) is used when its `/ready` says ready and its manifest names the configured model. Otherwise the Ollama copy (`qwen3-embedding:0.6b`) is used. One backend serves the whole run and its name is printed; the backends are never mixed. When neither is ready, the run stops with a message naming both and how to start one.
      - **Recalibration:** each embedding model scores on its own scale. `animedex recalibrate` scores `eval/recalibration/pairs.yaml` (about 10 similar and 10 different premise pairs, original and name-free) on the primary backend, compares the fallback when it is reachable (largest per-pair difference), and proposes `premise_cosine_reject` between the lowest similar-pair score and the highest different-pair score. It writes `build/reports/recalibration.md` and never changes config; Kingsley approves the numbers. `premise_cosine_with_structural` is reported, not recalibrated.
-  2. **Novelty:** the idea must contain a pair/triple of atoms or enum values with zero co-occurrence (under adequate coverage), or an explicit inversion of a hit's broken rule.
+  2. **Novelty (statistics as gates: PMI replaced "unseen pair"):** the card's key pair is the pair of its profile values, or of its atoms' bridge concepts when the atoms come from 2+ titles, with the lowest PMI (add-half smoothed, D-015) on an adequate subset. The pair is novel when PMI ≤ −1.0 (it co-occurs at most half as often as chance, D-021) over more than 150 rows that could show it (both fields known; rule of three). Enum rows are the corpus titles, plus the powered census rows once `ideate.census_novelty_min_rows` (200) is met; bridge rows are the corpus titles. Fields flagged unreliable never form a pair. The key pair and its PMI are recorded on the card (`gates.pmi_key_pair`) and shown in `ideas.md`.
   3. **Graveyard:** if its key combination matches a **premise**-level flop's load-bearing combination, the card must state why this time is different, or it is rejected. Execution-level matches are not warnings; they are T5 evidence (v1.3).
 - **Judge (different model family when available):**
   1. **H1 consequence test:** for each of choices, relationships, outcomes: does it differ from what happens in `closest_existing`? Fewer than `ideate.h1_min_changed_dimensions` → H1 fail → reject.
@@ -207,7 +217,7 @@ Deterministic except steps 3 and 5, which call a model.
   - `flop`: mixed/flop titles in the target region, meaning their structural set overlaps the target set (most overlap first, up to `ideate.brief_graveyard_max`, 5). If none overlaps, the first two rows by id stand in so the pre-mortem keeps sources (AC-46); the call meta records `graveyard_region: fallback`. Pre-mortem sources are limited to the flops shown;
   - `rule`: every steering rule; `rework`: the failed checks on a retry.
   - **Cap:** `ideate.brief_max_words` (600). Optional lines go first (farthest titles, extra flops, prior art, lanes, the last flop). A brief whose required lines alone pass the cap is refused before any call (`brief:` rejection). Each call's run-log entry carries `meta.brief`: words, estimated tokens (characters / 4), and counts per slot.
-- **Novelty (item 5).** Enum zero pairs are census-backed: they count only once the census holds at least `ideate.census_novelty_min_rows` (200) rows with `has_power_system: true`. Until then novelty rests on bridge-concept pairs only (atoms from 2+ titles). Census-backed coverage adequacy uses the same 200-row floor.
+- **Novelty (item 5).** Census rows count for novelty only once the census holds at least `ideate.census_novelty_min_rows` (200) rows with `has_power_system: true`. Census-backed coverage adequacy, and the `borrow_system` operator's census zero, use the same 200-row floor (it clears the rule of three). Since statistics as gates, novelty is the PMI rule of gate 2: with 14 corpus titles no subset is adequate, so novelty needs the census.
 - **Judge on `why_different` (item 6).** On a premise-level graveyard match the judge sees the card's `why_different` and each matched flop's recorded failure (reason and level). It returns `why_different_verdict` pass | fail | not_applicable with a reason of 25 words or fewer. "Not blank" is no longer a pass: a blank answer still fails the gate, and a judged fail gets one rework, then rejection (like runway). A card with a match must get pass or fail (one repair).
 - **Fair baselines (item 7; controls A5, decision 1).** The blind review has three arms, and only index access differs:
   - `animedex`: the champions;
@@ -232,6 +242,31 @@ Deterministic except steps 3 and 5, which call a model.
 - **Mix warning:** an all-hit or all-anime list gets a warning and suggestions, never a block.
 - **Running:** the full pipeline runs in paced batches, and the report shows counts only.
 
+### BACKTEST (controls plan B1; statistics as gates, item 8)
+- **`animedex backtest [--list FILE]`** (`make backtest LIST=FILE`): one command over existing stages.
+  1. **Titles.** `--list` resolves each line with the catalog resolver (the backfill rules) into `data/backtest/titles.yaml`. A title already in the corpus is refused: backtest titles are held out and never enter the corpus or canonical data (AC-BT-1). `data/backtest/` is git-ignored.
+  2. **GATHER + INTERPRET**, unchanged, against `BacktestPaths`: the same prompts, models, response cache and run logs, with the title list, candidates and quarantine under `data/backtest/` (`gathered/<id>.json`, `interpret/<id>.json`). The live title guard reads the backtest list, so every title keeps a declared scope. The outcome label is INTERPRET's reception-backed outcome; a title without one is reported, not scored. Finished titles are not run again.
+  3. **Predictions** (slot `ideate_judge`, `prompts/backtest_predict.md` 1.0.0): hit, mixed or flop from the premise abstraction and the power kit (the six structural enums) only, twice per title: with a blank brief, and with the index brief (the `backtest.neighbors` (5) nearest corpus titles by structural Jaccard, anonymous, with their outcome labels, and for mixed and flop ones the failure level, patterns and reason). Batches of `backtest.batch` (5) titles. The name-leak check (held-out and corpus titles, character names, profile proper nouns) runs on the free text of every judge input: a title whose premise names anything is not sent, a neighbour reason that names anything is dropped, and an input still holding a title id is refused (AC-BT-2).
+  4. **Report** (`build/reports/backtest.md`, `build/stats/backtest.json`): per-title predictions, accuracy with each brief and the difference (AC-BT-3), the exact one-sided McNemar p-value on the titles only one brief got right, and the sample size the observed split would need for p < 0.05 (D-016). A rerun with the same titles is served from the cache (AC-BT-4).
+- **Calls:** about 3 per title for GATHER and INTERPRET plus 2 × ⌈titles / 5⌉ judge calls, under the usual caps (40 per run, 6 per title).
+
+### STATS (statistics as gates; read-only)
+- **`animedex stats`** (`make stats`) writes `build/reports/stats.md` from the stage outputs only: reliability (`eval/agreement/reliability.json`), adequacy per subset, the top real gaps and field health (`build/stats/analysis.json`), the champions' key-pair PMI (canonical idea cards), calibration (`build/stats/calibration.json`), taste (`build/stats/taste.json`) and the backtest (`build/stats/backtest.json`). It recomputes nothing that depends on a model; a missing input names the command that makes it.
+
+### Statistics as gates (owner ruling 2026-09-27)
+Snapshots and counts only, no models; each statistic replaced the check it corresponds to inside its existing stage (`src/animedex/stats.py` holds the arithmetic, `statgates.py` the stage plumbing):
+
+| Stage | Check before | Statistic now |
+|---|---|---|
+| Agreement eval (AC-12) | raw enum agreement ≥ 0.80 | Cohen's kappa per enum field next to raw agreement; grid fields need kappa ≥ 0.8; kappa < 0.6 flags a field unreliable (`eval/agreement/reliability.json`) |
+| ANALYZE adequacy, IDEATE `ctx.adequate`, `borrow_system` | ≥ 5 titles with completion ≥ 0.8, or ≥ 200 powered census rows | a zero is open only when 3/n < 0.02 over the relevant subset (census rows still count only past the 200-row floor) |
+| ANALYZE gap report | every empty cell listed | empty cells ranked by n × p(x) × p(y); expected ≥ 3 = real gap, else unsurprising; unreliable fields excluded |
+| ANALYZE report | — | field health: entropy, normalized entropy (low < 0.5), mutual information with outcome |
+| IDEATE novelty gate | an unseen pair under adequate coverage | the key pair's PMI ≤ −1.0 on an adequate subset, recorded on the card |
+| VERIFY report | correction rate per field | plus the Brier score of the pre-check confidence per field |
+| Review import | — | Bradley–Terry strengths per card and per arm; the judge's agreement with that ranking |
+| Backtest | — | accuracy per brief, exact McNemar p-value, sample size needed |
+
 ### AUDIT (controls A7, M5)
 - **`animedex audit [--date D] [--size 10]`:** samples 10 load-bearing-eligible atoms at random, seeded by the date, and writes `eval/audit/audit_<date>.yaml`. The folder is git-ignored and backed up to the private data repo. Per atom the sheet holds:
   - the atom's text and its P2 run;
@@ -247,7 +282,7 @@ Deterministic except steps 3 and 5, which call a model.
 - **In:** a concept as text, `--file PATH` or `--text "…"` (up to `diagnose.max_concept_words`, 800). **Out:** `data/diagnose/<id>.json` (the concept, the card, every result) and `data/diagnose/<id>.md`, both private (git-ignored, backed up to the private data repo, never in the public repo), plus printed lines. The id is `diag_<yyyymmdd>_<sha8 of the text>`.
 - **Steps (3 calls under `diagnose.calls_per_run`, 6, since each call may spend its one repair):**
   1. **Structure** (slot `ideate_generate`, `prompts/diagnose_structure.md` 1.0.0): the concept becomes a card (`models/diagnose.py`): logline, premise, theme, engine (7 parts), twist (`what_changed`), consequences, profile (6 enums), closest existing title, why not a clone, broken rule, appetite, why different. The model structures and does not improve. While the gold blind is pending it sees no gold title.
-  2. **Gates**, exactly as on generated cards: clone, novelty, graveyard, name leak. A concept has no atoms, so novelty can only come from census-backed enum zeros (item 5).
+  2. **Gates**, exactly as on generated cards: clone, novelty, graveyard, name leak. A concept has no atoms, so novelty can only come from census-backed enum pairs (PMI on an adequate sample; item 5 floor).
   3. **Judge**: the IDEATE judge prompt and call shape, one card: H1, coherence, runway, and `why_different` on a premise-level match. Taste claims are listed, unverified (diagnose runs no prior-art check).
   4. **Ablation** (slot `ideate_judge`, `prompts/diagnose_ablation.md` 1.0.0): for each part (the 7 engine parts, the twist, the broken rule when present, the 6 profile values), `load_bearing` | `supporting` | `decoration` with a reason of 20 words or fewer. The check fails when the twist is decoration or when no part is load-bearing.
 - **Output:** one line per check (PASS, FAIL or SKIP, and why). No reworks, and the full rebuild (`amplify`) stays after blind review #1. Each FAIL gets a prescription from this fixed table (in code, `ideate/diagnose.py`):
@@ -333,7 +368,7 @@ p2:
   low_atom_alarm: 5
 p3: {load_bearing_alarm: 8}
 check: {reject_rate_alarm: 0.30}
-coverage: {min_titles_with_module: 5, min_field_completion: 0.8}
+coverage: {min_field_completion: 0.8}   # zeros: rule of three, 3/n < 0.02 (replaced min_titles_with_module: 5)
 episodes:
   selection: [pilot, moment, finale, control]
   max_per_title: 6
@@ -361,7 +396,8 @@ ideate:
   brief_max_words: 600           # M5 call brief
   brief_titles: 10
   brief_graveyard_max: 5
-  census_novelty_min_rows: 200   # M5: census-backed zeros need this many powered census rows
+  census_novelty_min_rows: 200   # M5: census rows count (adequacy, novelty PMI) only from this many powered rows
+backtest: {batch: 5, neighbors: 5}   # statistics as gates, item 8: titles per judge call; neighbours in the index brief
 diagnose: {calls_per_run: 6, max_concept_words: 800}
 ```
 Gate and episode thresholds are initial calibration values, not truths. Recalibrate in M7.

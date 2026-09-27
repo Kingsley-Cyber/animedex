@@ -357,8 +357,10 @@ def analyze() -> None:
     paths = _paths()
     r = run_analyze(paths, load_settings(paths))
     typer.echo(f"analyzed: {r.answered} CQ answers -> build/cq_answers/; {r.empty_cells} empty gate x cost cells "
-               f"(zeros are {r.zeros_are}); graveyard {r.graveyard} title(s); lanes imported {r.lanes['imported']}, "
-               f"export {r.lanes['export']}; summary -> build/reports/analysis.md")
+               f"(zeros are {r.zeros_are}; {r.real_gaps} real gap(s) by expected count); graveyard {r.graveyard} "
+               f"title(s); lanes imported {r.lanes['imported']}, export {r.lanes['export']}; low-entropy fields "
+               f"{len(r.low_entropy)}; unreliable fields excluded {len(r.unreliable)}; summary -> "
+               "build/reports/analysis.md")
 
 
 @app.command()
@@ -528,6 +530,74 @@ def diagnose(file: str = typer.Option(None, "--file", help="A text file holding 
 
 
 @app.command()
+def backtest(list_file: str = typer.Option(None, "--list", help="Held-out titles, one per line: resolved into "
+                                           "data/backtest/titles.yaml, never the corpus."),
+             resolve_only: bool = typer.Option(False, "--resolve-only", help="Resolve the list; run nothing.")) -> None:
+    """Retrodiction backtest: GATHER + INTERPRET held-out titles into data/backtest/, then the judge predicts
+    hit/mixed/flop with a blank brief and with the index brief -> build/reports/backtest.md."""
+    from pathlib import Path as _P
+
+    from animedex.backtest import (
+        BacktestError,
+        BacktestPaths,
+        add_titles,
+        load_titles,
+        run_backtest,
+    )
+    from animedex.budget import Budget
+    from animedex.catalog.anilist import AniList
+    from animedex.catalog.backfill import plan_backfill, read_list
+    from animedex.catalog.reception import ReceptionClient, reception_for
+    from animedex.catalog.resolve import TvMaze
+    from animedex.guards import load_corpus
+    from animedex.ontology import get_vocab
+
+    paths = _paths()
+    settings, vocab = load_settings(paths), get_vocab(paths)
+    anilist = AniList(cache_dir=paths.cache / "anilist")
+    if list_file:  # a title already in the corpus is refused: backtest titles are held out (AC-BT-1)
+        plan = plan_backfill(anilist, read_list(_P(list_file)), load_corpus(paths), tvmaze=TvMaze(), suggest=False)
+        added, refused = add_titles(paths, plan)
+        typer.echo(f"backtest titles: {len(added)} added to data/backtest/titles.yaml; not found {len(plan.unresolved)}")
+        for line, why in refused:
+            typer.echo(f"  refused {line}: {why}", err=True)
+        for line in plan.unresolved:
+            typer.echo(f"  not found: {line}", err=True)
+    if resolve_only:
+        return
+    if not load_titles(paths):
+        typer.echo("no backtest titles yet: run `make backtest LIST=<file>` with held-out titles", err=True)
+        raise typer.Exit(1)
+    bp = BacktestPaths(paths.root)  # the live title guard reads the backtest list: every title keeps a scope
+    clients, runlog = _ideate_clients(bp, settings, ("gather", "interpret", "ideate_judge"),
+                                      budget=Budget.from_settings(settings))
+    rec_client = ReceptionClient.from_env(paths, environment(paths))
+
+    def reception(entry):  # API numbers for the titles GATHER studies (owner rule A2)
+        rec_client.notes.clear()
+        return reception_for(entry, anilist=anilist, client=rec_client), list(rec_client.notes)
+
+    try:
+        res = run_backtest(paths, settings, vocab, clients=clients, run_id=runlog.run_id, reception=reception)
+    except BacktestError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(1) from exc
+    runlog.write_ledger()
+    s = res.summary
+    if s["n"]:
+        typer.echo(f"backtest: {s['n']} title(s) scored; accuracy blank {s['accuracy_blank']:.2f}, index "
+                   f"{s['accuracy_index']:.2f} ({s['difference']:+.2f}); McNemar p {s['p_value']:.4f}; sample size "
+                   f"needed {s['sample_size_needed'] or 'n/a'} -> {res.report}")
+    else:
+        typer.echo(f"backtest: no title scored yet -> {res.report}")
+    for tid, why in sorted(res.excluded):
+        typer.echo(f"  not scored {tid}: {why}", err=True)
+    if res.stopped:
+        typer.echo(f"Paused: {res.stopped}. Run `make backtest` again later; finished work is kept.", err=True)
+        raise typer.Exit(3)
+
+
+@app.command()
 def migrate(to: str = typer.Option(..., "--to", help="Spec version to migrate canonical data to, e.g. 1.3.0")) -> None:
     """Mechanical data migration between spec versions (no hand edits, no re-extraction)."""
     from animedex.migrations import MIGRATIONS
@@ -651,13 +721,36 @@ def census(top: int = typer.Option(0, "--top", help="Count the N most popular fr
 
 
 @app.command()
-def review(port: int = typer.Option(8765, "--port"), open_browser: bool = typer.Option(True, "--open/--no-open")) -> None:
+def review(port: int = typer.Option(8765, "--port"), open_browser: bool = typer.Option(True, "--open/--no-open"),
+           summary: bool = typer.Option(False, "--summary", help="Review import: Bradley-Terry strengths from your "
+                                        "ratings and panel picks, and the judge's agreement -> build/reports/taste.md"),
+           date: str = typer.Option(None, "--date", help="With --summary: the packet date (default: the latest).")
+           ) -> None:
     """Blind review page on http://127.0.0.1:<port> (localhost only); ratings save to eval/blind/."""
     import webbrowser
 
     from animedex.ideate.review import serve
 
     paths = _paths()
+    if summary:
+        from animedex.ideate.review import taste_summary
+
+        try:
+            res = taste_summary(paths, date)
+        except FileNotFoundError as exc:
+            typer.echo(str(exc), err=True)
+            raise typer.Exit(1) from exc
+        p = res.picks
+        typer.echo(f"taste: packet {res.date}, {res.rated}/{res.cards} rated; picks {p['kingsley']} from your ratings, "
+                   f"{p['panel']} from {p['panel_files']} panel file(s), {p['skipped']} skipped -> {res.report}")
+        if not res.complete:
+            typer.echo("  arms stay hidden until every card is rated")
+            return
+        arms = ", ".join(f"{a} {v:.2f}" for a, v in sorted(res.arm_strength.items(), key=lambda x: -x[1]))
+        agree = "n/a" if res.judge_agreement is None else f"{res.judge_agreement:.2f}"
+        typer.echo(f"  arm strengths (Bradley-Terry): {arms or 'no cross-arm picks'}; judge agreement {agree} over "
+                   f"{res.judge_pairs} pair(s)")
+        return
     try:
         server = serve(paths.root / "eval" / "blind", port)
     except FileNotFoundError as exc:
@@ -673,6 +766,15 @@ def review(port: int = typer.Option(8765, "--port"), open_browser: bool = typer.
         pass
     finally:
         server.server_close()
+
+
+@app.command()
+def stats() -> None:
+    """Read-only statistics summary: reliability, adequacy, gaps, field health, novelty, calibration, taste and
+    the backtest, each collected from the stage that computed it -> build/reports/stats.md."""
+    from animedex.statspage import summary_line, write_stats_page
+
+    typer.echo(summary_line(write_stats_page(_paths())))
 
 
 @app.command()
@@ -853,7 +955,14 @@ def _eval_interpret_reliability(paths: Any, settings: Any, vocab: Any) -> None:
 
 
 def _eval_verify_rates(paths: Any, vocab: Any) -> None:
-    from animedex.evaluation import verify_rates, verify_rates_markdown
+    from animedex.evaluation import (
+        calibration,
+        calibration_overall,
+        stored_drafts,
+        verify_rates,
+        verify_rates_markdown,
+    )
+    from animedex.statgates import write_stage
     from animedex.store.atomic import atomic_write_text
     from animedex.store.jsonl import read_jsonl
 
@@ -862,10 +971,15 @@ def _eval_verify_rates(paths: Any, vocab: Any) -> None:
         typer.echo("web correction rate (AC-13): no canonical titles yet")
         return
     rows = verify_rates(titles, vocab)
-    atomic_write_text(paths.reports / "verify_rates.md", verify_rates_markdown(rows))
+    cal = calibration(titles, vocab, stored_drafts(paths.cache, titles))  # statistics as gates, item 6
+    atomic_write_text(paths.reports / "verify_rates.md", verify_rates_markdown(rows, cal))
+    write_stage(paths, "calibration", {"fields": [r.to_dict() for r in cal], "overall": calibration_overall(cal)})
     top = sorted((r for r in rows if r.correction_rate is not None), key=lambda r: -(r.correction_rate or 0))[:5]
     typer.echo("web correction rate (AC-13) -> build/reports/verify_rates.md; top: "
                + (", ".join(f"{r.path} {r.correction_rate:.2f}" for r in top) or "no verified fields yet"))
+    worst = sorted(cal, key=lambda r: (-(r.brier or 0.0), r.path))[:3]
+    typer.echo("calibration (Brier, per field) -> build/reports/verify_rates.md; worst: "
+               + (", ".join(f"{r.path} {r.brier:.3f} over {r.n}" for r in worst) or "no verified fields yet"))
 
 
 @app.command()

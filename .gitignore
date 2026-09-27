@@ -15,6 +15,7 @@ data/quarantine/
 data/cache/
 data/adjudication/
 data/blind/
+data/backtest/
 /build/
 .env
 .venv/
