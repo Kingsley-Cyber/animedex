@@ -1,4 +1,4 @@
-.PHONY: validate build clean-build test eval smoke schemas lint ideas packet analyze backfill census review review-report batch status timing recalibrate data-push data-pull audit audit-report diagnose
+.PHONY: validate build clean-build test eval smoke schemas lint ideas packet analyze backfill census review review-report batch status timing recalibrate data-push data-pull audit audit-report diagnose backtest stats
 
 UV ?= uv
 RUN = $(UV) run
@@ -45,6 +45,12 @@ audit-report:
 
 diagnose:
 	$(RUN) animedex diagnose $(if $(FILE),--file "$(FILE)",) $(if $(TEXT),--text "$(TEXT)",)
+
+backtest:
+	$(RUN) animedex backtest $(if $(LIST),--list $(LIST),)
+
+stats:
+	$(RUN) animedex stats
 
 backfill:
 	$(RUN) animedex backfill --list $(LIST) $(if $(BATCH),--batch $(BATCH),)

@@ -530,6 +530,74 @@ def diagnose(file: str = typer.Option(None, "--file", help="A text file holding 
 
 
 @app.command()
+def backtest(list_file: str = typer.Option(None, "--list", help="Held-out titles, one per line: resolved into "
+                                           "data/backtest/titles.yaml, never the corpus."),
+             resolve_only: bool = typer.Option(False, "--resolve-only", help="Resolve the list; run nothing.")) -> None:
+    """Retrodiction backtest: GATHER + INTERPRET held-out titles into data/backtest/, then the judge predicts
+    hit/mixed/flop with a blank brief and with the index brief -> build/reports/backtest.md."""
+    from pathlib import Path as _P
+
+    from animedex.backtest import (
+        BacktestError,
+        BacktestPaths,
+        add_titles,
+        load_titles,
+        run_backtest,
+    )
+    from animedex.budget import Budget
+    from animedex.catalog.anilist import AniList
+    from animedex.catalog.backfill import plan_backfill, read_list
+    from animedex.catalog.reception import ReceptionClient, reception_for
+    from animedex.catalog.resolve import TvMaze
+    from animedex.guards import load_corpus
+    from animedex.ontology import get_vocab
+
+    paths = _paths()
+    settings, vocab = load_settings(paths), get_vocab(paths)
+    anilist = AniList(cache_dir=paths.cache / "anilist")
+    if list_file:  # a title already in the corpus is refused: backtest titles are held out (AC-BT-1)
+        plan = plan_backfill(anilist, read_list(_P(list_file)), load_corpus(paths), tvmaze=TvMaze(), suggest=False)
+        added, refused = add_titles(paths, plan)
+        typer.echo(f"backtest titles: {len(added)} added to data/backtest/titles.yaml; not found {len(plan.unresolved)}")
+        for line, why in refused:
+            typer.echo(f"  refused {line}: {why}", err=True)
+        for line in plan.unresolved:
+            typer.echo(f"  not found: {line}", err=True)
+    if resolve_only:
+        return
+    if not load_titles(paths):
+        typer.echo("no backtest titles yet: run `make backtest LIST=<file>` with held-out titles", err=True)
+        raise typer.Exit(1)
+    bp = BacktestPaths(paths.root)  # the live title guard reads the backtest list: every title keeps a scope
+    clients, runlog = _ideate_clients(bp, settings, ("gather", "interpret", "ideate_judge"),
+                                      budget=Budget.from_settings(settings))
+    rec_client = ReceptionClient.from_env(paths, environment(paths))
+
+    def reception(entry):  # API numbers for the titles GATHER studies (owner rule A2)
+        rec_client.notes.clear()
+        return reception_for(entry, anilist=anilist, client=rec_client), list(rec_client.notes)
+
+    try:
+        res = run_backtest(paths, settings, vocab, clients=clients, run_id=runlog.run_id, reception=reception)
+    except BacktestError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(1) from exc
+    runlog.write_ledger()
+    s = res.summary
+    if s["n"]:
+        typer.echo(f"backtest: {s['n']} title(s) scored; accuracy blank {s['accuracy_blank']:.2f}, index "
+                   f"{s['accuracy_index']:.2f} ({s['difference']:+.2f}); McNemar p {s['p_value']:.4f}; sample size "
+                   f"needed {s['sample_size_needed'] or 'n/a'} -> {res.report}")
+    else:
+        typer.echo(f"backtest: no title scored yet -> {res.report}")
+    for tid, why in sorted(res.excluded):
+        typer.echo(f"  not scored {tid}: {why}", err=True)
+    if res.stopped:
+        typer.echo(f"Paused: {res.stopped}. Run `make backtest` again later; finished work is kept.", err=True)
+        raise typer.Exit(3)
+
+
+@app.command()
 def migrate(to: str = typer.Option(..., "--to", help="Spec version to migrate canonical data to, e.g. 1.3.0")) -> None:
     """Mechanical data migration between spec versions (no hand edits, no re-extraction)."""
     from animedex.migrations import MIGRATIONS
@@ -698,6 +766,15 @@ def review(port: int = typer.Option(8765, "--port"), open_browser: bool = typer.
         pass
     finally:
         server.server_close()
+
+
+@app.command()
+def stats() -> None:
+    """Read-only statistics summary: reliability, adequacy, gaps, field health, novelty, calibration, taste and
+    the backtest, each collected from the stage that computed it -> build/reports/stats.md."""
+    from animedex.statspage import summary_line, write_stats_page
+
+    typer.echo(summary_line(write_stats_page(_paths())))
 
 
 @app.command()
