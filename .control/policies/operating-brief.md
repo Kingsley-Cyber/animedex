@@ -191,3 +191,24 @@ Supersedes the provider, key and dollar-cap lines of the G1 rulings. The model c
 ## Owner ruling: validation and timing (Kingsley, 2026-09-27, plan now)
 - The backtest runs before blind review #1; the timing layer, taste panel and serial readiness come after it; the Roblox demand signal is backlog. Plan: `docs/implementation/proposals/CHANGE_PLAN_controls_validation_timing.md`.
 - **Constraint:** snapshots and counts only. Each item is one command over stages that already exist. Demand signals are dated records from the existing AniList client, and every trend is a GROUP BY over them. No forecasting, no scoring models, no new services. The brief gets at most three lines of market context.
+
+## Owner ruling: snapshot review, corrections and decisions (Kingsley, 2026-09-27)
+- **Before M3 live runs:**
+  1. **Grid reliability.** Every value of gate, cost_of_power, progression and visible_counter gets a one-sentence discrimination test, in the prompt and in vocab.json. cost_of_power carries a primary value plus an optional secondary. Re-run AC-12 after v1.7. Hard rule: no grid dimension with per-field agreement under 0.80. If progression can't reach it, propose a replacement axis (set_structure after v1.8).
+  2. **Scopes.** A series defaults to its full completed run (all seasons). Widen Avatar, Jujutsu Kaisen, Demon Slayer, Mob Psycho, Invincible and The Boys, and re-profile them in the combined v1.7 + v1.8 run.
+  3. **Fixes (done 2026-09-27):** the IDEATE cache key includes the corpus lists; canonicalize is per-title transactional; cache reads are logged next to input tokens.
+- **Before M5 live runs:**
+  4. **Brief assembly lands in M5:** opaque atom ids (no source titles); only the nearest 10 titles and the graveyard rows in the target region; plus the cell's adequacy, lane and prior-art evidence. The brief is capped and its tokens are logged.
+  5. **Census-backed novelty** needs at least 200 powered census rows. Until the census runs, novelty rests on bridge-concept pairs only.
+  6. **The judge evaluates `why_different`** on graveyard matches; "not blank" is not a pass.
+  7. **Baselines** get the same model, taste standard, steering rules and web tools as ANIMEDEX. If they don't, fix the baseline prompts before the packet.
+  8. **Ideation call cap:** 60 per run, so one run covers three generations.
+- **Decisions:**
+  - Word caps: the per-field caps stay. New v1.8 phrase fields default to 15 words; the listed ones get 20.
+  - One combined 14-title run for v1.7 + v1.8: yes.
+  - The current canonical data stays until the gather-first comparison is reviewed.
+  - INTERPRET runs on claude-opus-5-5 at effort medium. Run the effort A/B (medium vs high) on 3 titles for gather-first P1 and INTERPRET, and report agreement and time.
+  - Steering: `steering/rules.yaml` with id, rule, hard|soft, and 1–2 examples. Every card lists the rules it satisfies.
+  - AC-12 stays gated on v1.7 plus item 1.
+  - The 7 enum proposals: apply the agent's recommendations and list them in the M3 report.
+  - URCP branch: push OK (pushed 2026-09-27; no PR opened).

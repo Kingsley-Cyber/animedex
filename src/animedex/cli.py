@@ -522,6 +522,8 @@ def canonicalize() -> None:
         typer.echo(f"wrote {len(ids)} {record_type} record(s)")
     for record_type, rid, reason in result.quarantined:
         typer.echo(f"quarantined {record_type} {rid}: {reason[:160]}", err=True)
+    for title, why in sorted(result.held_titles.items()):
+        typer.echo(f"held {title} (its files stay pending; fix, then run canonicalize again): {why[:160]}", err=True)
     if result.proposals:
         typer.echo(f"{len(result.proposals)} ontology proposal(s) written to ontology/proposals/")
     if not result.written and not result.quarantined:

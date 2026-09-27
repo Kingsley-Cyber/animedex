@@ -105,15 +105,33 @@ def test_upsert_sorted_and_canonical_form(seeded):
     assert [r["title"] for r in records if r["title_id"] == "aaron_gate_2015"] == ["Aaron Gate Revised"]
 
 
-def test_canonicalize_stage_quarantines_bad_and_applies_good(seeded):
+def test_canonicalize_is_one_transaction_per_title(seeded):
+    # owner ruling 2026-09-27: a title with a bad record waits whole; other titles are still written
     folder = seeded.candidates / "moment"
     folder.mkdir(parents=True)
     good = make_moment(n=3)
     bad = make_moment(n=4, description=" ".join(["beat"] * 30))
-    (folder / "p1_run.jsonl").write_text(dumps_jsonl([good, bad]))
+    (folder / "ironvale_circuit_2021.jsonl").write_text(dumps_jsonl([good, bad]))
+    other = make_moment("lantern_debt_2019", n=2)
+    (folder / "lantern_debt_2019.jsonl").write_text(dumps_jsonl([other]))
     result = canonicalize(seeded, "run_canon")
-    assert result.written["moment"] == ["ironvale_circuit_2021.mo.03"]
+    assert result.written["moment"] == ["lantern_debt_2019.mo.02"]
     assert [q[1] for q in result.quarantined] == ["ironvale_circuit_2021.mo.04"]
+    assert "30 words" in result.held_titles["ironvale_circuit_2021"]
     qfile = seeded.quarantine / "CANONICALIZE" / "moment" / "ironvale_circuit_2021.mo.04.json"
     assert "30 words" in json.loads(qfile.read_text())["reasons"][0]
-    assert not list(folder.glob("*.jsonl")) and (folder / "applied" / "run_canon" / "p1_run.jsonl").is_file()
+    assert (folder / "ironvale_circuit_2021.jsonl").is_file()  # held: stays pending for a fix and a rerun
+    assert (folder / "applied" / "run_canon" / "lantern_debt_2019.jsonl").is_file()
+    moments = {m["moment_id"] for m in CanonicalStore(seeded).read("moment")}
+    assert "ironvale_circuit_2021.mo.03" not in moments and "lantern_debt_2019.mo.02" in moments
+
+
+def test_a_title_whose_records_break_integrity_is_held_not_the_batch(seeded):
+    folder = seeded.candidates / "moment"
+    folder.mkdir(parents=True)
+    (folder / "orphan_tide_2020.jsonl").write_text(dumps_jsonl([make_moment("orphan_tide_2020", n=1)]))
+    (folder / "lantern_debt_2019.jsonl").write_text(dumps_jsonl([make_moment("lantern_debt_2019", n=5)]))
+    result = canonicalize(seeded, "run_canon")
+    assert result.written["moment"] == ["lantern_debt_2019.mo.05"]  # the orphan's missing title blocks only it
+    assert result.held_titles["orphan_tide_2020"].startswith("integrity:")
+    assert (folder / "orphan_tide_2020.jsonl").is_file()

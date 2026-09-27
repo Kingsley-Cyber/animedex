@@ -254,3 +254,20 @@ def test_prior_art_counterexamples_cite_retrieved_pages_never_blocked_ones():
     [blocked] = prior_art_problems(out("https://myanimelist.net/anime/9"), ["c1"], urls)
     assert "myanimelist.net pages are not an allowed source" in blocked
     assert "cite a URL" in prior_art_problems(out("https://elsewhere.example/x"), ["c1"], urls)[0]
+
+
+def test_a_changed_corpus_never_serves_a_stale_cached_card(pool):
+    settings = load_settings(pool)
+    first = clients(pool, "run_x")
+    run_ideate(pool, settings, get_vocab(), clients=first, embedder=MockEmbedder(), run_id="run_x", generations=1)
+    assert first["ideate_generate"].provider.calls
+    for name in ("ideas.jsonl", "archive.jsonl", "prior_art.jsonl"):  # as if the run stopped before writing
+        (pool.canonical / name).unlink(missing_ok=True)
+    store = CanonicalStore(pool)
+    titles = store.read("title")
+    titles[0]["core"]["logline_hook"]["value"] = "a synthetic logline that changed since the last run"
+    store.write("title", titles, "run_edit")
+    second = clients(pool, "run_y")
+    run_ideate(pool, settings, get_vocab(), clients=second, embedder=MockEmbedder(), run_id="run_y", generations=1)
+    assert second["ideate_generate"].provider.calls  # same plans, new corpus list: generated again, not cached
+

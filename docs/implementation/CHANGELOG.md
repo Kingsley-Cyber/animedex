@@ -1,5 +1,12 @@
 # Changelog — docs/implementation
 
+## v1.6.5 — 2026-09-27 (fixes before M3 live runs; owner snapshot review)
+- CANONICALIZE is one transaction per title (05). A held title keeps its candidate files pending, so a fix plus a rerun applies them. One bad title no longer holds back every moment and outcome.
+- IDEATE cache keys cover the whole input, including the corpus and flop lists (generate) and the closest-title facts (judge). A changed corpus never serves a stale cached card.
+- Run logs record cached input tokens (`cache_read_tokens`, `cache_write_tokens`) next to input tokens.
+- AniList: one request per 2 s (the degraded 30/min limit) and a 30-day response cache.
+- Model outputs (canonical profiles, agreement runs, blind packets, generated proposals) are git-ignored while the blind test is pending; the repo is public (03).
+
 ## v1.6.4 — 2026-09-27 (AC-11 dialogue heuristic precision)
 - A "Label: description" phrase (e.g. a technique name, then what it does) no longer counts as dialogue. A speaker label counts as dialogue when the text after it reads as speech (first or second person, an exclamation or question, an opening quote mark), or when a text has two or more speaker lines. Found at M2 canonicalize: 3 titles were quarantined for descriptive phrases, and the cascade held back every moment and outcome.
 - P1 phrase fields and VERIFY corrections now run the same dialogue check as the canonical boundary, so a real dialogue line is caught where it can be repaired or left unresolved.

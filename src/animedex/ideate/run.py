@@ -311,10 +311,13 @@ def _generate_all(res: IdeateResult, paths: Paths, clients: dict[str, LLMClient]
             raise_problems(generate_problems(out, ctx, _p.atoms, _p.operator, _grid, _prov))
 
         done = _call(res, paths, f"{p.ref}.rework" if notes else p.ref, client, prompt.body, user, schema,
+                     # the key covers the whole input (corpus and flop lists included), not just the plan:
+                     # a changed corpus never serves a stale cached card (owner fix, 2026-09-27)
                      upstream=upstream_hash([{"plan": {"theme": p.theme, "operator": p.operator, "target": p.target,
                                                        "atoms": [a["transfer_id"] for a in p.atoms],
                                                        "revival": (p.revival or {}).get("title_id"),
-                                                       "borrowed": p.borrowed, "rework": notes or []}}]),
+                                                       "borrowed": p.borrowed, "rework": notes or []}},
+                                             {"input": sha256_text(user)}]),
                      validate=check)
         if done is None:
             c.card, c.rejected = None, "format: generation failed validation twice"
@@ -380,9 +383,9 @@ def _judge_all(res: IdeateResult, paths: Paths, clients: dict[str, LLMClient], c
         user = "\n\n".join(judge_card_text(c.plan.ref, c.card, ctx, c.plan.atoms, _facts(ctx, c)) for c in chunk)
         done = _call(res, paths, "judge:" + "+".join(refs), clients["ideate_judge"], prompt.body, user,
                      judge_schema(refs, conditions),
-                     upstream=sha256_text(stable_json([{k: v for k, v in c.card.items() if k not in ("provenance", "_atoms",
-                                                                                                  "idea_id")}
-                                                       for c in chunk])),
+                     upstream=sha256_text(stable_json([*({k: v for k, v in c.card.items() if k not in ("provenance",
+                                                                                                    "_atoms", "idea_id")}
+                                                         for c in chunk), {"input": sha256_text(user)}])),
                      validate=lambda out, _r=refs: raise_problems(judge_problems(out, _r)))
         if done is None:
             for c in chunk:

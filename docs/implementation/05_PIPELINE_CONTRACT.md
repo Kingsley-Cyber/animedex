@@ -98,6 +98,7 @@ Flags: `--all` (every title in the corpus), `--dry-run` (print prompts and cache
 
 ### CANONICALIZE
 - Validate schema → normalize enums (alternate labels → preferred) → off-vocab to proposals (store `other`) → dedupe near-duplicate atoms within a title (keep higher `conf`) → atomic write → update coverage ledger.
+- **Per-title transactions (owner ruling 2026-09-27):** a title's records (profile, moments, outcome, atoms, proofs, checks, transfers, episodes, links) land together or not at all. A title with an invalid record, or one that breaks referential integrity, is held: its bad records are quarantined, its candidate files stay pending, and every other title is written. Global types (patterns, ideas, archive, prior art, census) keep one transaction per type.
 
 ### EP (M6) — episode evidence
 - **Selection** (`--episodes key`), capped at `episodes.max_per_title`, deduplicated:

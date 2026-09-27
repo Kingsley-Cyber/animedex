@@ -93,7 +93,7 @@ Result: every episode added makes the show model more trustworthy, and the cost 
 | Raw runs | `data/raw/runs/<run_id>/` | Every request/response + token/cost log; fetched web text replaced by URL + sha256 + length; gitignored |
 | Candidates | `data/candidates/` | Pre-canonical outputs per pass; gitignored |
 | Quarantine | `data/quarantine/` | Invalid JSON, schema failures, rejected atoms, with reasons; gitignored |
-| Canonical | `data/canonical/*.jsonl` | Source of truth; written only by CANONICALIZE and ROLLUP; atomic writes; the only data tier committed to git |
+| Canonical | `data/canonical/*.jsonl` | Source of truth; written only by CANONICALIZE and ROLLUP; atomic writes; the only data tier meant for git. **Suspended (2026-09-27):** while the blind test is pending and the repo is public, canonical files stay local and git-ignored (blind and partner rules) |
 | Derived | `build/` | DuckDB, CSV, MD; gitignored; fully rebuildable |
 
 ## Repo layout

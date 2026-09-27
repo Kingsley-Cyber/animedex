@@ -273,11 +273,15 @@ class LLMClient:
             if substituted and self.spec.strict_model:
                 self.runlog.log_call(**log_common, model=resp.model, cache_hit=False, attempt=attempt,
                                      input_tokens=resp.usage.input_tokens, output_tokens=resp.usage.output_tokens,
+                                 cache_read_tokens=resp.usage.cache_read_tokens,
+                                 cache_write_tokens=resp.usage.cache_write_tokens,
                                      cost_usd=cost, user=attempt_user, response=None, meta=cli_meta, timing=timing,
                                      error=f"refused: strict slot answered by {resp.model}, not {self.spec.model}")
                 raise ModelSubstituted(f"{self.spec.model} was substituted by {resp.model}; strict slot refuses it")
             self.runlog.log_call(**log_common, model=resp.model, cache_hit=False, attempt=attempt,
                                  input_tokens=resp.usage.input_tokens, output_tokens=resp.usage.output_tokens,
+                                 cache_read_tokens=resp.usage.cache_read_tokens,
+                                 cache_write_tokens=resp.usage.cache_write_tokens,
                                  cost_usd=cost, user=attempt_user, response=resp.text, meta=cli_meta, timing=timing,
                                  error=f"substituted: served by {resp.model}" if substituted else None)
             try:
