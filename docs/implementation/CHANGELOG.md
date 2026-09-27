@@ -1,6 +1,7 @@
 # Changelog — docs/implementation
 
 ## Length repair for every stage — 2026-09-27
+- **CHECK 1.3.0 (D-037).** A proof is judged by its reasoning: a partner detail its profile doesn't list is fine unless it contradicts the profile; a proof's REVISE changes only ablation_verdict or favors; REJECT only for a contradiction or a proof that can't test its atom. Canary (one title): proof rejects fell from 9 of 12 (no notes) to 1 (a stated contradiction).
 - **Shorten first (D-036).** When every problem in an answer is a text over its cap, the client shortens those texts before trying a full regeneration (a live P3 retry fixed the lengths and broke an explanation test). The last-resort shorten after the full repair stays.
 - **Explanation tests (D-036).** `via_partner` may be null when favors is both or neither: no partner decides it. because/rival still need the deciding partner. `schemas/proof.schema.json` regenerated; 04 updated.
 - **CHECK 1.2.0 (D-035).** The critic also gets the profile of every partner a proof compares against (the evidence P3 had). With 1.1.0 it still called all proofs of two titles unsupported, because it could not see the partners.
