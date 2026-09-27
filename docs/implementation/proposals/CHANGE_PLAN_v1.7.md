@@ -37,4 +37,4 @@ P1 splits into two calls.
 3. **Gathered facts:** kept as paraphrased value plus URL (recommended), or URL only.
 
 ## Order
-M2 report → v1.7 code and tests → recalibration → gather-first batch → comparison report → M3 live on the gold set.
+v1.7 lands together with v1.8. The combined order and decisions are in `CHANGE_PLAN_v1.8.md` §7–8.
