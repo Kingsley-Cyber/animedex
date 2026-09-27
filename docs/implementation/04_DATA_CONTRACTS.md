@@ -404,7 +404,7 @@ Frequency alone is not causation: a pattern card is invalid unless a counterexam
   "provenance": {}
 }
 ```
-Corpus-level coverage is derived in DuckDB. A zero-count gap is reportable as "open" only if at least `coverage.min_titles_with_module` titles have the relevant module active with `field_completion ≥ coverage.min_field_completion`.
+Corpus-level coverage is derived in DuckDB. A zero-count gap is reportable as "open" only when the rule-of-three bound 3/n is below 0.02, where n is the titles that have the relevant module active with `field_completion ≥ coverage.min_field_completion` (or, for census-backed gaps, the census rows with a power system). This replaced `coverage.min_titles_with_module` (statistics as gates, 2026-09-27).
 
 ## Idea card — `ideas.jsonl`
 ```json
@@ -439,7 +439,9 @@ Corpus-level coverage is derived in DuckDB. A zero-count gap is reportable as "o
     "graveyard_hits": [],
     "failure_conditions_triggered": [],
     "consequence_test": {"choices": true, "relationships": true, "outcomes": false, "h1_pass": true},
-    "coherence": "pass|fail"
+    "coherence": "pass|fail",
+    "pmi_key_pair": {"basis": "enum|bridge", "pair": ["path=value or bridge:concept", "..."], "pmi": -2.3,
+                     "together": 0, "n": 214, "adequate": true, "novel": true}
   },
   "taste": {"criteria_met": ["T1"], "evidence": {"T1": "..."}, "hard_fail": false},
   "why_different": "≤40 words; required when a premise-level graveyard combination matches (v1.6)",
@@ -466,6 +468,7 @@ Corpus-level coverage is derived in DuckDB. A zero-count gap is reportable as "o
 ```
 - **v1.8 concept layer:** every field from `mc` on is optional, so earlier cards stay valid. Power-kit tools (at most 3) each name one of the kit's functions. `core_fantasy` lists a value once. A rule is listed as satisfied or failed, not both.
 - The clone check embeds `premise_abstraction`, not the surface premise (IDEATE, M5).
+- `gates.pmi_key_pair` (statistics as gates; optional, so earlier cards stay valid) is the pair the novelty gate judged: two profile values or two bridge concepts, their PMI over the `n` rows that could show both, how often they were seen `together`, whether that subset is adequate by the rule of three, and whether the pair is novel (PMI ≤ −1.0 on an adequate subset, D-021).
 - `champion` means the card holds its MAP-Elites cell. "Elite" is reserved for Kingsley's verdict (`human_rating`, `eval/blind/`).
 - `arm` (M5, controls decision 1) names the blind-review arm that wrote the card. Only `animedex` cards must list atoms (`atoms_used`, `source_transfer_ids` ≥ 1). `baseline_loop` cards (the same loop with an empty brief) are stored in `data/blind/baseline_loop/`, never in `ideas.jsonl` or the archive.
 - The `profile` uses the same enums as titles so overlap is computable.
