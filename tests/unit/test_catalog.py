@@ -146,3 +146,24 @@ def test_census_counts_titles_and_never_feeds_ideation(repo):
 
     ctx = build_context(repo, load_settings(repo), get_vocab())
     assert ctx.census_size == 12 and not ctx.pool  # counts only: nothing reaches the atom pool
+
+
+def test_anilist_stays_under_the_degraded_limit_and_caches_for_a_month(tmp_path):
+    from animedex.catalog.anilist import CACHE_TTL_S, MIN_INTERVAL_S
+
+    assert MIN_INTERVAL_S >= 2.0  # 30 requests a minute at most (owner rule)
+    hits = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        hits.append(1)
+        return httpx.Response(200, json={"data": {"Media": DB[json.loads(request.content)["variables"]["id"]]}})
+
+    now = [1_000_000.0]
+    cat = AniList(transport=httpx.MockTransport(handler), min_interval_s=0, sleep=lambda s: None,
+                  cache_dir=tmp_path / "anilist", clock=lambda: now[0])
+    assert cat.media(1).title == cat.media(1).title == "Iron Tide"
+    assert len(hits) == 1 and cat.requests == 1  # the second lookup came from the cache
+    now[0] += CACHE_TTL_S + 1
+    cat.media(1)
+    assert len(hits) == 2  # a month later it refreshes
+

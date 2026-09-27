@@ -1,16 +1,21 @@
 """AniList catalog client (v1.6; backfill). Metadata only: ids, titles, format, dates, episodes,
 popularity, country, studios, relations. Descriptions and reviews are never requested or stored.
 
-AniList's public GraphQL API needs a User-Agent and allows about 90 requests a minute (less when
-degraded), so calls are paced and a 429 waits for Retry-After. Terms: free for non-commercial use
-(v1.6 decision 2: switch to Wikidata if ideas will be sold).
+AniList's public GraphQL API needs a User-Agent and allows about 90 requests a minute, 30 when
+degraded. Owner rule (2026-09-27): stay under the degraded 30/min limit, cache everything, store only
+the fields we use (the query asks for nothing else), no bulk mirroring. So calls are paced at one per
+2 s, a 429 waits for Retry-After, and every response is cached on disk for 30 days. Terms: free for
+non-commercial use (v1.6 decision 2: switch to Wikidata if ideas will be sold).
 """
 
 from __future__ import annotations
 
+import hashlib
+import json
 import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any
 
 import httpx
@@ -85,20 +90,47 @@ def _media(d: dict[str, Any]) -> Media:
                  studios=tuple(n["name"] for n in ((d.get("studios") or {}).get("nodes") or [])), relations=tuple(rels))
 
 
+MIN_INTERVAL_S = 2.0         # 30 requests a minute: AniList's degraded limit (owner rule)
+CACHE_TTL_S = 30 * 24 * 3600  # monthly refresh
+
+
 class AniList:
-    def __init__(self, *, transport: httpx.BaseTransport | None = None, min_interval_s: float = 0.8,
-                 sleep: Callable[[float], None] = time.sleep):
+    def __init__(self, *, transport: httpx.BaseTransport | None = None, min_interval_s: float = MIN_INTERVAL_S,
+                 sleep: Callable[[float], None] = time.sleep, cache_dir: Path | None = None,
+                 ttl_s: float = CACHE_TTL_S, clock: Callable[[], float] = time.time):
         self._http = httpx.Client(timeout=30.0, transport=transport,
                                   headers={"User-Agent": USER_AGENT, "Content-Type": "application/json",
                                            "Accept": "application/json"})
         self.min_interval_s, self._sleep, self._last = min_interval_s, sleep, 0.0
+        self.cache_dir, self.ttl_s, self._clock = cache_dir, ttl_s, clock
+        self.requests = 0  # network requests made (cache hits are free)
+
+    def _cache_file(self, query: str, variables: dict[str, Any]) -> Path | None:
+        if self.cache_dir is None:
+            return None
+        key = hashlib.sha256(json.dumps([query, variables], sort_keys=True).encode()).hexdigest()
+        return self.cache_dir / key[:2] / f"{key}.json"
 
     def _post(self, query: str, variables: dict[str, Any]) -> dict[str, Any]:
+        cached = self._cache_file(query, variables)
+        if cached is not None and cached.is_file():
+            entry = json.loads(cached.read_text(encoding="utf-8"))
+            if self._clock() - float(entry.get("fetched_at", 0)) < self.ttl_s:
+                return entry["data"]
+        data = self._fetch(query, variables)
+        if cached is not None:
+            from animedex.store.atomic import atomic_write_text
+
+            atomic_write_text(cached, json.dumps({"fetched_at": self._clock(), "data": data}, sort_keys=True))
+        return data
+
+    def _fetch(self, query: str, variables: dict[str, Any]) -> dict[str, Any]:
         for _ in range(4):
             wait = self.min_interval_s - (time.monotonic() - self._last)
             if wait > 0:
                 self._sleep(wait)
             self._last = time.monotonic()
+            self.requests += 1
             resp = self._http.post(ENDPOINT, json={"query": query, "variables": variables})
             if resp.status_code == 429:
                 self._sleep(float(resp.headers.get("Retry-After", "30")))

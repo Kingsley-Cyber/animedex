@@ -394,7 +394,7 @@ def backfill(list_file: str = typer.Option(..., "--list", help="One title per li
     src = _P(list_file)
     lines = read_list(src)
     typer.echo(f"backfill: {len(lines)} line(s) from {src.name}; resolving with the catalog...")
-    plan = plan_backfill(AniList(), lines, load_corpus(paths), tvmaze=TvMaze())
+    plan = plan_backfill(AniList(cache_dir=paths.cache / "anilist"), lines, load_corpus(paths), tvmaze=TvMaze())
     batch_lines: list[str] = []
     if census_only:
         from animedex.pipeline.census import run_census
@@ -453,7 +453,7 @@ def census(top: int = typer.Option(0, "--top", help="Count the N most popular fr
     paths = _paths()
     settings, vocab = load_settings(paths), get_vocab(paths)
     cfg = (settings.model_extra or {}).get("census", {})
-    cat = AniList()
+    cat = AniList(cache_dir=paths.cache / "anilist")
     items = []
     if top:
         items += top_roots(cat, size=top, donghua=int(cfg.get("donghua", max(1, top // 10))),
