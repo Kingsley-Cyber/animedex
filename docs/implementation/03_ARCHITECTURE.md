@@ -93,7 +93,7 @@ Result: every episode added makes the show model more trustworthy, and the cost 
 | Raw runs | `data/raw/runs/<run_id>/` | Every request/response + token/cost log; fetched web text replaced by URL + sha256 + length; gitignored |
 | Candidates | `data/candidates/` | Pre-canonical outputs per pass; gitignored |
 | Quarantine | `data/quarantine/` | Invalid JSON, schema failures, rejected atoms, with reasons; gitignored |
-| Canonical | `data/canonical/*.jsonl` | Source of truth; written only by CANONICALIZE and ROLLUP; atomic writes. **Versioned in the private data repo, not the public code repo (owner ruling 2026-09-27; replaces "canonical data lives in git"):** `make data-push` backs up data/canonical, data/blind, data/diagnose, eval/blind, eval/gold, steering/, seeds/ and studio/ to `Kingsley-Cyber/animedex-data`, after every batch run and every milestone tag. The data repo gets the same milestone tags as the code, so code and data versions always pair. `make data-pull` restores them. Cache and raw run logs are not backed up |
+| Canonical | `data/canonical/*.jsonl` | Source of truth; written only by CANONICALIZE and ROLLUP; atomic writes. **Versioned in the private data repo, not the public code repo (owner ruling 2026-09-27; replaces "canonical data lives in git"):** `make data-push` backs up data/canonical, data/blind, data/diagnose, eval/audit, eval/blind, eval/gold, steering/, seeds/ and studio/ to `Kingsley-Cyber/animedex-data`, after every batch run and every milestone tag. The data repo gets the same milestone tags as the code, so code and data versions always pair. `make data-pull` restores them. Cache and raw run logs are not backed up |
 | Derived | `build/` | DuckDB, CSV, MD; gitignored; fully rebuildable |
 
 ## Repo layout

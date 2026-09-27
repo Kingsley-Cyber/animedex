@@ -319,6 +319,7 @@ def ideate(generations: int = typer.Option(None, "--generations", help="Default:
     from animedex.embeddings.base import build_embedder
     from animedex.ideate.report import write_report
     from animedex.ideate.run import ideation_budget, run_ideate
+    from animedex.ideate.steering import SteeringError
     from animedex.ontology import get_vocab
     from animedex.store.runlog import new_run_id
 
@@ -330,8 +331,12 @@ def ideate(generations: int = typer.Option(None, "--generations", help="Default:
     # ideation runs: one 60-call cap shared by generate, judge and prior art (owner ruling 2026-09-27)
     clients, runlog = _ideate_clients(paths, settings, ("ideate_generate", "ideate_judge", "prior_art"),
                                       budget=ideation_budget(settings))
-    result = run_ideate(paths, settings, vocab, clients=clients, embedder=build_embedder(settings, environment(paths)),
-                        run_id=new_run_id(), generations=generations, index=arm == "animedex")
+    try:
+        result = run_ideate(paths, settings, vocab, clients=clients, run_id=new_run_id(), generations=generations,
+                            embedder=build_embedder(settings, environment(paths)), index=arm == "animedex")
+    except SteeringError as exc:  # a malformed steering/rules.yaml stops the run before any call
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(1) from exc
     runlog.write_ledger()
     rejected = ", ".join(f"{k} {v}" for k, v in sorted(result.rejected.items())) or "none"
     if arm == "animedex":

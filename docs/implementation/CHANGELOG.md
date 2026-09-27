@@ -1,5 +1,33 @@
 # Changelog — docs/implementation
 
+## M5 prep — 2026-09-27
+Kingsley's "before M5 live runs" rulings (items 4–8), the accepted controls decision 1, controls A7 and A8, and the diagnose ruling. Offline only: nothing here ran a live call. ACs AC-50 to AC-57 (08).
+- **Call brief (05 IDEATE, item 4).** Each generate call gets `key: value` lines, not every title and flop. The brief holds:
+  - the plan's atoms under opaque aliases A1…, which cards map back to real transfer ids;
+  - the nearest 10 titles by structural Jaccard;
+  - the flops in the target region;
+  - the cell's counts, lanes and recorded prior art;
+  - the steering rules.
+
+  It is capped at `ideate.brief_max_words` (600) and trimmed optional-lines-first; an over-cap brief is refused before the call. Its words and estimated tokens go in the run log (`meta.brief`). `ideate_generate` 2.0.0.
+- **Novelty (item 5).** Census-backed enum zeros, and census-backed coverage adequacy, need `ideate.census_novelty_min_rows` (200) powered census rows. Until then novelty rests on bridge-concept pairs.
+- **Judge (item 6).** On a premise-level graveyard match the judge weighs `why_different` against the flop's recorded failure (pass/fail with a reason). A fail gets one rework, then rejection. `ideate_judge` 1.1.0.
+- **Fair baselines (item 7; controls A5, decision 1).** The arms are ANIMEDEX, baseline 1 (the same loop with an empty brief, `make ideas ARM=baseline_loop`) and baseline 2 (one call, `baseline_single.md` 2.0.0, renamed from `baseline_plain.md`).
+  - Every arm shares one taste standard (`prompts/taste_standard.md` 1.0.0), the steering rules and the `ideate_generate` slot.
+  - No arm uses the web while generating: `baseline_web.md` is retired. Every packet card gets the same prior-art check, recorded in the answer key.
+  - IdeaCard gains `arm` (animedex | baseline_loop | baseline_single, default animedex). Only animedex cards must use atoms.
+  - Baseline-1 cards live in `data/blind/baseline_loop/`, never in the canonical ideas or the archive.
+- **Call cap (item 8).** Ideation runs share `ideate.calls_per_run: 60` across generate, judge and prior art; other runs keep 40.
+- **Contested-evidence flag (controls A8).** `ideas.md` flags a card whose atoms are now contested, rejected, missing or (M6 hook) contradicted. The packet never shows the flag.
+- **Audit (controls A7).** `make audit` writes 10 date-seeded eligible atoms with evidence trails to `eval/audit/audit_<date>.yaml`, which is git-ignored and backed up with `make data-push`. It skips gold titles while the blind is pending. `make audit-report` writes `build/reports/audit.md`: the wrong rate per date and the extractor–critic disagreement per P2 run.
+- **Diagnose (owner ruling).** `make diagnose FILE=… | TEXT="…"` structures a concept (`diagnose_structure.md` 1.0.0), then runs:
+  - every gate;
+  - the judge;
+  - an ablation pass (`diagnose_ablation.md` 1.0.0), which gives each part load-bearing, supporting or decoration.
+
+  It makes three calls under `diagnose.calls_per_run: 6`. The output is one line per check, plus a prescription for each failure from a fixed operator/rung table. Everything is written under `data/diagnose/` only.
+- **Docs:** 03 (backups include eval/audit), 04 (`arm`), 05 (IDEATE additions, AUDIT, DIAGNOSE, config), 06 (controls), 08 (AC-50–AC-57), 09 (arms), USAGE ("Check your own idea"). `schema_version` is unchanged: the change is additive (a defaulted field, a relaxed minimum on non-animedex arms).
+
 ## v1.6.6 — 2026-09-27 (private data repo)
 - Canonical data, blind-review files, gold annotations, steering rules, seeds, diagnosed concepts and (later) the Studio are backed up to the private repo `Kingsley-Cyber/animedex-data` with `make data-push [TAG=…]` and restored with `make data-pull`. This replaces "canonical data lives in git" (03). Pushes happen after every batch run (once the local clone exists) and every milestone tag, and the data repo carries the same milestone tags as the code. Cache and raw run logs are skipped.
 
