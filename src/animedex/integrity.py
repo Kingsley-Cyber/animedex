@@ -150,7 +150,8 @@ def integrity_errors(state: State, vocab: Vocab) -> list[str]:
             need(c["partner_title_id"] in titles, f"proof {aid}: unknown partner {c['partner_title_id']}")
         et = r.get("explanation_test")
         if et:
-            need(et["via_partner"] in titles, f"proof {aid}: unknown via_partner {et['via_partner']}")
+            need(et.get("via_partner") is None or et["via_partner"] in titles,
+                 f"proof {aid}: unknown via_partner {et.get('via_partner')}")
         if atom is not None and atom.get("atom_kind") == "effect":
             need(bool(et), f"proof {aid}: effect atoms need an explanation_test")
     for r in state.get("check", []):

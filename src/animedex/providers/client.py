@@ -292,10 +292,12 @@ class LLMClient:
                 run_validate(validate, data, kept)
             except (ValueError, ValidationError) as exc:
                 errors.append(str(exc))
-                if attempt == 0:
+                # only texts over their caps: shorten just those first, since a full regeneration can break
+                # something else (a live P3 retry did); after the full repair it is the last resort
+                fixed = self._length_repair(ctx, params, data, str(exc), validate, kept) if data is not None else None
+                if fixed is None and attempt == 0:
                     attempt_user = user + REPAIR_SUFFIX.format(error=str(exc)[:800])
                     continue
-                fixed = self._length_repair(ctx, params, data, str(exc), validate, kept) if data is not None else None
                 if fixed is None:
                     raise InvalidOutput(errors, resp.text) from exc
                 data, usage = fixed

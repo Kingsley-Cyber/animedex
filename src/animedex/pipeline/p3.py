@@ -122,7 +122,8 @@ def output_problems(out: dict[str, Any], atoms: dict[str, dict[str, Any]], partn
         if test is not None:
             if not test.get("favors") or not (test.get("note") or "").strip():
                 problems.append(f"{aid}: effect atoms need an explanation test (favors + note)")
-            elif test.get("via_partner") not in roles:
+            elif test.get("via_partner") not in roles and (test.get("via_partner") is not None
+                                                             or test.get("favors") in ("because", "rival")):
                 problems.append(f"{aid}: explanation_test.via_partner must be one of the partners")
         try:
             ProofRecord.model_validate(proof)

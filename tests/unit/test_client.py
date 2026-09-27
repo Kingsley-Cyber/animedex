@@ -137,18 +137,18 @@ def check_notes(data):
 LONG = {"proofs": [{"test": {"note": "one two three four five six"}}, {"test": {"note": "short enough"}}]}
 
 
-def test_a_text_still_over_its_cap_after_the_repair_is_shortened_not_quarantined(tmp_path):
-    mock = MockProvider(responses={("P1", "x_2020"): [LONG, LONG],
+def test_a_text_over_its_cap_is_shortened_instead_of_regenerating_the_answer(tmp_path):
+    mock = MockProvider(responses={("P1", "x_2020"): [LONG],
                                    ("P1", "x_2020.shorten"): {"items": [{"path": "proofs.0.test.note",
                                                                          "text": "one two three"}]}})
     client = make_client(tmp_path, mock)
     done = client.complete_ex("s", "u", SCHEMA, ctx=ctx(), validate=check_notes)
     assert done.data["proofs"][0]["test"]["note"] == "one two three"
     assert done.data["proofs"][1] == LONG["proofs"][1]  # everything else as the model wrote it
-    shorten = mock.calls[2]
-    assert shorten["user"] == "proofs.0.test.note: one two three four five six [max 5 words]"
+    assert [c["record_id"] for c in mock.calls] == ["x_2020", "x_2020.shorten"]  # no full regeneration
+    assert mock.calls[1]["user"] == "proofs.0.test.note: one two three four five six [max 5 words]"
     again = client.complete_ex("s", "u", SCHEMA, ctx=ctx(), validate=check_notes)
-    assert again.cache_hit and again.data == done.data and len(mock.calls) == 3  # the repaired output is cached
+    assert again.cache_hit and again.data == done.data and len(mock.calls) == 2  # the repaired output is cached
 
 
 def test_other_problems_or_a_failed_shortening_still_quarantine(tmp_path):
@@ -157,10 +157,11 @@ def test_other_problems_or_a_failed_shortening_still_quarantine(tmp_path):
     with pytest.raises(InvalidOutput):
         make_client(tmp_path, mock).complete_ex("s", "u", SCHEMA, ctx=ctx(), validate=check_notes)
     assert len(mock.calls) == 2  # not a length-only problem: no shorten call
-    mock = MockProvider(responses={("P1", "x_2020"): [LONG, LONG],
-                                   ("P1", "x_2020.shorten"): [{"items": [{"path": "proofs.0.test.note",
-                                                                          "text": "still one two three four five six"}]},
-                                                              {"items": []}]})
+    bad = {"items": [{"path": "proofs.0.test.note", "text": "still one two three four five six"}]}
+    mock = MockProvider(responses={("P1", "x_2020"): [LONG, LONG], ("P1", "x_2020.shorten"): [bad, bad, bad, bad]})
     with pytest.raises(InvalidOutput) as err:
         make_client(tmp_path / "b", mock).complete_ex("s", "u", SCHEMA, ctx=ctx(), validate=check_notes)
     assert "6 words exceeds the 5-word limit" in err.value.errors[-1]
+    # shorten (2 attempts), full repair, shorten again as the last resort (2 attempts)
+    assert [c["record_id"] for c in mock.calls] == ["x_2020", *["x_2020.shorten"] * 2, "x_2020",
+                                                    *["x_2020.shorten"] * 2]

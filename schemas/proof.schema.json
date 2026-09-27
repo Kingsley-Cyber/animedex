@@ -88,13 +88,20 @@
           "type": "string"
         },
         "via_partner": {
-          "title": "Via Partner",
-          "type": "string"
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Via Partner"
         }
       },
       "required": [
         "favors",
-        "via_partner",
         "note"
       ],
       "title": "ExplanationTest",

@@ -106,8 +106,14 @@ class Contrast(StrictModel):
 
 class ExplanationTest(StrictModel):
     favors: Literal["because", "rival", "both", "neither"]
-    via_partner: str
+    via_partner: str | None = None   # the deciding partner; none decides when favors is both or neither (D-036)
     note: Words25
+
+    @model_validator(mode="after")
+    def _decider(self) -> ExplanationTest:
+        if self.favors in ("because", "rival") and not self.via_partner:
+            raise ValueError(f"favors {self.favors} needs the partner that decides it (via_partner)")
+        return self
 
 
 class Ablation(StrictModel):

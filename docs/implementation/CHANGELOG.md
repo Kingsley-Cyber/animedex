@@ -1,6 +1,8 @@
 # Changelog — docs/implementation
 
 ## Length repair for every stage — 2026-09-27
+- **Shorten first (D-036).** When every problem in an answer is a text over its cap, the client shortens those texts before trying a full regeneration (a live P3 retry fixed the lengths and broke an explanation test). The last-resort shorten after the full repair stays.
+- **Explanation tests (D-036).** `via_partner` may be null when favors is both or neither: no partner decides it. because/rival still need the deciding partner. `schemas/proof.schema.json` regenerated; 04 updated.
 - **CHECK 1.2.0 (D-035).** The critic also gets the profile of every partner a proof compares against (the evidence P3 had). With 1.1.0 it still called all proofs of two titles unsupported, because it could not see the partners.
 - **CHECK 1.1.0 (D-034).** The live M3 run showed three input defects: the critic never saw the moments atoms cite (so it rejected them as unsupported), read a proof's partner comparisons as scope leaks (all 12 of one title's proofs), and re-checked a revised proof without its atom. The critic now gets the title's moments, a scope rule that exempts what a proof says about partners, and `context` lines in the re-check round; verdicts on anything but the round's targets are ignored instead of failing the answer. CHECK re-runs on every title from the cached P2 and P3 outputs.
 - **CHECK re-check fix.** A proof revised again in the re-check round no longer looks up its atom there (the round holds only revised targets); Btooom!'s CHECK crashed on it in the live M3 run.

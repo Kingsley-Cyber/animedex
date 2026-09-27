@@ -284,7 +284,7 @@ Engine example (paraphrased, illustrative): goal *provide for his family*; const
   ],
   "explanation_test": {
     "favors": "because|rival|both|neither",
-    "via_partner": "title_id",
+    "via_partner": "title_id | null (null only when favors is both or neither: no partner decides it, D-036)",
     "note": "≤25 words"
   },
   "ablation": {

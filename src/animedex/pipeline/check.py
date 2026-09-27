@@ -90,7 +90,8 @@ def _proof_text(p: dict[str, Any]) -> str:
     parts = [f"{c['partner_title_id']} ({c['partner_role']}) has {c['partner_has']}, {c['difference']}"
              for c in p["contrast"]]
     test = p.get("explanation_test")
-    t = f"; explanation_test: favors {test['favors']} via {test['via_partner']}, {test['note']}" if test else ""
+    via = f" via {test['via_partner']}" if test and test.get("via_partner") else " (no partner decides it)"
+    t = f"; explanation_test: favors {test['favors']}{via}, {test['note']}" if test else ""
     ab = p["ablation"]
     return (f"{p['atom_id']}: proof; contrast: {' | '.join(parts)}{t}; ablation: {ab['verdict']} "
             f"(conf {ab['conf']}), {ab['if_removed']}")

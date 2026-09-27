@@ -1,9 +1,10 @@
 """Length-only repair for structured outputs (M3, 2026-09-27; D-030).
 
-When a call's output still fails validation after its one repair, and every remaining problem is a text
-over its word cap, one short call rewrites just those texts instead of quarantining the whole record
-(P3 lost a title to a 26-word note under a 25-word cap). Nothing is truncated, every other value stays as
-the model wrote it, and the repaired output goes through the same validation, guards included.
+When every problem in a call's output is a text over its word cap, one short call rewrites just those
+texts, before the full repair (a full regeneration can break something else, as a live P3 retry did) and
+again as the last resort after it (P3 lost a title to a 26-word note under a 25-word cap). Nothing is
+truncated, every other value stays as the model wrote it, and the repaired output goes through the same
+validation, guards included.
 """
 
 from __future__ import annotations

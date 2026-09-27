@@ -202,3 +202,16 @@ def test_each_phrase_field_takes_its_own_cap():
     rec["core"]["logline_hook"] = field_value(" ".join(["word"] * 20))
     rec["core"]["tone"] = field_value(" ".join(["word"] * 15))
     title_profile_model().model_validate(rec)  # both exactly at their caps
+
+
+def test_an_explanation_test_names_its_deciding_partner_unless_none_decides():
+    """D-036: favors because/rival needs the deciding partner; both/neither may have none."""
+    from pydantic import ValidationError
+
+    from animedex.models.atoms import ExplanationTest
+
+    ExplanationTest(favors="neither", via_partner=None, note="The partner lacks both, so it decides nothing.")
+    ExplanationTest(favors="both", note="Both explanations survive the comparison.")
+    ExplanationTest(favors="because", via_partner="glass_meridian_2016", note="The partner has the element only.")
+    with pytest.raises(ValidationError, match="needs the partner"):
+        ExplanationTest(favors="rival", via_partner=None, note="The partner shows the rival cause.")
