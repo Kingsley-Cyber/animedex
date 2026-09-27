@@ -24,7 +24,7 @@
 | AC-20 | REJECTs quarantined with reasons; REVISEs re-checked once; CONTESTED sets `explanation: contested` | Pipeline test | M3 |
 | AC-21 | Every CQ in scope for the milestone has a query and a saved answer | Test | M4 |
 | AC-22 | Gap cells carry a coverage flag; thin-coverage zeros are labeled insufficient | Test | M4 |
-| AC-23 | Graveyard index attaches `failure_reason` to flop combinations | Test | M4 |
+| AC-23 | Graveyard index attaches `failure_reason` and `failure_level` to flop combinations; only premise-level failures warn (v1.3) | Test | M4 |
 | AC-24 | CQ answers are identical after a clean rebuild | Determinism test | M4 |
 | AC-25 | Every idea card has `closest_existing`, `why_not_a_clone`, and a complete engine | Contract test | M5 |
 | AC-26 | Ideas use only load-bearing-eligible transfer atoms | Contract test | M5 |
@@ -44,3 +44,4 @@
 | AC-40 | Every pattern card records supporting titles, a counterexample search, boundary conditions, and scope | Contract test | M7 |
 | AC-41 | ANIMEDEX beats the baseline on greenlights in blind review #3 | `eval/blind/` record | M7 |
 | AC-42 | Cost per title (show passes + episodes) reported and within budget caps | Report | M7 |
+| AC-43 | Every mixed/flop outcome carries a `failure_level`. A level other than `unknown` is web-sourced (evidence + URL) or Kingsley's override (v1.3) | Contract test | M3 |

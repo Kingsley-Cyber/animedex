@@ -51,6 +51,10 @@ Flags: `--all` (every title in the corpus), `--dry-run` (print prompts and cache
   - Searches above the cap are flagged in the title's verify notes.
   - A status of confirmed or corrected needs a URL that the same call's searches returned or fetches opened. Anything else is rejected once for repair, then marked `unresolved`.
 - Recall vs. web conflict: web wins if the source is credible; otherwise `unresolved`. Conflicts are logged.
+- **Outcome `failure_level`** (v1.3): for mixed and flop outcomes, VERIFY classifies the main failure as premise, execution, external, or unknown.
+  - Any level except `unknown` cites a retrieved page. An unsourced level is stored as `unknown`.
+  - `animedex verify --outcome-only` re-checks just the outcomes of canonical mixed/flop titles.
+  - `animedex migrate --to 1.3.0` gives older records the honest default `unknown`.
 - Precondition for P2.
 
 ### P2 WHY
@@ -111,7 +115,7 @@ Deterministic except steps 3 and 5, which call a model.
 - Reads canonical only. Creates DuckDB tables and views: long-format title fields, incidence matrix, pair co-occurrence, load-bearing view, outcomes with confounders, episodes, links, atom support. Exports CSV and Markdown reports. Sorted by ID; fixed seeds.
 
 ### ANALYZE
-- Coverage report; gap cells with coverage-adequacy flag; imported/export lanes; graveyard index (load-bearing combinations of mixed/flop titles + `failure_reason`; M6: flop pilot structures).
+- Coverage report; gap cells with coverage-adequacy flag; imported/export lanes; graveyard index (load-bearing combinations of mixed/flop titles + `failure_reason` + `failure_level`; M6: flop pilot structures). Only **premise**-level failures warn (v1.3). **Execution**-level failures are listed as T5 "retold better" evidence. External/unknown are listed with no warning.
 - M6 episode analytics: pilot structures (CQ-E02), engine presence in control episodes (CQ-E05), setup→payoff distances and unresolved setups (CQ-E06), atom support statuses (CQ-E07), decision shapes (CQ-E08).
 - Saves CQ answers to `build/cq_answers/*.json` for regression.
 
@@ -135,7 +139,7 @@ Deterministic except steps 3 and 5, which call a model.
 - **Deterministic gates, in order:**
   1. **Clone:** Jaccard of the idea's structural set vs. every title. Structural set = enum values of gate, cost_of_power, progression, visible_counter, fight_medium, power_is + bridge concepts of the atoms used. Procedural set = gate, cost_of_power, progression, visible_counter. Premise cosine via embeddings on logline + premise.
   2. **Novelty:** the idea must contain a pair/triple of atoms or enum values with zero co-occurrence (under adequate coverage), or an explicit inversion of a hit's broken rule.
-  3. **Graveyard:** if its key combination matches a flop's load-bearing combination, the card must state why this time is different, or it is rejected.
+  3. **Graveyard:** if its key combination matches a **premise**-level flop's load-bearing combination, the card must state why this time is different, or it is rejected. Execution-level matches are not warnings; they are T5 evidence (v1.3).
 - **Judge (different model family when available):**
   1. **H1 consequence test:** for each of choices, relationships, outcomes: does it differ from what happens in `closest_existing`? Fewer than `ideate.h1_min_changed_dimensions` → H1 fail → reject.
   2. **Failure conditions:** does the idea trigger any failure condition of the atoms it uses? → rework once, else reject.

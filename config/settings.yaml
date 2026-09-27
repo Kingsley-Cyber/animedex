@@ -85,7 +85,7 @@ verify:
     facts: "{title} {year} {medium_label}"
     episodes: "{title} {medium_label} episode list"
     outcome: ["{title} {year} {medium_label} reception ratings", "{title} {medium_label} review"]
-  medium_labels: {anime: anime, western_animation: animated series, adult_animation: adult animated series,
+  medium_labels: {anime: anime, donghua: donghua, western_animation: animated series, adult_animation: adult animated series,
                   live_action: TV series, film: film}
 p2:
   max_atoms: 15

@@ -2,7 +2,7 @@
 
 ## In scope
 **V1 (M0–M5)**
-- **Media:** anime, Western animation, adult animation, live-action series, film. Anime is roughly 50% of the corpus.
+- **Media:** anime, donghua (Chinese animation; added v1.3), Western animation, adult animation, live-action series, film. Anime is roughly 50% of the corpus.
 - **Title scope:** every title declares version/adaptation, seasons in scope, and episode numbering.
 - **P1 lens:** core fields + modules switched on by content (`power_combat`, `relationships`, `sensory`, `anime_production`, `series_engine`, `comedy_satire`, `film`) + 3–5 moments per title.
 - **Passes:** P1 WHAT, VERIFY, P2 WHY (effect + engine atoms, rival explanations), P3 PROOF (contrast, explanation test, ablation), CHECK, P4 TRANSFER (pattern + essential/variable/failure conditions).

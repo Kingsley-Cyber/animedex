@@ -1,5 +1,24 @@
 # Changelog — docs/implementation
 
+## v1.3 — 2026-09-27 (M2→M3 boundary)
+Two changes land together:
+- `failure_level`: change plan v1.3, approved under Kingsley's autopilot ruling with the agent's recommendations.
+- Donghua: an ontology change Kingsley approved directly (`proposals/NOTE_donghua.md`).
+
+**Outcome `failure_level` (01, 04, 05, 06, 08)**
+- Outcomes carry `failure_level` (premise | execution | external | unknown): required for mixed and flop, null for hits. They also carry `failure_evidence` + `failure_evidence_ref` (a web-sourced level must cite a retrieved page) and `failure_level_source` (verify | owner | migration).
+- `corpus/titles.yaml` may set `failure_level_override`, and Kingsley's call wins. Corpus entries may also carry `catalog_ref`.
+- The graveyard warns on premise-level failures only. Execution-level failures become T5 "retold better" evidence (CQ-I14, new). CQ-G02 is reworded.
+- Migration: `animedex migrate --to 1.3.0` sets the honest default `unknown`. `animedex verify --outcome-only` then records sourced levels for mixed/flop titles.
+- AC-23 is reworded; AC-43 is new.
+- `schema_version` 1.3.0, `vocab_version` 1.3.0, CQ set 1.3.0.
+
+**Donghua (00, 02, 04)**
+- New medium `donghua` and source medium `manhua`.
+- `anime_production` stays anime-only.
+- Donghua counts as animated for `sensory`.
+- The census includes donghua.
+
 ## v1.2.2 — 2026-09-27
 G1a search decision by Kingsley: VERIFY uses the model harness's own web search. There is no search API.
 

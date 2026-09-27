@@ -59,7 +59,7 @@ Films use `seasons: []` and `numbering: null`; `version` is always required. Eve
 ```json
 {
   "title_id": "", "title": "", "year": 0,
-  "medium": "anime|western_animation|adult_animation|live_action|film",
+  "medium": "anime|donghua|western_animation|adult_animation|live_action|film",
   "format": "film|episodic|serialized|hybrid",
   "scope": {},
   "role_tags": ["gold", "hit", "mixed", "flop", "contrast"],
@@ -130,9 +130,20 @@ Films use `seasons: []` and `numbering: null`; `version` is always required. Eve
     "platform": "", "release_context": ""
   },
   "failure_reason": "≤25 words or null",
+  "failure_level": "premise|execution|external|unknown; required for mixed/flop, null for hits (v1.3)",
+  "failure_evidence": "≤25 words, paraphrased, or null",
+  "failure_evidence_ref": "URL the evidence came from, or null",
+  "failure_level_source": "verify|owner|migration or null",
   "provenance": {}
 }
 ```
+
+- **`failure_level`** (v1.3):
+  - Hits carry `null`; mixed and flop outcomes require a level.
+  - A web-sourced level other than `unknown` needs `failure_evidence` and its `failure_evidence_ref`.
+  - Kingsley's `failure_level_override` in `corpus/titles.yaml` wins and is recorded as source `owner`.
+- **Corpus entry** (v1.3): optional `failure_level_override` and `catalog_ref` (e.g. `anilist:127401`).
+- **Donghua** (v1.3): uses the same lens as anime, except `anime_production`, which stays anime-only.
 
 ## Mechanism atom (P2) — `mechanisms.jsonl`
 Two kinds share one envelope. Exactly one of `effect` / `engine` is present, matching `atom_kind`.
@@ -362,7 +373,8 @@ Structure:
 
 | Field | Enum |
 |---|---|
-| medium | anime, western_animation, adult_animation, live_action, film |
+| medium | anime, donghua, western_animation, adult_animation, live_action, film |
+| outcome.failure_level | premise, execution, external, unknown |
 | format | film, episodic, serialized, hybrid |
 | scope.numbering | broadcast, streaming, home_video |
 | power_combat.progression | lateral, linear, hybrid, none |
@@ -384,7 +396,7 @@ Structure:
 | link.type | sets_up, pays_off, reveals, reframes, advances, supports, contradicts, enables, prevents |
 | transformation.operator | reverse_incentive, redistribute_knowledge, transfer_cost, change_rule, combine_mechanisms, import_lane |
 | anime_production.demographic | shonen, seinen, shojo, josei, kodomo, other |
-| anime_production.source_medium | manga, light_novel, web_novel, webtoon, original, game, other |
+| anime_production.source_medium | manga, light_novel, web_novel, webtoon, manhua, original, game, other |
 
 **Bridge concepts** (`bridge.json` v1.1.0): `borrowed_system`, `broken_rule`, `unserved_appetite`, `visible_progress_counter`, `cost_of_advancement`, `access_gate`, `core_tension`, `information_asymmetry`, `bond_as_power`. Each carries a definition and `cq_refs`.
 

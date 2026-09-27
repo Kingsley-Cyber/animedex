@@ -125,6 +125,7 @@
     "medium": {
       "enum": [
         "anime",
+        "donghua",
         "western_animation",
         "adult_animation",
         "live_action",

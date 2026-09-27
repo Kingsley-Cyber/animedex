@@ -56,7 +56,7 @@ Every field, module, vocabulary entry, and bridge concept must trace to at least
 
 **Gap analysis**
 - **CQ-G01** Which gate × cost-of-power combinations have zero titles, given adequate coverage?
-- **CQ-G02** For each empty cell: untried, or tried by a mixed/flop title, and what was its recorded failure reason?
+- **CQ-G02** For each empty cell: untried, or tried by a mixed/flop title? Was that failure premise-level or execution-level, and what was the recorded reason?
 - **CQ-G03** Which unserved appetites (and the borrowed templates and broken rules that served them) appear in hits but in only one title's load-bearing atoms?
 - **CQ-G04** Which progression types have never been paired with a given fight medium?
 - **CQ-G05** Which load-bearing patterns appear in ≥2 non-anime titles and 0 anime titles? *(imported lanes)*
@@ -79,6 +79,7 @@ Every field, module, vocabulary entry, and bridge concept must trace to at least
 - **CQ-I11** Which engine atoms from hits (goal, constraint, strategy, cost, dilemma) have never been combined with a given gate or cost of power?
 - **CQ-I12** For a transfer pattern, which variable details have only ever taken one value across the corpus?
 - **CQ-I13** Which transformation operators produce champions, and which mostly fail gates?
+- **CQ-I14** Which execution-level failures offer a T5 "retold better" lane (a sound premise whose execution failed)?
 
 **Episodes and moments**
 - **CQ-E01** Which moment types recur across the most iconic fights, and what mechanism and primary feeling explain each?

@@ -1,7 +1,7 @@
 # 00 — Goal
 
 ## Mission
-Build **ANIMEDEX**: an ideation engine that breaks screen stories (anime first, plus Western animation, adult animation, live-action series, and film) into evidence-backed atoms of two kinds: **effect atoms** (why a story feels good) and **engine atoms** (why a story keeps going). It finds lanes nobody has built in and generates anime concepts that pass an explicit taste standard. **Episodes act as compounding evidence tied to their show**: every indexed episode strengthens, challenges, or extends what the index believes about that show.
+Build **ANIMEDEX**: an ideation engine that breaks screen stories (anime first, plus donghua, Western animation, adult animation, live-action series, and film) into evidence-backed atoms of two kinds: **effect atoms** (why a story feels good) and **engine atoms** (why a story keeps going). It finds lanes nobody has built in and generates anime concepts that pass an explicit taste standard. **Episodes act as compounding evidence tied to their show**: every indexed episode strengthens, challenges, or extends what the index believes about that show.
 
 ## Why this exists
 Asking an LLM for an idea cold returns the nearest strong pattern: a popular show with one change. ANIMEDEX replaces "generate an idea" with "search a map of what works and why, then build where the map is empty."

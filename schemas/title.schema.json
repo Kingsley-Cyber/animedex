@@ -490,6 +490,7 @@
             "light_novel",
             "web_novel",
             "webtoon",
+            "manhua",
             "original",
             "game",
             "other",
@@ -5362,6 +5363,7 @@
     "medium": {
       "enum": [
         "anime",
+        "donghua",
         "western_animation",
         "adult_animation",
         "live_action",

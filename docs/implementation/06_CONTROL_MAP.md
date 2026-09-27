@@ -39,13 +39,13 @@
 | ROLLUP | Causal link evidence | Preventive | `enables`/`prevents` need more than order | Link dropped |
 | BUILD | Determinism | Detective | Hash of tables + CQ answers | Fail build |
 | ANALYZE | Coverage gate on gaps | Preventive | ≥5 titles with module, completion ≥0.8 | Label "insufficient coverage" |
-| ANALYZE | Graveyard lookup | Detective | Combination matches a flop | Attach `failure_reason` |
+| ANALYZE | Graveyard lookup | Detective | Combination matches a flop | Attach `failure_reason` + `failure_level`; only premise-level failures warn (v1.3) |
 | PATTERNS | Counterexample search | Preventive | Search run and recorded | Card invalid |
 | IDEATE | Eligible atoms only | Preventive | Load-bearing, settled, not mixed/contradicted | Atom excluded |
 | IDEATE | Engine complete | Preventive | All engine parts + dramatic question | Rework once → reject |
 | IDEATE | Clone gate | Preventive | Structural J ≥ .70, procedural J ≥ .75, or (cosine ≥ .90 and structural J ≥ .55) | Rework once → reject |
 | IDEATE | Novelty gate | Preventive | No novel pair/triple/inversion | Reject |
-| IDEATE | Graveyard gate | Detective | Flop combination match | Require "why this time is different," else reject |
+| IDEATE | Graveyard gate | Detective | Premise-level flop combination match (v1.3) | Require "why this time is different," else reject |
 | IDEATE | H1 consequence test | Preventive | <2 of choices/relationships/outcomes differ from closest title | Reject (surface change) |
 | IDEATE | Failure-condition check | Preventive | Idea triggers an atom's failure condition | Rework once → reject |
 | IDEATE | Coherence gate | Preventive | Theme ↔ mechanic; dilemma follows from cost | Reject |
