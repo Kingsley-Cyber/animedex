@@ -142,3 +142,11 @@ def test_mock_provider_fixtures_and_attempt_lists(tmp_path):
     assert m.generate("s", "u", SCHEMA, meta("P2", "y_2020", 0)).text == "bad"
     with pytest.raises(ProviderError):
         m.generate("s", "u", SCHEMA, meta("P3", "z_2020", 0))
+
+
+def test_a_session_limit_message_is_a_pause_not_a_failure():
+    from animedex.providers.cli_common import RateLimited, classify
+
+    err = classify("claude_cli", "You've hit your session limit · resets 12:30pm (America/Denver)")
+    assert isinstance(err, RateLimited)
+    assert isinstance(classify("claude_cli", "Rate limit exceeded"), RateLimited)

@@ -29,7 +29,7 @@ ENV_ALLOW = (
 )
 ENV_DENY_PREFIXES = ("ANTHROPIC_", "OPENAI_", "CLAUDE", "CODEX_")
 
-_RATE = re.compile(r"rate.?limit|usage limit|limit reached|too many requests|\b429\b|overloaded|quota", re.I)
+_RATE = re.compile(r"rate.?limit|usage limit|session limit|hit your .{0,20}limit|limit reached|too many requests|\b429\b|overloaded|quota", re.I)   # "You've hit your session limit · resets 12:30pm" (2026-09-27)
 _AUTH = re.compile(r"not logged in|please run /login|auth(entication)? (failed|required|error)|invalid api key|"
                    r"failed to authenticate|oauth session expired|could not be refreshed|"
                    r"log ?in to|login required|unauthori[sz]ed|\b401\b", re.I)
