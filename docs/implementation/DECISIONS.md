@@ -18,3 +18,4 @@ Each entry: id, date, decision, and why. Owner rulings are in `.control/policies
 | D-011 | 2026-09-27 | M3 runs on all 14 titles (gold first), not just the gold set. | Ideation needs atoms from many titles and media; gold alone would leave the pool too thin for M5. |
 | D-012 | 2026-09-27 | Steering rules: none exist yet, so every arm runs without them; the machinery stays ready. | Kingsley hasn't written rules; inventing his taste rules would change the taste standard. |
 | D-020 | 2026-09-27 | The embedder readiness probe waits 6 s, not 2. | Polymath's /ready can wait up to 5 s for a busy GPU; 2 s would push busy runs onto the backup. |
+| D-013 | 2026-09-27 | Clone gate `premise_cosine_reject` 0.72 (was 0.90); `premise_cosine_with_structural` stays 0.55. | On Qwen3, 10 similar pairs score 0.74–0.85 and 10 different pairs 0.40–0.69, so 0.72 separates them all (0.90 caught none); the Ollama backup differs by ≤0.0035. |

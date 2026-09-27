@@ -118,7 +118,7 @@ episodes:
 gates:
   structural_jaccard_reject: 0.70
   procedural_jaccard_reject: 0.75
-  premise_cosine_reject: 0.90
+  premise_cosine_reject: 0.72     # Qwen3-Embedding-0.6B recalibration 2026-09-27 (DECISIONS D-013); was 0.90 on mxbai
   premise_cosine_with_structural: 0.55
 census:   # v1.6: counts only; the title list comes from AniList
   batch_size: 10
