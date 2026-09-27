@@ -95,6 +95,7 @@ Flags: `--all` (every title in the corpus), `--dry-run` (print prompts and cache
 ### P4 TRANSFER
 - **In:** load-bearing-eligible atoms (see 04). **Out:** transfer atoms.
 - Strip proper nouns and medium words; map each to ≥1 bridge concept; list essential, variable, and failure conditions.
+- v1.8 abstraction ladder: every transfer also gives a mechanism (≤20 words), a principle (≤25 words, "when X, do Y, because Z") and an anti-pattern (≤12 words), under the same no-names, no-medium-words rule.
 
 ### CANONICALIZE
 - Validate schema → normalize enums (alternate labels → preferred) → off-vocab to proposals (store `other`) → dedupe near-duplicate atoms within a title (keep higher `conf`) → atomic write → update coverage ledger.
@@ -131,6 +132,7 @@ Deterministic except steps 3 and 5, which call a model.
 
 ### PATTERNS (M7)
 - Cluster transfer atoms (embeddings); for each cluster, write a pattern card with supporting titles, a counterexample search (titles that have the pattern and flopped, or lack it and succeeded), boundary conditions, alternative explanations, and scope.
+- Principle test (v1.8): a card is marked `predictive` only if its principle explains at least one load-bearing atom in a held-out title it wasn't extracted from (04). Only predictive principles feed ideation as principles.
 
 ### IDEATE
 - **Atom pool:** load-bearing-eligible transfer atoms; `episode_backed` preferred over `profile_only`.
