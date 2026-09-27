@@ -248,15 +248,59 @@ def unavailable_message(problems: list[Readiness]) -> str:
     return f"{joined}. {fixes[0].upper()}{fixes[1:]}; {AGAIN}"
 
 
+class ChainEmbedder:
+    """The configured backends in order. A backend that stops answering mid-run hands over to the next one
+    that is ready; every hand-over is counted and named in `fallbacks` (the silent-fallback rule), and
+    the run fails only when no backend is left. The two copies of the model differ by at most 0.0035 in
+    cosine (D-013), so vectors from both may share one run."""
+
+    def __init__(self, backends: list[Embedder], start: int = 0):
+        if not backends:
+            raise ValueError("no embedding backends configured")
+        self.backends = list(backends)
+        self.index = start
+        self.fallbacks: list[str] = []
+
+    @property
+    def current(self) -> Embedder:
+        return self.backends[self.index]
+
+    @property
+    def name(self) -> str:
+        return getattr(self.current, "name", "embedder")
+
+    def readiness(self, timeout_s: float = READY_TIMEOUT_S) -> Readiness:
+        return readiness(self.current)
+
+    def embed(self, texts: list[str]) -> list[list[float]]:
+        problems: list[str] = []
+        while self.index < len(self.backends):
+            backend = self.current
+            try:
+                return backend.embed(texts)
+            except EmbedderUnavailable as exc:
+                problems.append(str(exc))
+                self.index += 1
+                while self.index < len(self.backends):
+                    state = readiness(self.current)
+                    if state.ok:
+                        self.fallbacks.append(f"{getattr(backend, 'name', 'embedder')} -> {self.name}: {exc}")
+                        break
+                    problems.append(state.alone or state.problem)
+                    self.index += 1
+        raise EmbedderUnavailable(" Then: ".join(problems) if problems else "no embedding backend is available")
+
+
 def build_embedder(settings: Any, env: dict[str, str], *,
                    transport: httpx.BaseTransport | None = None) -> Embedder:
-    """The run's one embedder: the first configured backend that is ready (Polymath's GPU copy, then
-    the Ollama fallback). Call it once per run. When none is ready, EmbedderUnavailable names each
-    backend and how to start one."""
+    """The run's embedder: the configured backends in a chain that starts at the first one ready
+    (Polymath's GPU copy, then the Ollama fallback) and hands over mid-run if that one stops answering.
+    Call it once per run. When none is ready, EmbedderUnavailable names each backend and how to start one."""
+    backends = embedding_backends(settings, env, transport=transport)
     problems = []
-    for embedder in embedding_backends(settings, env, transport=transport):
+    for i, embedder in enumerate(backends):
         state = readiness(embedder)
         if state.ok:
-            return embedder
+            return ChainEmbedder(backends, start=i)
         problems.append(state)
     raise EmbedderUnavailable(unavailable_message(problems))

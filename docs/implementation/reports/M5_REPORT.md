@@ -5,7 +5,7 @@
 - **Commit tag:** `m5-complete` (code and data repo)
 
 ## Summary
-ANIMEDEX and baseline 1 each ran the same schedule (one 1-generation run, then two capped runs), giving 42 ANIMEDEX champions across 42 grid cells and 51 passing baseline-1 cards; baseline 2 wrote 15 premises in one call. The blind packet holds 45 cards, 15 per arm, shuffled, with logline and premise only; the answer key stays in the private data repo. Every M5 AC passes except AC-30 (the review itself), which starts when Kingsley rates the packet. The live runs found three defects (a name guard that rejected ordinary words, a dialogue guard that rejected a description, and an archive that never persisted); all three are fixed with tests, and the archive was rebuilt from the cards without new calls.
+ANIMEDEX and baseline 1 each ran the same schedule (one 1-generation run, then two capped runs), giving 42 ANIMEDEX champions across 42 grid cells and 51 passing baseline-1 cards; baseline 2 wrote 15 premises in one call. The blind packet holds 30 cards, 10 per arm (owner's shorter-tests ruling, D-047), shuffled, with logline and premise only; the answer key stays in the private data repo. Every M5 AC passes except AC-30 (the review itself), which starts when Kingsley rates the packet. The live runs found three defects (a name guard that rejected ordinary words, a dialogue guard that rejected a description, and an archive that never persisted); all three are fixed with tests, and the archive was rebuilt from the cards without new calls.
 
 ## Acceptance criteria
 | AC | Status | Evidence |
@@ -15,19 +15,19 @@ ANIMEDEX and baseline 1 each ran the same schedule (one 1-generation run, then t
 | AC-27 | pass | Every card records its operator and consequences; the surface-change fixture fails H1 (pipeline test). |
 | AC-28 | pass | Gates enforced and logged with the gate: live rejections were clone 3, novelty 13, coherence 1, format 6. |
 | AC-29 | pass | One idea per cell, fitness never decreases (unit test). Live: 42 cells, 42 champions, no integrity errors after the rebuild (D-041). |
-| AC-30 | **pending** | The packet is ready (`eval/blind/packet_2026-09-27.md`, 45 cards). The review is Kingsley's step. |
+| AC-30 | **pending** | The packet is ready (`eval/blind/packet_2026-09-27.md`, 30 cards). The review is Kingsley's step. |
 | AC-44 | pass | Census: 500 titles from AniList in batches of 10 (50 calls over two runs); no atom, transfer, idea or prompt references a census entry (contract test). |
 | AC-45 | pass | 19 T1/T4 claims on champions, 19 prior-art records, all `clear`. 4 records the quote guard had wrongly quarantined (exact-phrase search queries) were restored (D-041). |
 | AC-46 | pass | Every judged card records the runway answer (42 of 42 champions: yes); revival cards name an execution-level flop with evidence; champions carry a pre-mortem. |
-| AC-47 | pass | 15 cards per arm, shuffled by a date seed; the packet's Markdown and JSON hold id, logline and premise only (exact-word scan: no arm names, ids or verdicts); the key is git-ignored under `data/blind/`. |
+| AC-47 | pass | 10 cards per arm, shuffled by a date seed; the packet's Markdown and JSON hold id, logline and premise only (exact-word scan: no arm names, ids or verdicts); the key is git-ignored under `data/blind/`. |
 | AC-50 | pass | Every generate call got a `key: value` brief capped at 600 words (168 live briefs: up to 600 words, about 800 tokens at the median; baseline-1 briefs hold only the theme, operator and target, a few dozen words), atoms under aliases, the nearest 10 titles, the region's flops, the cell's counts, lanes and prior art; words and tokens logged per call. |
 | AC-51 | pass | Unit test (199 rows no, 200 rows yes). Live: 292 powered census rows, so census-backed zeros count; every champion's key pair has PMI ≤ −1 over 281–304 rows. |
 | AC-52 | pass | Pipeline test. Live: no premise-level graveyard match (all four graveyard titles are execution-level), so `why_different` was never triggered. |
-| AC-53 | pass | Both arms used the `ideate_generate` slot (Opus 5.5), the same taste standard and rules; 0 generating calls carried a web parameter (run-log check); every packet card got the same prior-art check (41 clear, 4 inconclusive, recorded in the key). Baseline-1 cards live in `data/blind/baseline_loop/`, never in the archive. |
+| AC-53 | pass | Both arms used the `ideate_generate` slot (Opus 5.5), the same taste standard and rules; 0 generating calls carried a web parameter (run-log check); every packet card got the same prior-art check (30 clear, 0 inconclusive, recorded in the key). Baseline-1 cards live in `data/blind/baseline_loop/`, never in the archive. |
 | AC-54 | pass | Every ideation run stopped at exactly 60 calls ("Paused: call cap reached: 60/60"); other runs kept 40 (the census paused at 40/40). |
 | AC-55 | pass | Pipeline and unit tests; live: no champion leans on a contested or rejected atom, so `ideas.md` shows no flag and the packet never would. |
 | AC-56 | pass | `make audit`: 10 date-seeded eligible atoms with evidence trails → `eval/audit/audit_2026-09-27.yaml` (marks blank, gold titles allowed since the blind is waived); `make audit-report` runs on the unmarked sheet (0 marked, 14 P2 runs). |
-| AC-57 | pass | `make diagnose` on a synthetic concept: 1 structuring call, 9 checks (7 pass, 2 fail: novelty and ablation), each failure with a prescription from the operator/rung table, 3 calls in total, written only to `data/diagnose/`. |
+| AC-57 | pass | `make diagnose` on a synthetic concept: 1 structuring call, 9 checks (7 pass, 2 fail: novelty and ablation), each failure with a prescription from the operator/rung table, 3 calls in total, 31 s wall clock on the second concept, written only to `data/diagnose/`. |
 
 ## The arms
 | | ANIMEDEX | Baseline 1 (same loop, empty brief) | Baseline 2 (one plain call) |
@@ -51,7 +51,7 @@ Champion cells cover 42 of the grid's 252 cells; the gate axis is spread (artifa
 | Rework (both arms) | 10 | 8 min | judge-driven |
 | Judge (both arms) | 31 | 16 min | batches of 4 |
 | Prior art, ideation | 15 | 6 min | native web search |
-| Prior art, packet | 12 | 4 min | all 45 cards |
+| Prior art, packet | 12 + 8 | 8 min | the first 45-card packet, then the 30-card one |
 | Baseline 2 | 2 | 3 min | one attempt was over its caps |
 | Diagnose | 3 | 1 min | |
 | **Total** | **321** | **164 min** | 8 runs, each under its cap; no model substitution |
@@ -92,7 +92,7 @@ Written by `make review-report` after every card is rated (`build/reports/taste.
 
 ## Flags for review
 - 14 of 42 champions claim no taste criterion; they hold their cell because nothing better landed there. The rating will say whether that matters.
-- 4 packet cards have an inconclusive prior-art verdict (recorded in the key, not shown to the rater).
+- 0 packet card(s) have an inconclusive prior-art verdict (recorded in the key, not shown to the rater).
 - One diagnose demo and one audit sheet exist; the audit marks are blank until Kingsley fills them.
 
 ## Next

@@ -1,5 +1,8 @@
 # Changelog — docs/implementation
 
+## Shorter tests — 2026-09-27
+- **D-047.** Blind packet at 10 cards per arm (30 cards, `eval.blind.per_arm`), rebuilt. `ChainEmbedder`: Polymath's embedder hands over to Ollama mid-run when it stops answering; `make ideas` and `make diagnose` print every hand-over. `make diagnose` timed at 31 s for one concept (3 calls).
+
 ## Operate tools for harnesses — 2026-09-27
 - **D-045.** MCP tools `add_titles` (resolve, preview or run the backfill), `run_ideas`, `check_concept`, `job_status`, `stop_job` (`mcpserver/jobs.py`): one detached job at a time, a `make batch` run counts, exited children are reaped so a finished job never reads as alive. `bin/animedex-mcp` for one-command clients (Hermes). AGENTS.md gets an operating table (owner's words → commands, and the rules that never bend). USAGE section 4, 05, 06 and the request A plan updated.
 

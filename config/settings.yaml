@@ -166,6 +166,7 @@ eval:
     - core.outcome
   gold_elements: {min: 3, max: 5}
   bars: {p1_enum_agreement: 0.80, p3_load_bearing_agreement: 0.70, load_bearing_recall: 0.60}
+  blind: {per_arm: 10}   # owner 2026-09-27: 10 cards per arm, 30 in the packet (was the code default 15)
 data_repo:   # owner ruling 2026-09-27: private backups of data that never goes to the public code repo
   remote: https://github.com/Kingsley-Cyber/animedex-data.git
   clone: ../animedex-data          # local clone, next to the code checkout

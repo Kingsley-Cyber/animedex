@@ -8,7 +8,7 @@ equal size, and the only difference between them is access to the index.
 Every arm uses the same model (the `ideate_generate` slot), the same taste standard
 (`prompts/taste_standard.md`) and the same steering rules. No arm searches the web while generating;
 every packet card then gets the same prior-art check (the `prior_art` slot), recorded in the answer
-key only. Up to `eval.blind.per_arm` (15) cards per arm; with fewer, every arm shrinks to N (never
+key only. Up to `eval.blind.per_arm` (10 since D-047; the code default is 15) cards per arm; with fewer, every arm shrinks to N (never
 loosen a gate to fill the packet). Cards show logline + premise only, shuffled with a fixed seed. The
 answer key (arm, source, prior-art verdict) goes to data/blind/ (gitignored), so the packet stays blind.
 """

@@ -207,3 +207,44 @@ def test_embeddings_only_providers_are_not_model_providers(repo):
     problems = live_problems(s, {}, ["embeddings"])
     assert "providers.polymath_embedder: set base_url" in problems
     assert any("models.embeddings.fallback.provider" in p for p in problems)
+
+
+# ---------------------------------------------------------------- mid-run hand-over (item 2, 2026-09-27)
+def test_a_backend_that_stops_answering_mid_run_hands_over_to_the_next_ready_one():
+    from animedex.embeddings.base import ChainEmbedder, EmbedderUnavailable, MockEmbedder, Readiness
+
+    class Flaky:
+        name = "polymath/test"
+
+        def __init__(self):
+            self.calls = 0
+
+        def readiness(self, timeout_s=1.0):
+            return Readiness(True)
+
+        def embed(self, texts):
+            self.calls += 1
+            if self.calls == 1:
+                return [[1.0] * 64 for _ in texts]
+            raise EmbedderUnavailable("Polymath's embedder at 127.0.0.1:8742 stopped answering (ConnectError). "
+                                      "Make sure it is running, then run the same command again.")
+
+    flaky, backup = Flaky(), MockEmbedder()
+    chain = ChainEmbedder([flaky, backup])
+    assert chain.name == "polymath/test" and len(chain.embed(["a"])) == 1
+    second = chain.embed(["a", "b"])          # the hand-over happens inside the call: no error, two vectors
+    assert len(second) == 2 and chain.name == backup.name and flaky.calls == 2
+    [handover] = chain.fallbacks
+    assert handover.startswith(f"polymath/test -> {backup.name}: Polymath's embedder at 127.0.0.1:8742 stopped answering")
+    assert chain.embed(["c"]) and chain.fallbacks and len(chain.fallbacks) == 1  # stays on the backup, no new entry
+
+    class Dead(Flaky):
+        name = "local/dead"
+
+        def readiness(self, timeout_s=1.0):
+            return Readiness(False, "Ollama isn't running", "start Ollama", "Ollama is not running. Start it.")
+
+    both = ChainEmbedder([Flaky(), Dead()])
+    both.embed(["a"])
+    with pytest.raises(EmbedderUnavailable, match="stopped answering.*Then: Ollama is not running"):
+        both.embed(["b"])

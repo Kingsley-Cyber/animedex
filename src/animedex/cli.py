@@ -444,6 +444,8 @@ def ideate(generations: int = typer.Option(None, "--generations", help="Default:
                    f"reworks {result.reworks}; rejected: {rejected}; prior-art {dict(result.prior_art) or 'none'}")
     for note in result.notes:
         typer.echo(f"  note: {note}", err=True)
+    for handover in getattr(embedder, "fallbacks", []):  # never silent (owner rule)
+        typer.echo(f"  embedder hand-over: {handover}", err=True)
     if result.diversity_alarm:
         typer.echo(f"  diversity alarm: {result.diversity_alarm}", err=True)
     if arm == "animedex":
@@ -530,15 +532,18 @@ def diagnose(file: str = typer.Option(None, "--file", help="A text file holding 
     budget = Budget.from_settings(settings)
     budget.calls_per_run = int(((settings.model_extra or {}).get("diagnose") or {}).get("calls_per_run", 6))
     clients, runlog = _ideate_clients(paths, settings, ("ideate_generate", "ideate_judge"), budget=budget)
+    embedder = build_embedder(settings, environment(paths))
     try:
         result = run_diagnose(paths, settings, vocab, text=concept, clients=clients, run_id=runlog.run_id,
-                              embedder=build_embedder(settings, environment(paths)), source="file" if file else "text")
+                              embedder=embedder, source="file" if file else "text")
     except DiagnoseError as exc:
         typer.echo(str(exc), err=True)
         raise typer.Exit(1) from exc
     runlog.write_ledger()
     for line in result.lines:
         typer.echo(line)
+    for handover in getattr(embedder, "fallbacks", []):  # never silent (owner rule)
+        typer.echo(f"  embedder hand-over: {handover}", err=True)
     if result.stopped:
         raise typer.Exit(3)
 
