@@ -12,8 +12,9 @@ Each generate call gets a small assembled brief instead of every title and every
   two rows by id stand in (marked `graveyard_region: fallback` in the call meta), so the pre-mortem
   still has sources (AC-46);
 - the cell's counts (corpus titles, census rows; counts only, AC-44) and whether zeros are
-  trusted (rule of three, census floor, no unreliable grid dimension), the lane concepts among the
-  atoms' bridges, and the prior-art verdicts already recorded for earlier cards in the cell;
+  trusted (rule of three, with census rows past the 200-row floor; no unreliable grid dimension),
+  the lane concepts among the atoms' bridges, and the prior-art verdicts already recorded for
+  earlier cards in the cell;
 - every steering rule (the same lines every arm gets) and, on a retry, the rework notes.
 
 Lines are compact `key: value` text, not Markdown. The brief is capped at `ideate.brief_max_words`
@@ -98,10 +99,10 @@ def flop_line(g: dict[str, Any]) -> str:
 
 
 def _cell_line(ctx: Context, key: str, dims: list[str]) -> str:
-    """Zeros are trusted only by the rule of three (3/n < 0.02) with the census floor met, and never on a grid
-    dimension the agreement eval flagged unreliable (statistics as gates)."""
+    """Zeros are trusted only by the rule of three (3/n < 0.02; census rows count past the 200-row floor), and
+    never on a grid dimension the agreement eval flagged unreliable (statistics as gates)."""
     shaky = [d.split(".")[-1] for d in ctx.unreliable_dims(dims)]
-    trusted = ctx.adequate and ctx.census_zeros_trusted and not shaky
+    trusted = ctx.adequate and not shaky
     return (f"cell: corpus titles {ctx.cell_titles.get(key, 0)}; census titles {ctx.cell_census.get(key, 0)}; "
             f"zeros {'trusted' if trusted else 'untrusted'} (rule of three 3/n = {ctx.rule_of_three:.3f} over "
             f"{ctx.adequacy_n} rows, open below 0.02; census powered rows {ctx.powered_census} of "

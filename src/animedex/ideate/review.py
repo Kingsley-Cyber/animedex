@@ -29,6 +29,7 @@ from typing import Any
 import yaml
 
 from animedex import stats
+from animedex.paths import Paths
 from animedex.store.atomic import atomic_write_text
 
 CRITERIA = ["T1", "T2", "T3", "T4", "T5"]
@@ -216,7 +217,8 @@ ARM_ORDER = ("animedex", "baseline_loop", "baseline_single")
 def load_ratings(blind_dir: Path, date: str) -> dict[str, dict[str, Any]]:
     f = blind_dir / f"ratings_{date}.yaml"
     data = yaml.safe_load(f.read_text(encoding="utf-8")) if f.is_file() else None
-    return {str(k): dict(v or {}) for k, v in ((data or {}).get("cards") or {}).items()}
+    cards = data.get("cards") if isinstance(data, dict) else None
+    return {str(k): dict(v) for k, v in (cards or {}).items() if isinstance(v, dict)}
 
 
 def rating_picks(ratings: dict[str, dict[str, Any]]) -> list[tuple[str, str]]:
@@ -232,8 +234,9 @@ def panel_picks(panel_dir: Path, card_ids: set[str]) -> tuple[list[tuple[str, st
     files = skipped = 0
     for f in sorted(panel_dir.glob("*.json")) if panel_dir.is_dir() else []:
         files += 1
-        for p in (json.loads(f.read_text(encoding="utf-8")) or {}).get("picks") or []:
-            w, lo = str((p or {}).get("winner")), str((p or {}).get("loser"))
+        data = json.loads(f.read_text(encoding="utf-8"))
+        for p in (data.get("picks") if isinstance(data, dict) else None) or []:
+            w, lo = (str(p.get("winner")), str(p.get("loser"))) if isinstance(p, dict) else ("", "")
             if w in card_ids and lo in card_ids and w != lo:
                 picks.append((w, lo))
             else:
@@ -282,7 +285,7 @@ class TasteResult:
                 "judge_pairs": self.judge_pairs}
 
 
-def taste_summary(paths: Any, date: str | None = None) -> TasteResult:
+def taste_summary(paths: Paths, date: str | None = None) -> TasteResult:
     """The review import: picks -> Bradley-Terry strengths per card and per arm -> the judge's agreement."""
     from animedex.ideate.run import baseline_file
     from animedex.statgates import write_stage
@@ -320,7 +323,7 @@ def taste_summary(paths: Any, date: str | None = None) -> TasteResult:
         text = _taste_md(res, key, ratings, judge)
     else:
         text = _taste_md(res, {}, {}, {})
-    out = paths.root / "build" / "reports" / "taste.md"
+    out = paths.reports / "taste.md"
     atomic_write_text(out, text)
     write_stage(paths, "taste", res.to_dict())
     res.report = str(out.relative_to(paths.root))
