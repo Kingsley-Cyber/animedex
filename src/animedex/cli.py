@@ -828,7 +828,14 @@ def _eval_agreement(paths: Any, settings: Any, vocab: Any, gold_ids: set[str]) -
 
 
 def _eval_verify_rates(paths: Any, vocab: Any) -> None:
-    from animedex.evaluation import verify_rates, verify_rates_markdown
+    from animedex.evaluation import (
+        calibration,
+        calibration_overall,
+        stored_drafts,
+        verify_rates,
+        verify_rates_markdown,
+    )
+    from animedex.statgates import write_stage
     from animedex.store.atomic import atomic_write_text
     from animedex.store.jsonl import read_jsonl
 
@@ -837,10 +844,15 @@ def _eval_verify_rates(paths: Any, vocab: Any) -> None:
         typer.echo("web correction rate (AC-13): no canonical titles yet")
         return
     rows = verify_rates(titles, vocab)
-    atomic_write_text(paths.reports / "verify_rates.md", verify_rates_markdown(rows))
+    cal = calibration(titles, vocab, stored_drafts(paths.cache, titles))  # statistics as gates, item 6
+    atomic_write_text(paths.reports / "verify_rates.md", verify_rates_markdown(rows, cal))
+    write_stage(paths, "calibration", {"fields": [r.to_dict() for r in cal], "overall": calibration_overall(cal)})
     top = sorted((r for r in rows if r.correction_rate is not None), key=lambda r: -(r.correction_rate or 0))[:5]
     typer.echo("web correction rate (AC-13) -> build/reports/verify_rates.md; top: "
                + (", ".join(f"{r.path} {r.correction_rate:.2f}" for r in top) or "no verified fields yet"))
+    worst = sorted(cal, key=lambda r: (-(r.brier or 0.0), r.path))[:3]
+    typer.echo("calibration (Brier, per field) -> build/reports/verify_rates.md; worst: "
+               + (", ".join(f"{r.path} {r.brier:.3f} over {r.n}" for r in worst) or "no verified fields yet"))
 
 
 @app.command()
