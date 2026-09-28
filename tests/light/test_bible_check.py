@@ -7,7 +7,7 @@ from pathlib import Path
 from typer.testing import CliRunner
 
 from animedex.cli import app
-from animedex.light.bible_check import MANIFEST, check, read_manifest, snapshot
+from animedex.light.bible_check import MANIFEST, WORLD_FILES, check, read_manifest, snapshot
 
 
 def _write(folder: Path, name: str, text: str) -> None:
@@ -96,6 +96,43 @@ def test_full_spec_asks_for_more(tmp_path: Path) -> None:
     assert "variations" in failed["files"] and "faq" in failed["files"]
     assert failed["questions"].startswith("60 tagged (needs 120)")
     assert "edge-case matrix" in failed["stress test"]
+
+
+def _world_run(folder: Path) -> None:
+    """What a passing sixteen-file world-bible run adds to a folder."""
+    for name in WORLD_FILES:
+        _write(folder, f"{name}.md", f"# {name}\n")
+    _write(folder, "04_MASK_CATALOG.md", "".join(f"## Mask {i}\n- Weakness: x\n" for i in range(8)))
+    _write(folder, "11_TRANSFORMATION_BIBLE.md", "Normal, mask, spread, wild form, legendary form.\n")
+    _write(folder, "14_CANON_LEDGER.md", "## LOCKED CANON\n- VERSION A says x. VERSION B says y.\n")
+    _write(folder, "15_DIAGNOSIS.md", "## Complexity audit\n## Originality audit\n")
+
+
+def _world_series(tmp_path: Path) -> Path:
+    """A world-bible folder starts from one locked core page."""
+    folder = tmp_path / "world"
+    folder.mkdir()
+    _write(folder, "_CANON_CORE.md", "# Core — locked\n")
+    snapshot(folder)
+    return folder
+
+
+def test_a_complete_world_run_passes(tmp_path: Path) -> None:
+    folder = _world_series(tmp_path)
+    _world_run(folder)
+    assert _failed(folder, "world") == {}
+
+
+def test_world_spec_needs_its_markers(tmp_path: Path) -> None:
+    folder = _world_series(tmp_path)
+    _world_run(folder)
+    _write(folder, "14_CANON_LEDGER.md", "## LOCKED CANON\n")
+    _write(folder, "04_MASK_CATALOG.md", "## One mask\n- Weakness: x\n")
+    (folder / "10_PILOT.md").unlink()
+    failed = _failed(folder, "world")
+    assert "10_PILOT" in failed["files"]
+    assert "ledger contradictions" in failed and "mask catalog" in failed
+    assert "ledger tiers" not in failed
 
 
 def test_cli_exit_codes(tmp_path: Path) -> None:

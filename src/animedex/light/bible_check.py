@@ -27,20 +27,36 @@ PITCH_FLAGGED = "monster"  # the name-leak check reads it as a show title
 @dataclass(frozen=True)
 class Spec:
     files: dict[str, tuple[str, ...]]  # what the spec needs -> filename globs, any one of which will do
-    min_questions: int
-    min_scene_lines: int
-    stress_test: bool
+    min_questions: int = 0  # tagged questions; 0 skips the check
+    min_scene_lines: int = 0  # Shows / Teaches / Ledger lines in the pilot; 0 skips the check
+    overview: bool = False  # the overview names conflicts, additions and R1 to R5
+    stress_test: bool = False
+    markers: tuple[tuple[str, str, str, int], ...] = ()  # (check name, file glob, regex, at least this many)
 
+
+WORLD_FILES = ("00_README", "01_CONCEPT", "02_WORLD", "03_POWER_SYSTEM", "04_MASK_CATALOG", "05_LORE_AND_HISTORY",
+               "06_CHARACTERS", "07_FACTIONS", "08_STORY_ENGINE", "09_SEASON_01", "10_PILOT",
+               "11_TRANSFORMATION_BIBLE", "12_VISUAL_AND_AUDIO_BIBLE", "13_MYSTERIES_AND_ENDGAME", "14_CANON_LEDGER",
+               "15_DIAGNOSIS")
 
 SPECS: dict[str, Spec] = {
     "lite": Spec({"overview": ("00_OVERVIEW*.md",), "questions": ("*QUESTIONS*.md",), "pilot": ("*PILOT*.md",),
                   "seasons": ("*SEASONS*.md",)},
-                 min_questions=60, min_scene_lines=10, stress_test=False),
+                 min_questions=60, min_scene_lines=10, overview=True),
     # The template's 150 counts questions before duplicates are merged; the files hold the merged list, whose
     # finished runs landed between 139 and 254, so the floor for the merged list is 120.
     "full": Spec({"overview": ("00_OVERVIEW*.md",), "questions": ("*QUESTIONS*.md",), "pilot": ("*PILOT*.md",),
                   "seasons": ("*SEASONS*.md",), "variations": ("*VARIATIONS*.md",), "faq": ("*FAQ*.md",)},
-                 min_questions=120, min_scene_lines=20, stress_test=True),
+                 min_questions=120, min_scene_lines=20, overview=True, stress_test=True),
+    # The owner's sixteen-file world bible (2026-09-28): the files, the ledger's tiers and laid-out contradictions,
+    # both audits, at least eight catalogued masks, and a transformation sheet that reaches the legendary form.
+    "world": Spec({name: (f"{name}.md",) for name in WORLD_FILES},
+                  markers=(("ledger tiers", "14_CANON_LEDGER.md", r"\bLOCKED\b", 1),
+                           ("ledger contradictions", "14_CANON_LEDGER.md", r"\bVERSION A\b", 1),
+                           ("complexity audit", "15_DIAGNOSIS.md", r"(?i)\bcomplexity\b", 1),
+                           ("originality audit", "15_DIAGNOSIS.md", r"(?i)\boriginality\b", 1),
+                           ("mask catalog", "04_MASK_CATALOG.md", r"(?i)\bweakness\b", 8),
+                           ("transformation sheet", "11_TRANSFORMATION_BIBLE.md", r"(?i)\blegendary\b", 1))),
 }
 STRESS_PARTS = (("edge-case matrix", r"edge[- ]case"), ("shortcut audit", r"why don.?t they just"),
                 ("ladder", r"\bladder\b"))
@@ -95,20 +111,28 @@ def check(folder: Path, spec_name: str = "lite") -> list[Check]:
     checks = [Check("files", not missing,
                     f"missing: {', '.join(missing)}" if missing else f"{len(found)} of {len(found)} present")]
 
-    tags = len(TAG.findall(_text(found["questions"])))
-    checks.append(Check("questions", tags >= spec.min_questions, f"{tags} tagged (needs {spec.min_questions})"))
+    if spec.min_questions:
+        tags = len(TAG.findall(_text(found["questions"])))
+        checks.append(Check("questions", tags >= spec.min_questions, f"{tags} tagged (needs {spec.min_questions})"))
 
-    pilot = _text(found["pilot"])
-    counts = {k: len(re.findall(rf"\b{k}\s*:", pilot)) for k in SCENE_LINES}
-    checks.append(Check("pilot scenes", min(counts.values()) >= spec.min_scene_lines,
-                        ", ".join(f"{k} {n}" for k, n in counts.items()) + f" (needs {spec.min_scene_lines} each)"))
+    if spec.min_scene_lines:
+        pilot = _text(found["pilot"])
+        counts = {k: len(re.findall(rf"\b{k}\s*:", pilot)) for k in SCENE_LINES}
+        checks.append(Check("pilot scenes", min(counts.values()) >= spec.min_scene_lines,
+                            ", ".join(f"{k} {n}" for k, n in counts.items())
+                            + f" (needs {spec.min_scene_lines} each)"))
 
-    overview = _text(found["overview"])
-    rules = sorted(set(re.findall(r"\bR[1-5]\b", overview)))
-    absent = [s for s in ("conflict", "addition") if s not in overview.lower()]
-    checks.append(Check("overview", not absent and len(rules) == 5,
-                        (f"no {' or '.join(absent)} section; " if absent else "")
-                        + f"steering rules named: {', '.join(rules) or 'none'}"))
+    if spec.overview:
+        overview = _text(found["overview"])
+        rules = sorted(set(re.findall(r"\bR[1-5]\b", overview)))
+        absent = [s for s in ("conflict", "addition") if s not in overview.lower()]
+        checks.append(Check("overview", not absent and len(rules) == 5,
+                            (f"no {' or '.join(absent)} section; " if absent else "")
+                            + f"steering rules named: {', '.join(rules) or 'none'}"))
+
+    for name, glob, pattern, least in spec.markers:
+        hits = len(re.findall(pattern, _text(sorted(folder.glob(glob)))))
+        checks.append(Check(name, hits >= least, f"{hits} in {glob} (needs {least})"))
 
     if spec.stress_test:
         whole = _text(sorted(folder.glob("*.md"))).lower()
