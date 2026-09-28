@@ -1,0 +1,49 @@
+#!/bin/zsh
+# Mirror every series folder in seeds/ into the owner's "Anime Series" folder and rebuild the zip.
+# A folder's display name comes from the private list seeds/_names.tsv ("folder<TAB>name"), else from the first
+# "# Title" line of its 00_README.md, else the folder name; folders starting with "_" are skipped. This script
+# names no series itself: series and their names are private (seeds/ goes only to the data repo).
+# Usage: bin/sync-anime-series [target-folder]   (default: ~/Downloads/Anime Series)
+set -e
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+TARGET="${1:-$HOME/Downloads/Anime Series}"
+SEEDS="$ROOT/seeds"
+mkdir -p "$TARGET"
+python3 - "$SEEDS" "$TARGET" <<'EOF'
+import re
+import subprocess
+import sys
+from pathlib import Path
+
+seeds, target = Path(sys.argv[1]), Path(sys.argv[2])
+listed = {}
+names_file = seeds / "_names.tsv"
+if names_file.is_file():
+    for line in names_file.read_text(encoding="utf-8").splitlines():
+        if "\t" in line and not line.startswith("#"):
+            folder, name = line.split("\t", 1)
+            listed[folder.strip()] = name.strip()
+names = {}
+for d in sorted(p for p in seeds.iterdir() if p.is_dir() and not p.name.startswith(("_", "."))):
+    name = listed.get(d.name)
+    readme = d / "00_README.md"
+    if not name and readme.is_file():
+        m = re.match(r"#\s+(.+)", readme.read_text(encoding="utf-8").lstrip())
+        name = m.group(1).strip() if m else None
+    name = re.sub(r"[/:\\]", "-", name or d.name)
+    names[d.name] = name
+    (target / name).mkdir(parents=True, exist_ok=True)
+    subprocess.run(["rsync", "-a", "--delete", "--exclude", ".DS_Store", "--exclude", ".canon_manifest",
+                    f"{d}/", f"{target / name}/"], check=True)
+index = (seeds / "README.md").read_text(encoding="utf-8")
+for folder, name in names.items():
+    index = index.replace(f"`{folder}/`", f"**{name}**")
+index = index.replace("# Seeds: one folder per series", "# Anime Series: one folder per series")
+index = "\n".join(line for line in index.splitlines() if "`_archive/`" not in line) + "\n"
+(target / "README.md").write_text(index, encoding="utf-8")
+EOF
+STAGE="$(mktemp -d)"; cp -R "$TARGET" "$STAGE/Anime Series"; find "$STAGE" -name ".DS_Store" -delete
+( cd "$STAGE" && zip -r -X -q "Anime Series.zip" "Anime Series" )
+mkdir -p "$ROOT/build/exports" && cp "$STAGE/Anime Series.zip" "$ROOT/build/exports/Anime Series.zip"
+rm -rf "$STAGE"
+echo "synced -> $TARGET ($(find "$TARGET" -name '*.md' | wc -l | tr -d ' ') files); zip -> build/exports/Anime Series.zip"

@@ -1,4 +1,4 @@
-.PHONY: ingest quick diagnose analyze export review review-report data-push data-pull test lint
+.PHONY: ingest quick diagnose analyze export review review-report bible-snapshot bible-check data-push data-pull test lint
 
 UV ?= uv
 RUN = $(UV) run
@@ -23,6 +23,12 @@ review:
 
 review-report:
 	$(RUN) animedex review --summary $(if $(DATE),--date $(DATE),)
+
+bible-snapshot:
+	$(RUN) animedex bible-snapshot "$(SERIES)"
+
+bible-check:
+	$(RUN) animedex bible-check "$(SERIES)" $(if $(SPEC),--spec $(SPEC),)
 
 data-push:
 	$(RUN) animedex data push $(if $(TAG),--tag $(TAG),)

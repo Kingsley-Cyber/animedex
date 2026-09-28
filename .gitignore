@@ -55,3 +55,6 @@ data/jobs/
 data/queue/
 # light path (2026-09-27): the notes index is private (mirrored to the data repo)
 notes/
+
+# macOS folder metadata
+.DS_Store

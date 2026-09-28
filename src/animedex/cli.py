@@ -1,4 +1,4 @@
-"""`animedex` CLI: ingest, quick, diagnose, analyze, export, review, data push/pull."""
+"""`animedex` CLI: ingest, quick, diagnose, analyze, export, review, bible-snapshot/check, data push/pull."""
 
 from __future__ import annotations
 
@@ -195,6 +195,43 @@ def review(port: int = typer.Option(8765, "--port"), open_browser: bool = typer.
         pass
     finally:
         server.server_close()
+
+
+def _series_folder(series: str) -> Path:
+    folder = Path(series)
+    if not folder.is_dir():
+        typer.echo(f"not a folder: {series}", err=True)
+        raise typer.Exit(2)
+    return folder
+
+
+@app.command("bible-snapshot")
+def bible_snapshot(series: str = typer.Argument(..., help="A series folder, e.g. seeds/unkept.")) -> None:
+    """Record a series folder's current files as canon, before a bible run writes into it."""
+    from animedex.light.bible_check import read_manifest, snapshot
+
+    folder = _series_folder(series)
+    out = snapshot(folder)
+    typer.echo(f"canon: {len(read_manifest(folder) or {})} file(s) -> {out}")
+
+
+@app.command("bible-check")
+def bible_check(series: str = typer.Argument(..., help="A series folder, e.g. seeds/unkept."),
+                spec: str = typer.Option("lite", "--spec", help="lite (4 files) or full (the whole template).")) -> None:
+    """Check a bible run's output against the spec, with no model call; exit 1 if any check fails."""
+    from animedex.light.bible_check import SPECS, check
+
+    if spec not in SPECS:
+        typer.echo(f"--spec must be one of: {', '.join(SPECS)}", err=True)
+        raise typer.Exit(2)
+    folder = _series_folder(series)
+    checks = check(folder, spec)
+    failed = [c for c in checks if not c.ok]
+    typer.echo(f"bible-check {folder.name} ({spec}): {len(failed)} of {len(checks)} check(s) failed")
+    for c in checks:
+        typer.echo(f"  {'PASS' if c.ok else 'FAIL'} {c.name}: {c.detail}")
+    if failed:
+        raise typer.Exit(1)
 
 
 def _data_config() -> tuple[Any, Any]:
