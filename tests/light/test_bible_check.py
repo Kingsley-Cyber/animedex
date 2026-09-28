@@ -94,7 +94,7 @@ def test_full_spec_asks_for_more(tmp_path: Path) -> None:
     _lite_run(folder)
     failed = _failed(folder, "full")
     assert "variations" in failed["files"] and "faq" in failed["files"]
-    assert failed["questions"].startswith("60 tagged (needs 150)")
+    assert failed["questions"].startswith("60 tagged (needs 120)")
     assert "edge-case matrix" in failed["stress test"]
 
 

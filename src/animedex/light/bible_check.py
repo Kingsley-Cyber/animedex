@@ -36,9 +36,11 @@ SPECS: dict[str, Spec] = {
     "lite": Spec({"overview": ("00_OVERVIEW*.md",), "questions": ("*QUESTIONS*.md",), "pilot": ("*PILOT*.md",),
                   "seasons": ("*SEASONS*.md",)},
                  min_questions=60, min_scene_lines=10, stress_test=False),
+    # The template's 150 counts questions before duplicates are merged; the files hold the merged list, whose
+    # finished runs landed between 139 and 254, so the floor for the merged list is 120.
     "full": Spec({"overview": ("00_OVERVIEW*.md",), "questions": ("*QUESTIONS*.md",), "pilot": ("*PILOT*.md",),
                   "seasons": ("*SEASONS*.md",), "variations": ("*VARIATIONS*.md",), "faq": ("*FAQ*.md",)},
-                 min_questions=150, min_scene_lines=20, stress_test=True),
+                 min_questions=120, min_scene_lines=20, stress_test=True),
 }
 STRESS_PARTS = (("edge-case matrix", r"edge[- ]case"), ("shortcut audit", r"why don.?t they just"),
                 ("ladder", r"\bladder\b"))
