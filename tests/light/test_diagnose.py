@@ -87,7 +87,7 @@ def test_two_calls_structure_the_concept_as_a_note_and_check_it_against_the_note
     assert mocks["ingest"].calls[0]["user"].startswith("job: concept") and CONCEPT[:40] in mocks["ingest"].calls[0]["user"]
     check_user = mocks["check"].calls[0]["user"]
     assert "rule R1 (hard)" in check_user and "=== note lantern_debt_2019" in check_user and "=== CARD D1" in check_user
-    assert "consequences: not stated" in check_user
+    assert "consequences: not stated" in check_user and "the author's concept, in full: A lighthouse keeper's daughter" in check_user
     md = (repo.root / res.md_path).read_text()
     assert "## As a note" in md and "What it can't survive without" in md and "Biggest weakness" in md
     record = json.loads((repo.root / res.json_path).read_text())

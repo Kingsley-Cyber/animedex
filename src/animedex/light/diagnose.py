@@ -223,7 +223,9 @@ def run_diagnose(paths: Paths, settings: Settings, vocab: Vocab, *, text: str, c
     cc = clients["check"]
     cc.prompt_version = chk.version
     rule_ids = [r.id for r in rules]
-    cdone, problem, stop = call(cc, "CHECK", f"concept:{key}", chk.body, check_user(rules, notes, near, {"D1": concept}),
+    # the check reads the note and the author's full text (a 25-word note loses the cold open, the stages, the lore)
+    card = {**concept, "concept_text": concept_text}
+    cdone, problem, stop = call(cc, "CHECK", f"concept:{key}", chk.body, check_user(rules, notes, near, {"D1": card}),
                                 check_schema(["D1"], rule_ids, near), None,
                                 lambda out: raise_problems(check_problems(out, ["D1"], rule_ids)), paths)
     if cdone is None:

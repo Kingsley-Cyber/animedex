@@ -42,4 +42,14 @@ Before (the light path on the heavy-era code, 2026-09-27, live):
 | `make quick` feral seed, second run | 3 (research skipped) | 3.6 min | generate 162 s, check 40 s, prior art 14 s |
 | `make quick` MOLT concept | 4 (+1 hidden length repair) | 6.1 min | research 39 s, generate 244 s (incl. a 5 s `.shorten` call), check 55 s, prior art 25 s |
 
-After: AFTER_RUNTIME
+After, the same commands on the audited code (2026-09-27, live):
+
+| Run | Calls | Time | Per unit |
+|---|---|---|---|
+| `make ingest` 3 shows (Monster, Mushishi, March Comes in Like a Lion) | 1 | 1.2 min | 21 s of call time per note |
+| `make quick` new seed (shadow duel), research ran | 4 | 4.1 min | research 19 s, generate 164 s, check 43 s, prior art 17 s |
+| `make quick` feral seed again (research skipped) | 3 | 3.7 min | generate 141 s, check 36 s, prior art 46 s |
+| `make quick` shonen lane (owner's request) | 4 | 4.3 min | research 9 s, generate 199 s, check 32 s, prior art 20 s |
+| `make quick` donghua lane (owner's request, run alongside the shonen one) | 4 | 5.2 min | research 16 s, generate 228 s, check 42 s, prior art 26 s |
+
+Reading: the model's own time dominates (the Opus generate call is 2.5-4 minutes of every quick run), so the audit changes little in wall clock: quick runs 3.7-5.2 min after against 3.6-6.1 before, ingest about 20-30 s per famous show either way. What it removed is the hidden length-repair call (every quick run before made one: 5-12 s and a second round trip) and research is quicker when its picks are already in the index (9-19 s against 36-39 s, no new note to write). The gain of the audit is the code: a quarter of the size, one store, four prompts.

@@ -333,9 +333,11 @@ def card_text(ref: str, c: dict[str, Any]) -> list[str]:
         lines.append(f"closest note (the card's own claim): {c.get('closest_existing')}; why not a clone: "
                      f"{c.get('why_not_a_clone')}")
         lines.append(f"never done claim: {c.get('never_done_claim') or 'none'}")
-    else:  # an author's concept, written as a note (diagnose)
+    else:  # an author's concept, written as a note (diagnose); the check also reads the author's own words
         lines.append("consequences: not stated (judge them from the premise, engine and kit); closest note: not stated")
         lines += [f"element {i}: {el.get('element')}" for i, el in enumerate(c.get("elements") or [], start=1)]
+        if c.get("concept_text"):
+            lines.append(f"the author's concept, in full: {' '.join(str(c['concept_text']).split())}")
     return lines
 
 
