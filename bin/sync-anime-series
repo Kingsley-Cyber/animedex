@@ -3,6 +3,8 @@
 # A folder's display name comes from the private list seeds/_names.tsv ("folder<TAB>name"), else from the first
 # "# Title" line of its 00_README.md, else the folder name; folders starting with "_" are skipped. This script
 # names no series itself: series and their names are private (seeds/ goes only to the data repo).
+# It also rebuilds "All Files": every file of every series in one flat folder, each named "<series> - <path>",
+# for drag and drop. That folder is generated on every run and left out of the zip.
 # Usage: bin/sync-anime-series [target-folder]   (default: ~/Downloads/Anime Series)
 set -e
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -41,9 +43,23 @@ for folder, name in names.items():
 index = index.replace("# Seeds: one folder per series", "# Anime Series: one folder per series")
 index = "\n".join(line for line in index.splitlines() if "`_archive/`" not in line) + "\n"
 (target / "README.md").write_text(index, encoding="utf-8")
+
+import shutil
+flat = target / "All Files"
+if flat.is_dir():
+    shutil.rmtree(flat)
+flat.mkdir()
+for name in names.values():
+    series = target / name
+    for f in sorted(series.rglob("*")):
+        parts = f.relative_to(series).parts
+        if f.is_file() and not any(p.startswith(".") for p in parts):
+            shutil.copy2(f, flat / f"{name} - {' - '.join(parts)}")
+shutil.copy2(target / "README.md", flat / "README.md")
+print(f"All Files: {sum(1 for _ in flat.iterdir())} file(s)")
 EOF
-STAGE="$(mktemp -d)"; cp -R "$TARGET" "$STAGE/Anime Series"; find "$STAGE" -name ".DS_Store" -delete
+STAGE="$(mktemp -d)"; cp -R "$TARGET" "$STAGE/Anime Series"; rm -rf "$STAGE/Anime Series/All Files"; find "$STAGE" -name ".DS_Store" -delete
 ( cd "$STAGE" && zip -r -X -q "Anime Series.zip" "Anime Series" )
 mkdir -p "$ROOT/build/exports" && cp "$STAGE/Anime Series.zip" "$ROOT/build/exports/Anime Series.zip"
 rm -rf "$STAGE"
-echo "synced -> $TARGET ($(find "$TARGET" -name '*.md' | wc -l | tr -d ' ') files); zip -> build/exports/Anime Series.zip"
+echo "synced -> $TARGET ($(find "$TARGET" -name '*.md' -not -path '*/All Files/*' | wc -l | tr -d ' ') files); zip -> build/exports/Anime Series.zip"
