@@ -3,6 +3,7 @@
 An anime ideation workflow that starts with candidate gaps in live discourse. `scan` fetches current discussion, `abduct` turns a sourced gap into one-sentence story frames, and a frame gate rejects parent-dependent fusions before a human selects a frame to build. Study notes and Kingsley's steering rules check the resulting idea cards; they are comparison evidence, not the source of the premise.
 
 - **How to use it:** `USAGE.md`.
+- **For Claude, Codex, or another IDE agent:** `AGENTS.md` and `python3 scripts/animedex_agent.py tools` provide the same repo-owned workflow and tool commands.
 - **What changed and why:** `docs/AUDIT.md` and `docs/implementation/DECISIONS.md`.
 - **The old heavy pipeline** (gather, interpret, verify, atoms, proofs, critic, patterns): tag `heavy-final`; `legacy/README.md` says how to run it for the gold titles.
 

@@ -4,13 +4,23 @@
 > What the product does and why it changed: `README.md`, `docs/AUDIT.md`, `docs/implementation/DECISIONS.md`;
 > the owner's operating brief is `.control/policies/operating-brief.md`. Task state lives in Beads + URCP.
 
-## Operating ANIMEDEX (any harness: Claude Code, Hermes, Claude Desktop)
+## Operating ANIMEDEX (Claude Code, Codex, or another IDE agent)
 The product runs from `make` in the repo root (`USAGE.md` is the plain-language guide). Map the owner's words
 to these and ask nothing else:
+
+For an IDE agent, `python3 scripts/animedex_agent.py tools` prints the shared tool contract as JSON;
+`python3 scripts/animedex_agent.py status` reads the latest local scan and frames without model calls.
+The same script accepts `scan`, `abduct --scan PATH --gap ID`, and
+`quick --frames-file PATH --frame-id ID`. It invokes the product CLI from the repo root, so the
+same commands work in Claude, Codex, and any IDE with a terminal. See
+`.control/policies/ideation-workflow.md` for the human gate and the research methods in scope.
 
 | Owner says | Do |
 |---|---|
 | "add <show>", "study <show>", "ingest <list>" | `make ingest LIST=<file, one show per line>`: one Sonnet call per 3 shows, about 30 s per show; shows with a note are skipped; notes in `notes/` |
+| "find current anime gaps" | `python3 scripts/animedex_agent.py scan`: saves sourced candidate gaps in `notes/_scans/` |
+| "frame gap G1" | `python3 scripts/animedex_agent.py abduct --scan <scan file> --gap G1`: proposes and gates frames |
+| "build frame F1" | After the owner selects a passing frame: `python3 scripts/animedex_agent.py quick --frames-file <frames file> --frame-id F1` |
 | "ideas from …", "cards from <seed>", "what could <fight image> become" | `make quick SEED="<text>" [SHOWS="a, b, c"] [N=6]`: at most 4 calls, under 10 minutes; cards in `build/quick/` |
 | "check this concept: …" | `make diagnose TEXT="…"` (or `FILE=path`): 2 calls; the verdicts are in the output and `data/diagnose/` |
 | "what's covered", "gaps", "lanes" | `make analyze` (report in `build/reports/analysis.md`) |
