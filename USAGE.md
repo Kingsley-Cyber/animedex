@@ -1,6 +1,14 @@
 # Using ANIMEDEX
 
-ANIMEDEX keeps a short study note for every show you add, and turns a seed into idea cards checked against those notes and your steering rules. Everything it writes is private: it goes to your data repo, never the public one.
+ANIMEDEX finds candidate gaps in live anime discourse, proposes story frames, and builds idea cards from a frame you select. Study notes and your steering rules check those cards. The scan, frames, notes, and cards are private data; `make data-push` backs them up to your private data repo.
+
+## Main ideation loop
+
+1. `make scan` fetches current discourse. It prints a private scan path and gap IDs, each with a model-extracted publication date and fetched source URL. Inspect the page before treating a gap as a broader pattern.
+2. `make abduct SCAN="notes/_scans/<scan>.json" GAP=G1` proposes frames and rejects ones that fail the frame gate. It prints a private frames path and marks each frame ready or rejected. The gate needs at least three indexed shows for its contrasts.
+3. Pick a ready frame and run `make quick FRAMES="build/quick/_frames/<frames>.json" FRAME=F1`. In this path, only a passing frame can reach card generation and scoring. Read the cards, then decide which frame is worth developing.
+
+The command output provides the actual paths and IDs to use. `make scan` uses live web search and fetch through the configured Claude subscription; the later commands use the existing model slots. A scan that cannot cite a fetched, dated page stops rather than inventing a gap.
 
 ## 1. Study shows
 

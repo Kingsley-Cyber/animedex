@@ -15,4 +15,6 @@ For each card:
 
 For anomaly cards, also answer `explains_anomaly` true only when the stated hypothesis could account for the observation and the premise actually follows from it. Give one `explanation_reason`. The user's observation is not evidence that the hypothesis is true; do not claim it was verified. An unrelated or circular explanation fails.
 
+When `selected_frame` is present, also answer `keeps_frame` and `frame_reason`: does the card preserve the gated frame's causal idea, or has it drifted into a fusion of familiar show parts? A card that abandons the frame fails even if its other scores are high.
+
 Be strict. Most cards fail something.
