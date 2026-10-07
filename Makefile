@@ -7,7 +7,7 @@ ingest:
 	$(RUN) animedex ingest --list $(LIST)
 
 quick:
-	$(RUN) animedex quick --seed "$(SEED)" $(if $(SHOWS),--shows "$(SHOWS)",) $(if $(N),--n $(N),)
+	$(RUN) animedex quick $(if $(SEED),--seed "$(SEED)",) $(if $(ANOMALY),--anomaly "$(ANOMALY)",) $(if $(SHOWS),--shows "$(SHOWS)",) $(if $(N),--n $(N),)
 
 diagnose:
 	$(RUN) animedex diagnose $(if $(FILE),--file "$(FILE)",) $(if $(TEXT),--text "$(TEXT)",)

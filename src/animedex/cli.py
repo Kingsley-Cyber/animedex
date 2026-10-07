@@ -64,20 +64,26 @@ def ingest(list_file: str = typer.Option(..., "--list", help="A text file, one s
 
 
 @app.command()
-def quick(seed: str = typer.Option(..., "--seed", help="A concept, a fight image, or a lane."),
+def quick(seed: str = typer.Option(None, "--seed", help="A concept, a fight image, or a lane."),
+          anomaly: str = typer.Option(None, "--anomaly", help="An observation that contradicts what you expected."),
           shows: str = typer.Option(None, "--shows", help="Shows to measure against, comma-separated (else research picks 3-5)."),
           n: int = typer.Option(None, "--n", help="Cards to write (default quick.cards).")) -> None:
-    """Idea cards from a seed: research (only when needed), generate, check, prior art -> build/quick/ (private)."""
+    """Idea cards from a seed or anomaly: research, generate, check, prior art -> build/quick/ (private)."""
     from animedex.light.quick import QuickError, parse_shows, run_quick
     from animedex.ontology import get_vocab
 
+    has_seed, has_anomaly = bool(seed and seed.strip()), bool(anomaly and anomaly.strip())
+    if has_seed == has_anomaly:
+        typer.echo('give either --seed "..." or --anomaly "..."', err=True)
+        raise typer.Exit(2)
     paths = _paths()
     settings, vocab = load_settings(paths), get_vocab(paths)
     cfg = settings.section("quick")
     resolve, numbers = _catalog(paths)
     clients, runlog = _clients(paths, settings, ("ingest", "generate", "check"), int(cfg.get("calls_per_run", 8)))
     try:
-        result = run_quick(paths, settings, vocab, seed=seed, shows=parse_shows(shows), n=int(n or cfg.get("cards", 6)),
+        result = run_quick(paths, settings, vocab, seed=anomaly if has_anomaly else seed, anomaly=has_anomaly,
+                           shows=parse_shows(shows), n=int(n or cfg.get("cards", 6)),
                            clients=clients, resolve=resolve, numbers=numbers, run_id=runlog.run_id, echo=typer.echo)
     except QuickError as exc:
         typer.echo(str(exc), err=True)

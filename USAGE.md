@@ -33,7 +33,17 @@ make quick SEED="a cold-open feral scaled transformation mid-fight"
 - At most 4 calls, under 10 minutes. The cards land in `build/quick/<time>_<seed>.md`, best first, each with its biggest weakness and its sources. Cards that fail the consequence test or your hard rule (R1) are listed as dropped.
 - The same seed a second time skips the research call.
 
-## 3. Check your own concept
+## 3. Start from a surprising observation
+
+To start from an observation that surprised you, use `ANOMALY` instead of `SEED`:
+
+```bash
+make quick ANOMALY="I expected a stronger hero to remove tension, but each victory makes their allies trust them less"
+```
+
+Each resulting card states a possible explanation, then builds a story from it. The check drops cards whose explanation does not account for the observation. ANIMEDEX treats your observation as unverified; you decide whether it is accurate and worth exploring. The existing show comparison, steering rules, consequence test, and prior-art check still apply.
+
+## 4. Check your own concept
 
 ```bash
 make diagnose TEXT="your concept in a sentence or two"
@@ -41,16 +51,16 @@ make diagnose TEXT="your concept in a sentence or two"
 
 Or put a longer concept in a file and use `FILE=path`. Two calls: it writes your concept as a note, then checks it against the nearest notes and `steering/rules.yaml`. Each failed check comes with a fix. The report is in `data/diagnose/`.
 
-## 4. Look at the index
+## 5. Look at the index
 
 - `make analyze`: which story-engine lanes the notes cover, which power combinations no note holds (ranked by how surprising the gap is), and unadapted print titles. Report: `build/reports/analysis.md`.
 - `make export`: spreadsheets in `build/exports/`: `notes.csv` (one row per show) and `cards.csv` (every quick card).
 
-## 5. The blind packet
+## 6. The blind packet
 
 `make review` opens the rating page for the existing blind packet on this computer; `make review-report` shows the result once every card is rated.
 
-## 6. Back up
+## 7. Back up
 
 ```bash
 make data-push
