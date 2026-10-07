@@ -1,4 +1,4 @@
-"""`animedex` CLI: ingest, quick, diagnose, analyze, export, review, data push/pull."""
+"""`animedex` CLI: ingest, scan, abduct, quick, diagnose, analyze, export, review, data push/pull."""
 
 from __future__ import annotations
 
@@ -64,20 +64,93 @@ def ingest(list_file: str = typer.Option(..., "--list", help="A text file, one s
 
 
 @app.command()
-def quick(seed: str = typer.Option(..., "--seed", help="A concept, a fight image, or a lane."),
+def scan() -> None:
+    """Fetch current discourse and save source-backed candidate anomalies privately."""
+    from animedex.light.abduction import AbductionError, AbductionPaused, run_scan
+
+    paths = _paths()
+    settings = load_settings(paths)
+    scan_settings = settings.model_copy(update={"models": {**settings.models, "ingest": settings.models["scan"]}})
+    clients, runlog = _clients(paths, scan_settings, ("ingest",))
+    try:
+        path, record = run_scan(paths, settings, client=clients["ingest"], run_id=runlog.run_id)
+    except (AbductionError, AbductionPaused) as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(3 if isinstance(exc, AbductionPaused) else 1) from exc
+    finally:
+        runlog.write_ledger()
+    typer.echo(f"scan -> {path.relative_to(paths.root)}")
+    for gap in record["gaps"]:
+        typer.echo(f"  {gap['id']}: {gap['anomaly']} ({gap['source_date']}; {gap['source_url']})")
+
+
+@app.command()
+def abduct(scan_file: str = typer.Option(..., "--scan", help="A scan JSON path from animedex scan."),
+           gap: str = typer.Option(..., "--gap", help="Gap ID printed by the scan, such as G1."),
+           n: int = typer.Option(None, "--n", help="Candidate frames (default quick.cards)."),
+           research: bool = typer.Option(False, "--research", help="Use the premise, reasoning, suspension, and feedback workflow.")) -> None:
+    """Turn a sourced gap into frames, then reject fusions before card scoring."""
+    from animedex.light.abduction import (
+        AbductionError,
+        AbductionPaused,
+        run_abduct,
+        run_research_abduct,
+    )
+
+    paths = _paths()
+    settings = load_settings(paths)
+    clients, runlog = _clients(paths, settings, ("generate", "check"))
+    try:
+        runner = run_research_abduct if research else run_abduct
+        path, record = runner(paths, scan_file=scan_file, gap_id=gap,
+                              n=int(n if n is not None else settings.section("quick").get("cards", 6)),
+                              clients=clients, run_id=runlog.run_id)
+    except (AbductionError, AbductionPaused) as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(3 if isinstance(exc, AbductionPaused) else 1) from exc
+    finally:
+        runlog.write_ledger()
+    typer.echo(f"frames -> {path.relative_to(paths.root)}")
+    for ref, frame in record["frames"].items():
+        verdict = "ready" if frame["accepted"] else "rejected"
+        typer.echo(f"  {ref} {verdict}: {frame['frame_sentence']} ({frame['gate']['reason']})")
+
+
+@app.command()
+def quick(seed: str = typer.Option(None, "--seed", help="A concept, a fight image, or a lane."),
+          anomaly: str = typer.Option(None, "--anomaly", help="An observation that contradicts what you expected."),
+          frames_file: str = typer.Option(None, "--frames-file", help="An abduct output containing an accepted frame."),
+          frame_id: str = typer.Option(None, "--frame-id", help="Accepted frame ID, such as F1."),
           shows: str = typer.Option(None, "--shows", help="Shows to measure against, comma-separated (else research picks 3-5)."),
           n: int = typer.Option(None, "--n", help="Cards to write (default quick.cards).")) -> None:
-    """Idea cards from a seed: research (only when needed), generate, check, prior art -> build/quick/ (private)."""
+    """Idea cards from a seed or anomaly: research, generate, check, prior art -> build/quick/ (private)."""
     from animedex.light.quick import QuickError, parse_shows, run_quick
     from animedex.ontology import get_vocab
 
+    has_seed, has_anomaly = bool(seed and seed.strip()), bool(anomaly and anomaly.strip())
+    has_frame = bool(frames_file and frames_file.strip() and frame_id and frame_id.strip())
+    if sum((has_seed, has_anomaly, has_frame)) != 1 or bool(frames_file) != bool(frame_id):
+        typer.echo('give either --seed "...", --anomaly "...", or --frames-file PATH with --frame-id F1', err=True)
+        raise typer.Exit(2)
     paths = _paths()
+    frame = None
+    if has_frame:
+        from animedex.light.abduction import AbductionError, load_selected_frame
+
+        try:
+            frame = load_selected_frame(paths, frames_file, frame_id)
+        except AbductionError as exc:
+            typer.echo(str(exc), err=True)
+            raise typer.Exit(1) from exc
     settings, vocab = load_settings(paths), get_vocab(paths)
     cfg = settings.section("quick")
     resolve, numbers = _catalog(paths)
     clients, runlog = _clients(paths, settings, ("ingest", "generate", "check"), int(cfg.get("calls_per_run", 8)))
     try:
-        result = run_quick(paths, settings, vocab, seed=seed, shows=parse_shows(shows), n=int(n or cfg.get("cards", 6)),
+        result = run_quick(paths, settings, vocab,
+                           seed=frame["sentence"] if frame else (anomaly if has_anomaly else seed),
+                           anomaly=has_anomaly, selected_frame=frame,
+                           shows=parse_shows(shows), n=int(n or cfg.get("cards", 6)),
                            clients=clients, resolve=resolve, numbers=numbers, run_id=runlog.run_id, echo=typer.echo)
     except QuickError as exc:
         typer.echo(str(exc), err=True)

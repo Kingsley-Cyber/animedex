@@ -4,7 +4,7 @@
    most relevant shows and writes notes for the ones the index lacks; with SHOWS given, `job: shows` writes
    notes only for the ones that lack them. Skipped when every note exists, and on a rerun of the same seed
    (its picks are kept in notes/_research/<key>.json).
-2. GENERATE (slot `generate`, Opus, generate.md): seed + notes + steering rules -> N cards.
+2. GENERATE (slot `generate`, generate.md): seed + notes + steering rules -> N cards.
 3. CHECK (slot `check`, Codex, check.md, one call for all cards): consequence test, every steering rule, the
    closest note and how close, the biggest weakness, a score. A card is dropped when fewer than
    `quick.consequence_min` of 3 consequence dimensions differ, or when a hard rule fails.
@@ -98,8 +98,9 @@ class QuickResult:
         return out
 
 
-def seed_key(seed: str) -> str:
-    return sha256_text(" ".join(seed.lower().split())).split(":")[-1][:12]
+def seed_key(seed: str, anomaly: bool = False) -> str:
+    normalized = " ".join(seed.lower().split())
+    return sha256_text(("anomaly: " if anomaly else "") + normalized).split(":")[-1][:12]
 
 
 def call(client: LLMClient, pass_: str, record_id: str, system: str, user: str, schema: dict[str, Any],
@@ -145,8 +146,10 @@ def research_problems(out: dict[str, Any], notes: dict[str, dict[str, Any]], voc
     return problems + note_problems({"notes": out.get("notes") or []}, new_shows, vocab, set())
 
 
-def seed_user(seed: str, notes: dict[str, dict[str, Any]], vocab: Vocab, limits: dict[str, int], lo: int, hi: int) -> str:
-    return "\n".join(["job: seed", f"seed: {seed}", f"picks: {lo} to {hi} shows", *(index_line(n) for n in notes.values()),
+def seed_user(seed: str, notes: dict[str, dict[str, Any]], vocab: Vocab, limits: dict[str, int], lo: int, hi: int,
+              anomaly: bool = False) -> str:
+    label = "anomaly (user observation, unverified)" if anomaly else "seed"
+    return "\n".join(["job: seed", f"{label}: {seed}", f"picks: {lo} to {hi} shows", *(index_line(n) for n in notes.values()),
                       f"limits: searches {limits['max_searches']}, fetches {limits['max_fetches']} for this whole call",
                       *values_lines(vocab)])
 
@@ -159,11 +162,11 @@ def _numbers(numbers: Numbers, r: Resolved, res: QuickResult) -> dict[str, Any] 
         return None
 
 
-def do_research(paths: Paths, settings: Settings, vocab: Vocab, *, seed: str, shows: list[str] | None,
+def do_research(paths: Paths, settings: Settings, vocab: Vocab, *, seed: str, anomaly: bool, shows: list[str] | None,
                 notes: dict[str, dict[str, Any]], client: LLMClient, resolve: Resolver, numbers: Numbers,
                 run_id: str, created_at: str | None, res: QuickResult) -> list[str]:
     """Returns the picks (slugs with a note). Writes notes and the seed's research record."""
-    key = seed_key(seed)
+    key = seed_key(seed, anomaly)
     prompt = read_prompt(paths.prompts / "ingest.md")
     client.prompt_version = prompt.version
     if shows:  # the owner named the shows: notes only for the ones that lack them
@@ -219,7 +222,8 @@ def do_research(paths: Paths, settings: Settings, vocab: Vocab, *, seed: str, sh
     lo, hi = int(cfg.get("picks_min", 3)), int(cfg.get("picks_max", 5))
     limits = web_limits(settings, hi)
     t0 = time.monotonic()
-    done, problem, stop = call(client, "INGEST", f"research:{key}", prompt.body, seed_user(seed, notes, vocab, limits, lo, hi),
+    done, problem, stop = call(client, "INGEST", f"research:{key}", prompt.body,
+                               seed_user(seed, notes, vocab, limits, lo, hi, anomaly),
                                research_schema(), {"web": limits},
                                lambda out: raise_problems(research_problems(out, notes, vocab, lo, hi)), paths)
     res.timings["research"] = time.monotonic() - t0
@@ -251,29 +255,39 @@ def do_research(paths: Paths, settings: Settings, vocab: Vocab, *, seed: str, sh
             res.notes_written.append(slug)
         picks.append(slug)
     picks = list(dict.fromkeys(picks))
-    atomic_write_text(record, json.dumps({"seed": seed, "key": key, "picks": picks, "run_id": run_id,
+    atomic_write_text(record, json.dumps({"seed": seed, "input_kind": "anomaly" if anomaly else "seed",
+                                          "key": key, "picks": picks, "run_id": run_id,
                                           "created_at": created_at or datetime.now(UTC).isoformat()}, indent=2) + "\n")
     res.research = f"ran (picked {', '.join(picks)}; {len(res.notes_written)} new note(s))"
     return picks
 
 
 # ---------------------------------------------------------------- generate
-def card_schema(picks: list[str]) -> dict[str, Any]:
-    card = _obj({"logline": TEXT, "premise": TEXT, "engine": _obj({k: TEXT for k in ENGINE}), "mc_edge": TEXT,
+def card_schema(picks: list[str], anomaly: bool = False, selected_frame: bool = False) -> dict[str, Any]:
+    fields = {"logline": TEXT, "premise": TEXT, "engine": _obj({k: TEXT for k in ENGINE}), "mc_edge": TEXT,
                  "power_kit": _obj({"medium": TEXT, "functions": _arr(TEXT), "tools": _arr(TEXT), "limits": TEXT}),
                  "consequences": _obj({d: TEXT for d in DIMS}),
                  "closest_existing": {"type": "string", "enum": picks}, "why_not_a_clone": TEXT,
-                 "never_done_claim": MAYBE})
-    return _obj({"seed_kind": {"type": "string", "enum": list(SEED_KINDS)}, "cards": _arr(card)})
+                 "never_done_claim": MAYBE}
+    if anomaly:
+        fields["hypothesis"] = TEXT
+    kinds = ["anomaly"] if anomaly else (["concept"] if selected_frame else list(SEED_KINDS))
+    return _obj({"seed_kind": {"type": "string", "enum": kinds},
+                 "cards": _arr(_obj(fields))})
 
 
-def card_problems(out: dict[str, Any], n: int, picks: list[str], titles: set[str]) -> list[str]:
+def card_problems(out: dict[str, Any], n: int, picks: list[str], titles: set[str],
+                  anomaly: bool = False) -> list[str]:
     """Structure only (word counts are the prompt's guidance): the count, three functions and tools, a known
     closest note, and no existing title reused."""
     problems: list[str] = []
     cards = out.get("cards") or []
     if len(cards) != n:
         problems.append(f"cards: exactly {n} cards")
+    if anomaly:
+        hypotheses = [str(c.get("hypothesis") or "").strip() for c in cards]
+        if any(not h for h in hypotheses) or len({h.casefold() for h in hypotheses}) != len(hypotheses):
+            problems.append("cards: each anomaly card needs a distinct explanatory hypothesis")
     for i, c in enumerate(cards):
         kit = c.get("power_kit") or {}
         for key in ("functions", "tools"):
@@ -287,25 +301,37 @@ def card_problems(out: dict[str, Any], n: int, picks: list[str], titles: set[str
     return problems
 
 
-def generate_user(seed: str, rules: list[Rule], n: int, notes: dict[str, dict[str, Any]], picks: list[str]) -> str:
-    lines = [f"seed: {seed}", *(rule_lines(rules) or ["rules: none"]), f"cards: {n}"]
+def generate_user(seed: str, rules: list[Rule], n: int, notes: dict[str, dict[str, Any]], picks: list[str],
+                  anomaly: bool = False, selected_frame: dict[str, Any] | None = None) -> str:
+    label = "anomaly (user observation, unverified)" if anomaly else "seed"
+    lines = [f"{label}: {seed}", *(rule_lines(rules) or ["rules: none"]), f"cards: {n}"]
+    if selected_frame:
+        lines += [f"selected_frame: {selected_frame['sentence']}",
+                  f"originating_gap: {selected_frame['anomaly']}",
+                  f"discourse_source: {selected_frame['source_url']}"]
     for slug in picks:
         lines += note_lines(notes[slug])
     return "\n".join(lines)
 
 
 # ---------------------------------------------------------------- check (quick cards and diagnosed concepts)
-def check_schema(refs: list[str], rule_ids: list[str], picks: list[str]) -> dict[str, Any]:
+def check_schema(refs: list[str], rule_ids: list[str], picks: list[str], anomaly: bool = False,
+                 selected_frame: bool = False) -> dict[str, Any]:
     rule = _obj({"id": {"type": "string", "enum": rule_ids}, "verdict": {"type": "string", "enum": ["pass", "fail"]},
                  "reason": TEXT})
-    item = _obj({"ref": {"type": "string", "enum": refs}, **{f"{d}_differs": BOOL for d in DIMS},
+    fields = {"ref": {"type": "string", "enum": refs}, **{f"{d}_differs": BOOL for d in DIMS},
                  "consequence_reason": TEXT, "rules": _arr(rule),
                  "closest_slug": {"type": "string", "enum": picks}, "closeness": {"type": "string", "enum": list(CLOSENESS)},
-                 "closeness_reason": TEXT, "weakness": TEXT, "score": INT})
-    return _obj({"cards": _arr(item)})
+                 "closeness_reason": TEXT, "weakness": TEXT, "score": INT}
+    if anomaly:
+        fields.update({"explains_anomaly": BOOL, "explanation_reason": TEXT})
+    if selected_frame:
+        fields.update({"keeps_frame": BOOL, "frame_reason": TEXT})
+    return _obj({"cards": _arr(_obj(fields))})
 
 
-def check_problems(out: dict[str, Any], refs: list[str], rule_ids: list[str]) -> list[str]:
+def check_problems(out: dict[str, Any], refs: list[str], rule_ids: list[str], anomaly: bool = False,
+                   selected_frame: bool = False) -> list[str]:
     problems: list[str] = []
     cards = out.get("cards") or []
     if sorted(c.get("ref") for c in cards) != sorted(refs):
@@ -315,6 +341,10 @@ def check_problems(out: dict[str, Any], refs: list[str], rule_ids: list[str]) ->
             problems.append(f"cards[{i}].rules: one verdict per rule: {rule_ids}")
         if not isinstance(c.get("score"), int) or not 0 <= c["score"] <= 100:
             problems.append(f"cards[{i}].score: an integer from 0 to 100")
+        if anomaly and not str(c.get("explanation_reason") or "").strip():
+            problems.append(f"cards[{i}].explanation_reason: explain the verdict")
+        if selected_frame and not str(c.get("frame_reason") or "").strip():
+            problems.append(f"cards[{i}].frame_reason: explain the verdict")
     return problems
 
 
@@ -323,6 +353,8 @@ def card_text(ref: str, c: dict[str, Any]) -> list[str]:
     lines = [f"=== CARD {ref}"]
     if c.get("logline"):
         lines.append(f"logline: {c['logline']}")
+    if c.get("hypothesis"):
+        lines.append(f"hypothesis: {c['hypothesis']}")
     lines += [f"premise: {c.get('premise')}", "engine: " + "; ".join(f"{k} {e.get(k)}" for k in ENGINE),
               f"mc_edge: {c.get('mc_edge')}",
               f"power_kit: medium {kit.get('medium')}; functions {' / '.join(kit.get('functions') or [])}; "
@@ -339,8 +371,13 @@ def card_text(ref: str, c: dict[str, Any]) -> list[str]:
     return lines
 
 
-def check_user(rules: list[Rule], notes: dict[str, dict[str, Any]], picks: list[str], cards: dict[str, dict[str, Any]]) -> str:
-    lines = list(rule_lines(rules) or ["rules: none"])
+def check_user(rules: list[Rule], notes: dict[str, dict[str, Any]], picks: list[str], cards: dict[str, dict[str, Any]],
+               anomaly: str | None = None, selected_frame: dict[str, Any] | None = None) -> str:
+    lines = ([f"anomaly (user observation, unverified): {anomaly}"] if anomaly else [])
+    if selected_frame:
+        lines += [f"selected_frame: {selected_frame['sentence']}",
+                  f"originating_gap: {selected_frame['anomaly']}"]
+    lines += list(rule_lines(rules) or ["rules: none"])
     for slug in picks:
         lines += note_lines(notes[slug])
     for ref, c in cards.items():
@@ -362,7 +399,8 @@ def prior_art_schema(refs: list[str]) -> dict[str, Any]:
 # ---------------------------------------------------------------- the run
 def run_quick(paths: Paths, settings: Settings, vocab: Vocab, *, seed: str, shows: list[str] | None, n: int,
               clients: dict[str, LLMClient], resolve: Resolver, numbers: Numbers, run_id: str,
-              created_at: str | None = None, echo: Callable[[str], None] = lambda s: None) -> QuickResult:
+              created_at: str | None = None, echo: Callable[[str], None] = lambda s: None,
+              anomaly: bool = False, selected_frame: dict[str, Any] | None = None) -> QuickResult:
     started = time.monotonic()
     seed = " ".join(seed.split())
     if not seed:
@@ -372,14 +410,18 @@ def run_quick(paths: Paths, settings: Settings, vocab: Vocab, *, seed: str, show
     notes = read_notes(paths)
     res = QuickResult()
     # the seed key keeps two runs started in the same second apart (2026-09-27: one overwrote the other)
-    stamp = f"{datetime.now(UTC).strftime('%Y%m%d_%H%M%S')}_{seed_key(seed)[:6]}"
+    stamp = f"{datetime.now(UTC).strftime('%Y%m%d_%H%M%S')}_{seed_key(seed, anomaly)[:6]}"
     while (paths.quick / f"{stamp}.md").exists():
         stamp += "b"
-    record: dict[str, Any] = {"seed": seed, "run_id": run_id, "created_at": created_at or datetime.now(UTC).isoformat(),
+    record: dict[str, Any] = {"seed": seed, "input_kind": "anomaly" if anomaly else "seed",
+                              "run_id": run_id, "created_at": created_at or datetime.now(UTC).isoformat(),
                               "rules": [r.__dict__ for r in rules]}
+    if selected_frame:
+        record["source_frame"] = selected_frame
 
     echo("quick: research")
-    picks = do_research(paths, settings, vocab, seed=seed, shows=shows, notes=notes, client=clients["ingest"],
+    picks = do_research(paths, settings, vocab, seed=seed, anomaly=anomaly, shows=shows,
+                        notes=notes, client=clients["ingest"],
                         resolve=resolve, numbers=numbers, run_id=run_id, created_at=created_at, res=res)
     res.picks = picks
     record["picks"] = picks
@@ -393,11 +435,12 @@ def run_quick(paths: Paths, settings: Settings, vocab: Vocab, *, seed: str, show
     gen = clients["generate"]
     gen.prompt_version = gen_prompt.version
     titles = note_titles({s: notes[s] for s in picks})
-    key = seed_key(seed)
+    key = seed_key(seed, anomaly)
     t0 = time.monotonic()
     done, problem, stop = call(gen, "GENERATE", f"generate:{key}:{stamp}", gen_prompt.body,
-                               generate_user(seed, rules, n, notes, picks), card_schema(picks), None,
-                               lambda out: raise_problems(card_problems(out, n, picks, titles)), paths)
+                               generate_user(seed, rules, n, notes, picks, anomaly, selected_frame),
+                               card_schema(picks, anomaly, bool(selected_frame)), None,
+                               lambda out: raise_problems(card_problems(out, n, picks, titles, anomaly)), paths)
     res.timings["generate"] = time.monotonic() - t0
     res.calls += 1
     if done is None:
@@ -415,8 +458,10 @@ def run_quick(paths: Paths, settings: Settings, vocab: Vocab, *, seed: str, show
     refs, rule_ids = list(cards), [r.id for r in rules]
     t0 = time.monotonic()
     cdone, problem, stop = call(judge, "CHECK", f"check:{key}:{stamp}", chk_prompt.body,
-                                check_user(rules, notes, picks, cards), check_schema(refs, rule_ids, picks), None,
-                                lambda out: raise_problems(check_problems(out, refs, rule_ids)), paths)
+                                check_user(rules, notes, picks, cards, seed if anomaly else None, selected_frame),
+                                check_schema(refs, rule_ids, picks, anomaly, bool(selected_frame)), None,
+                                lambda out: raise_problems(check_problems(out, refs, rule_ids, anomaly,
+                                                                           bool(selected_frame))), paths)
     res.timings["check"] = time.monotonic() - t0
     res.calls += 1
     if cdone is None:
@@ -430,7 +475,11 @@ def run_quick(paths: Paths, settings: Settings, vocab: Vocab, *, seed: str, show
         c = checks[ref]
         c["dims"] = verdict_dims(c)
         failed_hard = [r for r in c["rules"] if r["id"] in hard and r["verdict"] == "fail"]
-        if c["dims"] < need:
+        if anomaly and not c["explains_anomaly"]:
+            res.dropped.append(f"{ref}: hypothesis does not explain the anomaly ({c['explanation_reason']})")
+        elif selected_frame and not c["keeps_frame"]:
+            res.dropped.append(f"{ref}: card abandons the selected frame ({c['frame_reason']})")
+        elif c["dims"] < need:
             res.dropped.append(f"{ref}: consequence test {c['dims']} of 3 ({c['consequence_reason']})")
         elif failed_hard:
             res.dropped.append(f"{ref}: hard rule failed (" + "; ".join(f"{r['id']}: {r['reason']}" for r in failed_hard) + ")")
@@ -491,12 +540,17 @@ def _finish(paths: Paths, res: QuickResult, record: dict[str, Any], survivors: l
 def render_md(record: dict[str, Any], notes: dict[str, dict[str, Any]], res: QuickResult) -> str:
     cards, checks = record.get("cards") or {}, record.get("checks") or {}
     picks = record.get("picks") or []
-    lines = [f"# Quick cards {record.get('created_at', '')[:19]}", "", f"**Seed.** {record['seed']}"
+    label = "Anomaly (user observation, unverified)" if record.get("input_kind") == "anomaly" else "Seed"
+    lines = [f"# Quick cards {record.get('created_at', '')[:19]}", "", f"**{label}.** {record['seed']}"
              + (f" (read as: {record['seed_kind'].replace('_', ' ')})" if record.get("seed_kind") else ""), "",
              "**Measured against.** " + (", ".join(f"{s} ({notes[s]['title']})" if s in notes else s for s in picks) or "nothing"),
              "", f"**Research.** {res.research or 'not run'}", "",
              f"**Run.** {res.calls} call(s); " + ", ".join(f"{k} {v:.0f}s" for k, v in res.timings.items())
              + f"; total {res.seconds / 60:.1f} min", ""]
+    source_frame = record.get("source_frame")
+    if source_frame:
+        lines += [f"**Selected frame.** {source_frame['id']}: {source_frame['sentence']}", "",
+                  f"**Originating gap.** {source_frame['anomaly']} ({source_frame['source_url']})", ""]
     if res.problems:
         lines += ["**Notes on this run.** " + " ".join(res.problems), ""]
     for rank, ref in enumerate(record.get("survivors") or [], start=1):
@@ -506,6 +560,9 @@ def render_md(record: dict[str, Any], notes: dict[str, dict[str, Any]], res: Qui
         lines += [f"## {rank}. {c['logline']}", "",
                   f"*Score {k.get('score')}; closest {notes.get(near, {}).get('title', near)} ({k.get('closeness')}: "
                   f"{k.get('closeness_reason')})*", "",
+                  *([f"**Hypothesis.** {c['hypothesis']}", "",
+                     f"**Anomaly check.** {'Explains' if k.get('explains_anomaly') else 'Does not explain'}: "
+                     f"{k.get('explanation_reason')}", ""] if record.get("input_kind") == "anomaly" else []),
                   f"**Premise.** {c['premise']}", "",
                   f"**Engine.** Wants {e.get('goal')}, but {e.get('constraint')}. Chooses {e.get('strategy')}; pays "
                   f"{e.get('cost')}. Dilemma: {e.get('dilemma')}", "",
