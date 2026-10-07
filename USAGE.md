@@ -5,10 +5,10 @@ ANIMEDEX finds candidate gaps in live anime discourse, proposes story frames, an
 ## Main ideation loop
 
 1. `make scan` fetches current discourse. It prints a private scan path and gap IDs, each with a model-extracted publication date and fetched source URL. Inspect the page before treating a gap as a broader pattern.
-2. `make abduct SCAN="notes/_scans/<scan>.json" GAP=G1` proposes frames and rejects ones that fail the frame gate. It prints a private frames path and marks each frame ready or rejected. The gate needs at least three indexed shows for its contrasts.
+2. `make abduct SCAN="notes/_scans/<scan>.json" GAP=G1` samples relevant indexed premises, asks independent abductive, deductive, and inductive questions, compares candidate frames, and revises rejected ones once using the gate's reasons. It prints a private frames path and marks each frame ready or rejected. The private record includes the premise chain and a reasoning state graph. The gate needs at least three indexed shows for its contrasts.
 3. Pick a ready frame and run `make quick FRAMES="build/quick/_frames/<frames>.json" FRAME=F1`. In this path, only a passing frame can reach card generation and scoring. Read the cards, then decide which frame is worth developing.
 
-The command output provides the actual paths and IDs to use. `make scan` uses live web search and fetch through the configured Claude subscription; the later commands use the existing model slots. A scan that cannot cite a fetched, dated page stops rather than inventing a gap.
+The command output provides the actual paths and IDs to use. `make scan` uses live web search and fetch through the configured Claude subscription; the later commands use the existing model slots. A scan that cannot cite a fetched, dated page stops rather than inventing a gap. The research methods are software adaptations: the controller uses gate feedback rather than a trained critic, the reasoning lenses do not calculate calibrated Bayesian confidence, and frame comparison does not run on quantum hardware.
 
 ## 1. Study shows
 

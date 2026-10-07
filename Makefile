@@ -10,7 +10,7 @@ scan:
 	$(RUN) animedex scan
 
 abduct:
-	$(RUN) animedex abduct --scan "$(SCAN)" --gap "$(GAP)" $(if $(N),--n $(N),)
+	$(RUN) animedex abduct --research --scan "$(SCAN)" --gap "$(GAP)" $(if $(N),--n $(N),)
 
 quick:
 	$(RUN) animedex quick $(if $(SEED),--seed "$(SEED)",) $(if $(ANOMALY),--anomaly "$(ANOMALY)",) $(if $(FRAMES),--frames-file "$(FRAMES)",) $(if $(FRAME),--frame-id "$(FRAME)",) $(if $(SHOWS),--shows "$(SHOWS)",) $(if $(N),--n $(N),)

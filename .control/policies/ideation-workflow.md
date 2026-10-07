@@ -17,16 +17,17 @@ originality. A live source and a human reading are needed before calling a premi
 
 ## Research methods in scope
 
-These are proposed mechanisms from the owner's supplied research notes. They are design inputs,
-not implemented capabilities or independently verified scientific findings.
+These are testable software adaptations of mechanisms from the owner's supplied research notes.
+The links identify the primary research; ANIMEDEX does not claim to reproduce each paper's full
+method or its reported results.
 
-| Method | Contribution to test in ANIMEDEX | Current boundary |
+| Method | Wired behavior in `make abduct` | Current boundary |
 |---|---|---|
-| GS-3 | Alternate broad frame exploration, criticism, and a controller that changes the search direction | Generation and gate exist; adaptive control does not |
-| Graph of States | Track which sourced observation and causal explanation led to each frame, so drift can be caught | Scan-to-frame provenance exists; a causal state graph does not |
-| Theorem-of-Thought | Let abductive, deductive, and inductive readings challenge a candidate frame | One generation pass and one gate exist; parallel reasoning graphs do not |
-| Quantum abduction | Hold conflicting frames open long enough to compare or synthesize them | Multiple candidates are saved; there is no quantum computation or synthesis operator |
-| MCMC premise retrieval | Explore a large evidence store for relevant premises without relying on one nearest neighbor | The current small notes index is read directly; no MCMC retrieval exists |
+| [GS-3](https://www.frontiersin.org/journals/artificial-intelligence/articles/10.3389/frai.2025.1654716/full) | The gate critiques frames; its failure reasons direct a further generation pass | No learned critic or adaptive sampling entropy |
+| [Graph of States](https://arxiv.org/abs/2603.21250) | A validated graph links the sourced gap, indexed premises, reasoning steps, frames, comparisons, gate verdicts, and revisions | Links encode recorded dependencies, not proven causation |
+| [Theorem-of-Thought](https://arxiv.org/abs/2506.07106) | Three independent abductive, deductive, and inductive calls write cited reasoning traces | No NLI-calibrated Bayesian propagation or graph winner selection |
+| [Quantum abduction](https://arxiv.org/abs/2509.16958) | Candidate frames stay open through explicit comparison and possible synthesis before the gate | No quantum formalism or hardware |
+| [MCMC premise retrieval](https://www.jstage.jst.go.jp/article/pjsai/JSAI2025/0/JSAI2025_1Win439/_pdf/-char/en) | A seeded Metropolis-Hastings chain samples private note premises and records every transition | The small local index does not establish a retrieval gain over exact ranking |
 
-Each method needs an owner-approved behavior contract and a verifier before being wired into a
-production command. The method names alone must never make a run appear more creative or proven.
+The private record permits inspection of each stage. The method names alone must never make a
+run appear more creative or proven. The owner still makes the jump from candidate to selected frame.

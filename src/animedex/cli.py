@@ -86,17 +86,24 @@ def scan() -> None:
 @app.command()
 def abduct(scan_file: str = typer.Option(..., "--scan", help="A scan JSON path from animedex scan."),
            gap: str = typer.Option(..., "--gap", help="Gap ID printed by the scan, such as G1."),
-           n: int = typer.Option(None, "--n", help="Candidate frames (default quick.cards).")) -> None:
+           n: int = typer.Option(None, "--n", help="Candidate frames (default quick.cards)."),
+           research: bool = typer.Option(False, "--research", help="Use the premise, reasoning, suspension, and feedback workflow.")) -> None:
     """Turn a sourced gap into frames, then reject fusions before card scoring."""
-    from animedex.light.abduction import AbductionError, AbductionPaused, run_abduct
+    from animedex.light.abduction import (
+        AbductionError,
+        AbductionPaused,
+        run_abduct,
+        run_research_abduct,
+    )
 
     paths = _paths()
     settings = load_settings(paths)
     clients, runlog = _clients(paths, settings, ("generate", "check"))
     try:
-        path, record = run_abduct(paths, scan_file=scan_file, gap_id=gap,
-                                  n=int(n if n is not None else settings.section("quick").get("cards", 6)),
-                                  clients=clients, run_id=runlog.run_id)
+        runner = run_research_abduct if research else run_abduct
+        path, record = runner(paths, scan_file=scan_file, gap_id=gap,
+                              n=int(n if n is not None else settings.section("quick").get("cards", 6)),
+                              clients=clients, run_id=runlog.run_id)
     except (AbductionError, AbductionPaused) as exc:
         typer.echo(str(exc), err=True)
         raise typer.Exit(3 if isinstance(exc, AbductionPaused) else 1) from exc

@@ -16,7 +16,7 @@ TOOLS = {
                "required": [], "optional": []},
     "scan": {"description": "Fetch current anime discourse and save sourced candidate gaps.",
              "required": [], "optional": []},
-    "abduct": {"description": "Generate and gate frames for a chosen sourced gap.",
+    "abduct": {"description": "Run premise retrieval, three reasoning lenses, frame comparison, feedback, and gate for a chosen sourced gap.",
                "required": ["--scan", "--gap"], "optional": ["--n"]},
     "quick": {"description": "Build cards only from a human-selected frame that passed the gate.",
               "required": ["--frames-file", "--frame-id"], "optional": ["--n"]},
@@ -96,7 +96,7 @@ def main() -> int:
 
     command = ["uv", "run", "animedex", args.tool]
     if args.tool == "abduct":
-        command.extend(["--scan", args.scan, "--gap", args.gap])
+        command.extend(["--research", "--scan", args.scan, "--gap", args.gap])
     elif args.tool == "quick":
         command.extend(["--frames-file", args.frames_file, "--frame-id", args.frame_id])
     if args.tool in {"abduct", "quick"} and args.n is not None:
