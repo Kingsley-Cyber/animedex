@@ -30,4 +30,4 @@ Graphify's local AST graph and Graft's local wiring graph identify the public `a
 3. Move the repo's IDE entrypoints to research mode while retaining the old CLI and record contract. Prove a prior frame record still loads, no existing test or evaluation file changes, and the original suite passes.
 4. Refresh Graphify and Graft indexes, run `make lint`, `make test`, `harness validate`, and `harness proof status`; then update the draft PR with exact limits of the evidence.
 
-The live Claude scan remains subject to the subscription's plan limit. Mock-backed CLI tests prove wiring and validation; human review determines whether the resulting premises are fresh and worth building.
+The scan now uses Codex Terra for live web retrieval because the Claude subscription reached its plan limit. Mock-backed CLI tests prove wiring and validation; human review determines whether the resulting premises are fresh and worth building.

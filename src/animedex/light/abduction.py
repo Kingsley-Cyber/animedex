@@ -86,7 +86,8 @@ def run_scan(paths: Paths, settings: Settings, *, client: LLMClient, run_id: str
              now: datetime | None = None) -> tuple[Path, dict[str, Any]]:
     now = now or datetime.now(UTC)
     limits = web_limits(settings, 1)
-    user = "\n".join([f"as_of: {now.date().isoformat()}", "landscape: current anime discourse",
+    user = "\n".join([f"as_of: {now.date().isoformat()}",
+                      f"landscape: anime discourse published in {now.year}, focusing on the current airing season",
                       f"limits: searches {limits['max_searches']}, fetches {limits['max_fetches']}"])
     done = _complete(paths, client, "ANOMALY_SCAN", f"scan:{run_id}", "scan.md", user,
                      scan_schema(), lambda out, meta: _raise(scan_problems(out, meta, now.date())),

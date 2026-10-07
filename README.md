@@ -11,7 +11,7 @@ An anime ideation workflow that starts with candidate gaps in live discourse. `s
 | Command | What it does |
 |---|---|
 | `make ingest LIST=<file>` | Study shows: one Sonnet call with web per three shows writes `notes/<slug>.json` |
-| `make scan` | Fetch live anime discourse and save cited candidate gaps in `notes/_scans/` |
+| `make scan` | Use Codex Terra to fetch live anime discourse and save cited candidate gaps in `notes/_scans/` |
 | `make abduct SCAN=<file> GAP=G1` | Retrieve note premises, reason from three lenses, compare and revise frames, then gate out fusions before scoring |
 | `make quick FRAMES=<file> FRAME=F1` | Build cards from a selected frame that passed the gate |
 | `make quick SEED="..." [SHOWS="a, b"] [N=6]` | Idea cards: research (only when needed), generate, check, prior art; at most 4 calls |

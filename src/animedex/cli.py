@@ -70,7 +70,8 @@ def scan() -> None:
 
     paths = _paths()
     settings = load_settings(paths)
-    clients, runlog = _clients(paths, settings, ("ingest",))
+    scan_settings = settings.model_copy(update={"models": {**settings.models, "ingest": settings.models["scan"]}})
+    clients, runlog = _clients(paths, scan_settings, ("ingest",))
     try:
         path, record = run_scan(paths, settings, client=clients["ingest"], run_id=runlog.run_id)
     except (AbductionError, AbductionPaused) as exc:
