@@ -32,7 +32,7 @@ providers:
 models:   # concrete ids, not aliases; `strict_model`: any other served model is refused
   scan:     {provider: codex_scan, model: gpt-5.6-terra, strict_model: true}           # live discourse only
   ingest:   {provider: claude_cli, model: claude-sonnet-5, params: {effort: medium}}   # notes, quick research, prior art (web)
-  generate: {provider: claude_cli, model: claude-opus-5-5, params: {effort: high}}     # quick cards; diagnose structuring uses ingest
+  generate: {provider: codex_cli, model: gpt-5.6-terra, strict_model: true}           # quick cards and research frames; diagnose structuring uses ingest
   check:    {provider: codex_cli, model: gpt-5.6-terra, strict_model: true}           # the check of quick cards and of diagnosed concepts
   embeddings: {provider: polymath_embedder, model: Qwen/Qwen3-Embedding-0.6B,
                fallback: {provider: local, model: "qwen3-embedding:0.6b"}}

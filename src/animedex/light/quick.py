@@ -4,7 +4,7 @@
    most relevant shows and writes notes for the ones the index lacks; with SHOWS given, `job: shows` writes
    notes only for the ones that lack them. Skipped when every note exists, and on a rerun of the same seed
    (its picks are kept in notes/_research/<key>.json).
-2. GENERATE (slot `generate`, Opus, generate.md): seed + notes + steering rules -> N cards.
+2. GENERATE (slot `generate`, generate.md): seed + notes + steering rules -> N cards.
 3. CHECK (slot `check`, Codex, check.md, one call for all cards): consequence test, every steering rule, the
    closest note and how close, the biggest weakness, a score. A card is dropped when fewer than
    `quick.consequence_min` of 3 consequence dimensions differ, or when a hard rule fails.
