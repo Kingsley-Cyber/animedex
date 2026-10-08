@@ -18,6 +18,21 @@ The IDE entrypoint challenges the three reasoning hypotheses with unanswered sup
 falsifying questions before frames are drafted. `make export` derives node and edge CSVs from
 private records; `lookup --id` traces an ID to its sources without creating another store.
 
+Owner instruction, 2026-10-08: `ideate` proposes anime or other series ideas end to end, with an
+optional brief. It retrieves structural source mechanisms from `notes/_materials/`, gathers
+missing material from opened pages outside screen fiction, proposes competing story hypotheses,
+drafts each hypothesis, then uses concrete pressure, escalation, removal, peer-engine, and
+indexed-show tests plus sourced prior-art comparisons. The show index enters at criticism.
+Personal taste derived from the owner's conversation lives privately in `steering/ideation.json`.
+The owner decides adoption; this proposal command does not require a preselected gap or frame.
+
+`ideate --compare` generates the same requested number of direct-prompt drafts using the same
+model, brief, taste, and visible draft fields. Both arms receive the same criticism and prior-art check.
+All drafts enter a shuffled packet before filtering, with only logline and premise visible.
+The existing review page records ratings; `ideate-results --run PATH` reveals arm identities
+only after every card has a rating and a keep/drop verdict. Model checks do not establish human
+preference or originality. A failed search or unknown prior-art comparison is unresolved.
+
 ## Research methods in scope
 
 These are testable software adaptations of mechanisms from the owner's supplied research notes.

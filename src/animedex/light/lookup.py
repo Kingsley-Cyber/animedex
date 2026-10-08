@@ -12,7 +12,7 @@ from animedex.paths import Paths
 from animedex.store.atomic import atomic_write_text
 
 NODE_COLUMNS = ("id", "kind", "label", "file", "status", "source_url",
-                "supporting_question", "falsifying_question")
+                "supporting_question", "falsifying_question", "domain", "shape", "force", "cost")
 EDGE_COLUMNS = ("from_id", "to_id", "relation")
 
 
@@ -34,10 +34,12 @@ def build_lookup(paths: Paths) -> tuple[dict[str, dict[str, str]], list[dict[str
     edge_keys: set[tuple[str, str, str]] = set()
 
     def node(id_: str, kind: str, label: Any, path: Path, status: str = "", source_url: str = "",
-             supporting_question: str = "", falsifying_question: str = "") -> None:
+             supporting_question: str = "", falsifying_question: str = "", domain: str = "",
+             shape: str = "", force: str = "", cost: str = "") -> None:
         nodes[id_] = {"id": id_, "kind": kind, "label": str(label or ""),
                       "file": str(path.relative_to(paths.root)), "status": status, "source_url": source_url,
-                      "supporting_question": supporting_question, "falsifying_question": falsifying_question}
+                      "supporting_question": supporting_question, "falsifying_question": falsifying_question,
+                      "domain": domain, "shape": shape, "force": force, "cost": cost}
 
     def edge(from_id: str, to_id: str, relation: str) -> None:
         key = (from_id, to_id, relation)
@@ -48,6 +50,40 @@ def build_lookup(paths: Paths) -> tuple[dict[str, dict[str, str]], list[dict[str
     for path, data in _records(paths.notes):
         if data.get("slug"):
             node(f"note:{data['slug']}", "note", data.get("title") or data.get("premise"), path)
+
+    for path, material in _records(paths.notes / "_materials"):
+        node(f"mechanism:{path.stem}", "mechanism", material.get("causal_rule"), path,
+             str(material.get("authority") or "unknown"), str(material.get("source_url") or ""),
+             domain=str(material.get("domain") or ""), shape=str(material.get("shape") or ""),
+             force=str(material.get("forced_choice") or ""), cost=str(material.get("cost") or ""))
+
+    for path, data in _records(paths.quick / "_ideation"):
+        for ref, hypothesis in (data.get("hypotheses") or {}).items():
+            id_ = f"hypothesis:{path.stem}:{ref}"
+            node(id_, "hypothesis", hypothesis.get("claim"), path, str(hypothesis.get("status") or "untested"),
+                 supporting_question=str(hypothesis.get("supporting_question") or ""),
+                 falsifying_question=str(hypothesis.get("falsifying_question") or ""))
+            for material_id in hypothesis.get("material_ids") or []:
+                edge(f"mechanism:{material_id}", id_, "transforms")
+        for ref, idea in (data.get("ideas") or {}).items():
+            id_ = f"idea:{path.stem}:{ref}"
+            node(id_, "concept", idea.get("logline"), path,
+                 "suggested" if ref in (data.get("suggested") or []) else "candidate")
+            if idea.get("hypothesis_ref"):
+                edge(f"hypothesis:{path.stem}:{idea['hypothesis_ref']}", id_, "develops")
+            test = (data.get("tests") or {}).get(ref)
+            if test:
+                verdict_id = f"stress:{path.stem}:{ref}"
+                node(verdict_id, "stress_test", test.get("reason"), path, "model judgment")
+                edge(id_, verdict_id, "tests")
+                if test.get("closest_note"):
+                    edge(f"note:{test['closest_note']}", verdict_id, "compares")
+            prior = (data.get("prior_art") or {}).get(ref)
+            if prior:
+                prior_id = f"prior_art:{path.stem}:{ref}"
+                node(prior_id, "prior_art", prior.get("difference"), path,
+                     str(prior.get("overlap") or "unknown"), str(prior.get("url") or ""))
+                edge(id_, prior_id, "compares")
 
     for path, data in _records(paths.notes / "_scans"):
         scan_id = f"scan:{path.stem}"
@@ -120,7 +156,8 @@ def build_lookup(paths: Paths) -> tuple[dict[str, dict[str, str]], list[dict[str
             if id_ not in nodes:
                 nodes[id_] = {"id": id_, "kind": "missing", "label": "", "file": "",
                               "status": "missing", "source_url": "",
-                              "supporting_question": "", "falsifying_question": ""}
+                              "supporting_question": "", "falsifying_question": "",
+                              "domain": "", "shape": "", "force": "", "cost": ""}
     return nodes, sorted(edges, key=lambda item: (item["from_id"], item["to_id"], item["relation"]))
 
 

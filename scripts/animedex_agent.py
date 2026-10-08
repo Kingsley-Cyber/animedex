@@ -22,6 +22,10 @@ TOOLS = {
               "required": ["--frames-file", "--frame-id"], "optional": ["--n"]},
     "lookup": {"description": "Trace a private scan, gap, hypothesis, frame, card, or verdict by ID.",
                "required": ["--id"], "optional": []},
+    "ideate": {"description": "Suggest show ideas end to end: source mechanisms, causal hypotheses, drafts, scene tests, prior art, optional blind comparison.",
+               "required": [], "optional": ["--brief", "--medium", "--n", "--compare", "--resume", "--recheck"]},
+    "ideate-results": {"description": "Read human comparison results after all blind cards are rated.",
+                       "required": ["--run"], "optional": []},
 }
 
 
@@ -85,11 +89,23 @@ def main() -> int:
     quick.add_argument("--n", type=int)
     lookup = sub.add_parser("lookup", help="Trace a node ID through the private ideation records")
     lookup.add_argument("--id", required=True)
+    ideate = sub.add_parser("ideate", help="Suggest anime or other show ideas end to end")
+    ideate.add_argument("--brief", default="")
+    ideate.add_argument("--medium", default="anime")
+    ideate.add_argument("--n", type=int)
+    ideate.add_argument("--compare", action="store_true")
+    ideate.add_argument("--resume")
+    ideate.add_argument("--recheck")
+    results = sub.add_parser("ideate-results", help="Read a completed blind comparison")
+    results.add_argument("--run", required=True)
     args = parser.parse_args()
 
     if args.tool == "tools":
         print(json.dumps({"tools": TOOLS, "sequence": ["status", "scan", "abduct", "quick", "lookup"],
-                          "selection": "human", "implementation": "uv run animedex"}, indent=2))
+                          "workflows": {"suggest": ["ideate", "lookup"],
+                                        "compare": ["ideate --compare", "make review", "ideate-results"]},
+                          "selection": "ideate proposes candidates; the human decides adoption. The manual scan/abduct/quick path requires human gap and frame choices.",
+                          "implementation": "uv run animedex"}, indent=2))
         return 0
     if args.tool == "status":
         print(json.dumps(status(), indent=2))
@@ -105,7 +121,18 @@ def main() -> int:
         command.extend(["--frames-file", args.frames_file, "--frame-id", args.frame_id])
     elif args.tool == "lookup":
         command.extend(["--id", args.id])
-    if args.tool in {"abduct", "quick"} and args.n is not None:
+    elif args.tool == "ideate":
+        if args.recheck:
+            command.extend(["--recheck", args.recheck])
+        elif args.resume:
+            command.extend(["--resume", args.resume])
+        else:
+            command.extend(["--brief", args.brief, "--medium", args.medium])
+        if args.compare:
+            command.append("--compare")
+    elif args.tool == "ideate-results":
+        command.extend(["--run", args.run])
+    if args.tool in {"abduct", "quick", "ideate"} and args.n is not None:
         command.extend(["--n", str(args.n)])
     return subprocess.run(command, cwd=ROOT, check=False).returncode
 

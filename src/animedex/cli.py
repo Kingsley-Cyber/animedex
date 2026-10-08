@@ -169,6 +169,62 @@ def quick(seed: str = typer.Option(None, "--seed", help="A concept, a fight imag
 
 
 @app.command()
+def ideate(brief: str = typer.Option("", "--brief", help="Optional seed, genre, or creative brief."),
+           medium: str = typer.Option("anime", "--medium", help="Target format, such as anime, television, or sitcom."),
+           n: int = typer.Option(None, "--n", help="Ideas to draft (default quick.cards)."),
+           compare: bool = typer.Option(False, "--compare", help="Create a blind comparison against direct prompting."),
+           resume: str = typer.Option(None, "--resume", help="Retry prior art on a saved run whose drafts and scene tests are complete."),
+           recheck: str = typer.Option(None, "--recheck", help="Recheck completed drafts with the current scene-test prompt; retain the drafts and verdict history.")) -> None:
+    """Suggest series ideas from sourced mechanisms, hypotheses, scene tests, and prior-art checks."""
+    from animedex.light.abduction import AbductionError, AbductionPaused
+    from animedex.light.ideation import recheck_ideas, retry_prior_art, run_ideation
+
+    paths = _paths()
+    if resume and recheck:
+        typer.echo("use either --resume or --recheck", err=True)
+        raise typer.Exit(2)
+    settings = load_settings(paths)
+    clients, runlog = _clients(paths, settings, ("scan", "generate", "check"))
+    try:
+        if recheck:
+            path, record = recheck_ideas(paths, settings, run_file=recheck, clients=clients,
+                                        run_id=runlog.run_id, echo=typer.echo)
+        elif resume:
+            path, record = retry_prior_art(paths, settings, run_file=resume, clients=clients,
+                                           run_id=runlog.run_id, echo=typer.echo)
+        else:
+            path, record = run_ideation(paths, settings, brief=brief, medium=medium,
+                n=int(n if n is not None else settings.section("quick").get("cards", 6)), compare=compare,
+                clients=clients, run_id=runlog.run_id, echo=typer.echo)
+    except (AbductionError, AbductionPaused) as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(3 if isinstance(exc, AbductionPaused) else 1) from exc
+    finally:
+        runlog.write_ledger()
+    typer.echo(f"ideation -> {path.relative_to(paths.root)}")
+    if record.get("packet_file"):
+        typer.echo(f"blind packet -> {record['packet_file']}; rate with make review")
+    else:
+        for ref in record["suggested"]:
+            typer.echo(f"  {ref}: {record['ideas'][ref]['logline']}")
+        typer.echo(f"{len(record['suggested'])} suggestion(s); full scene tests and rejected candidates: {path.with_suffix('.md').relative_to(paths.root)}")
+
+
+@app.command("ideate-results")
+def ideate_results(run: str = typer.Option(..., "--run", help="An ideation JSON file from --compare.")) -> None:
+    """Reveal comparison results only after every blind card is rated and kept or dropped."""
+    from animedex.light.abduction import AbductionError
+    from animedex.light.ideation import comparison_results
+
+    try:
+        result = comparison_results(_paths(), run)
+    except AbductionError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(1) from exc
+    typer.echo(json.dumps(result, indent=2, ensure_ascii=False))
+
+
+@app.command()
 def diagnose(file: str = typer.Option(None, "--file", help="A text file holding your concept."),
              text: str = typer.Option(None, "--text", help="Your concept, pasted in quotes.")) -> None:
     """Check your own concept against the notes and steering/rules.yaml (two calls) -> data/diagnose/ (private)."""

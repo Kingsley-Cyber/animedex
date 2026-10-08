@@ -1,4 +1,4 @@
-.PHONY: ingest scan abduct quick diagnose analyze export lookup review review-report data-push data-pull test lint
+.PHONY: ingest scan abduct quick ideate ideate-results diagnose analyze export lookup review review-report data-push data-pull test lint
 
 UV ?= uv
 RUN = $(UV) run
@@ -14,6 +14,12 @@ abduct:
 
 quick:
 	$(RUN) animedex quick $(if $(SEED),--seed "$(SEED)",) $(if $(ANOMALY),--anomaly "$(ANOMALY)",) $(if $(FRAMES),--frames-file "$(FRAMES)",) $(if $(FRAME),--frame-id "$(FRAME)",) $(if $(SHOWS),--shows "$(SHOWS)",) $(if $(N),--n $(N),)
+
+ideate:
+	$(RUN) animedex ideate $(if $(BRIEF),--brief "$(BRIEF)",) $(if $(MEDIUM),--medium "$(MEDIUM)",) $(if $(N),--n $(N),) $(if $(COMPARE),--compare,)
+
+ideate-results:
+	$(RUN) animedex ideate-results --run "$(IDEATION)"
 
 diagnose:
 	$(RUN) animedex diagnose $(if $(FILE),--file "$(FILE)",) $(if $(TEXT),--text "$(TEXT)",)

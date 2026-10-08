@@ -1,8 +1,43 @@
 # Using ANIMEDEX
 
-ANIMEDEX finds candidate gaps in live anime discourse, proposes story frames, and builds idea cards from a frame you select. Study notes and your steering rules check those cards. The scan, frames, notes, and cards are private data; `make data-push` backs them up to your private data repo.
+ANIMEDEX suggests anime or other series ideas from sourced mechanisms, causal hypotheses, scene tests, and prior-art comparisons. Your brief is optional. Source material, preferences, drafts, and verdicts are private data; `make data-push` backs them up to your private data repo.
 
-## Main ideation loop
+## Suggest and test ideas
+
+```bash
+make ideate BRIEF="dream hopping, sleep traversal, and time distortion" MEDIUM=anime
+```
+
+Use `MEDIUM=television` or `MEDIUM=sitcom` for other formats, or run `make ideate` for open suggestions.
+`N` uses the configured card count unless you set it. Source mechanisms live in `notes/_materials/`;
+ideas and their full test records land in `build/quick/_ideation/`. The generator sees source
+mechanisms and your private `steering/ideation.json` preferences. The critic sees the show index.
+A suggestion must survive the scene tests and have a sourced prior-art comparison; uncertainty
+and rejected candidates stay visible in the report. Those are model judgments, so you decide what to keep.
+The source count is a collection target. Only mechanisms tied to opened pages enter the store;
+unsupported rows are logged as rejected. Multiple hypotheses can transform the same mechanism.
+
+To test whether the hypothesis method improves your ideas:
+
+```bash
+make ideate BRIEF="your brief" MEDIUM=anime COMPARE=1
+make review
+make ideate-results IDEATION="build/quick/_ideation/<run>.json"
+```
+
+Both arms use Terra, the same brief, taste, draft format, and checks. One receives sourced
+mechanisms and hypothesis traces; the other drafts directly. Every draft appears in the blind
+packet before filtering. Rate and keep/drop every card before reading the detailed run JSON.
+Results reveal the arms only after all cards have verdicts. Use `ideate-results` for these
+packets; `review-report` reports the older ideation experiment.
+If prior-art checking pauses or fails after drafts and scene tests finish, retry that stage with
+`python3 scripts/animedex_agent.py ideate --resume "build/quick/_ideation/<run>.json"`.
+The saved drafts and tests are kept; this option does not restart generation.
+After a scene-test prompt correction, `ideate --recheck "build/quick/_ideation/<run>.json"`
+rechecks the same completed drafts and retains the earlier verdicts. The blind packet's cards
+and identities are preserved.
+
+## Inspect a live discourse gap
 
 1. `make scan` fetches current discourse. It prints a private scan path and gap IDs, each with a model-extracted publication date and fetched source URL. Inspect the page before treating a gap as a broader pattern.
 2. `make abduct SCAN="notes/_scans/<scan>.json" GAP=G1` samples relevant indexed premises, asks independent abductive, deductive, and inductive questions, compares candidate frames, and revises rejected ones once using the gate's reasons. It prints a private frames path and marks each frame ready or rejected. The private record includes the premise chain and a reasoning state graph. The gate needs at least three indexed shows for its contrasts.
@@ -62,7 +97,7 @@ Or put a longer concept in a file and use `FILE=path`. Two calls: it writes your
 ## 5. Look at the index
 
 - `make analyze`: which story-engine lanes the notes cover, which power combinations no note holds (ranked by how surprising the gap is), and unadapted print titles. Report: `build/reports/analysis.md`.
-- `make export`: spreadsheets in `build/exports/`: `notes.csv` (one row per show) and `cards.csv` (every quick card).
+- `make export`: spreadsheets in `build/exports/`: `notes.csv`, `cards.csv`, and `ideation_nodes.csv` / `ideation_edges.csv`. Mechanisms have domain, shape, force, cost, and source fields. `make lookup ID="<node ID>"` traces an idea to its hypotheses and sources. The CSVs are rebuilt views; the private JSON records own the data.
 
 ## 6. The blind packet
 

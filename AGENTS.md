@@ -10,7 +10,7 @@ to these and ask nothing else:
 
 For an IDE agent, `python3 scripts/animedex_agent.py tools` prints the shared tool contract as JSON;
 `python3 scripts/animedex_agent.py status` reads the latest local scan and frames without model calls.
-The same script accepts `scan`, `abduct --scan PATH --gap ID`,
+The same script accepts `ideate [--brief TEXT] [--medium FORMAT] [--compare]`, `scan`, `abduct --scan PATH --gap ID`,
 `quick --frames-file PATH --frame-id ID`, and `lookup --id ID`. It invokes the product CLI from the repo root, so the
 same commands work in Claude, Codex, and any IDE with a terminal. See
 `.control/policies/ideation-workflow.md` for the human gate and the research methods in scope.
@@ -21,7 +21,9 @@ same commands work in Claude, Codex, and any IDE with a terminal. See
 | "find current anime gaps" | `python3 scripts/animedex_agent.py scan`: saves sourced candidate gaps in `notes/_scans/` |
 | "frame gap G1" | `python3 scripts/animedex_agent.py abduct --scan <scan file> --gap G1`: retrieves premises, challenges competing explanations with supporting and falsifying questions, compares frames, adapts rejected frames, then gates them |
 | "build frame F1" | After the owner selects a passing frame: `python3 scripts/animedex_agent.py quick --frames-file <frames file> --frame-id F1` |
-| "ideas from …", "cards from <seed>", "what could <fight image> become" | `make quick SEED="<text>" [SHOWS="a, b, c"] [N=6]`: at most 4 calls, under 10 minutes; cards in `build/quick/` |
+| "suggest ideas", "ideas from …", "what could <seed> become" | `python3 scripts/animedex_agent.py ideate --brief "<text>" [--medium FORMAT]`: source mechanisms outside fiction, hypotheses, drafts, scene tests, and sourced prior-art comparisons; private results in `build/quick/_ideation/` |
+| "test how it ideates", "compare ideas" | `python3 scripts/animedex_agent.py ideate --brief "<text>" --compare`; the same Terra model, brief, visible draft fields, and checks in both arms; rate every card with `make review`, then `ideate-results --run PATH` |
+| "quick cards against these shows" | `make quick SEED="<text>" SHOWS="a, b, c" [N=6]`: reference-informed cards in `build/quick/` |
 | "check this concept: …" | `make diagnose TEXT="…"` (or `FILE=path`): 2 calls; the verdicts are in the output and `data/diagnose/` |
 | "what's covered", "gaps", "lanes" | `make analyze` (report in `build/reports/analysis.md`) |
 | "spreadsheet", "export" | `make export` (`build/exports/notes.csv`, `cards.csv`) |
