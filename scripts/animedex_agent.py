@@ -16,10 +16,12 @@ TOOLS = {
                "required": [], "optional": []},
     "scan": {"description": "Fetch current anime discourse and save sourced candidate gaps.",
              "required": [], "optional": []},
-    "abduct": {"description": "Run premise retrieval, three reasoning lenses, frame comparison, feedback, and gate for a chosen sourced gap.",
+    "abduct": {"description": "Challenge competing hypotheses, then run premise retrieval, reasoning lenses, frame comparison, feedback, and gate for a chosen sourced gap.",
                "required": ["--scan", "--gap"], "optional": ["--n"]},
     "quick": {"description": "Build cards only from a human-selected frame that passed the gate.",
               "required": ["--frames-file", "--frame-id"], "optional": ["--n"]},
+    "lookup": {"description": "Trace a private scan, gap, hypothesis, frame, card, or verdict by ID.",
+               "required": ["--id"], "optional": []},
 }
 
 
@@ -81,10 +83,12 @@ def main() -> int:
     quick.add_argument("--frames-file", required=True)
     quick.add_argument("--frame-id", required=True)
     quick.add_argument("--n", type=int)
+    lookup = sub.add_parser("lookup", help="Trace a node ID through the private ideation records")
+    lookup.add_argument("--id", required=True)
     args = parser.parse_args()
 
     if args.tool == "tools":
-        print(json.dumps({"tools": TOOLS, "sequence": ["status", "scan", "abduct", "quick"],
+        print(json.dumps({"tools": TOOLS, "sequence": ["status", "scan", "abduct", "quick", "lookup"],
                           "selection": "human", "implementation": "uv run animedex"}, indent=2))
         return 0
     if args.tool == "status":
@@ -96,9 +100,11 @@ def main() -> int:
 
     command = ["uv", "run", "animedex", args.tool]
     if args.tool == "abduct":
-        command.extend(["--research", "--scan", args.scan, "--gap", args.gap])
+        command.extend(["--research", "--hypothesis-check", "--scan", args.scan, "--gap", args.gap])
     elif args.tool == "quick":
         command.extend(["--frames-file", args.frames_file, "--frame-id", args.frame_id])
+    elif args.tool == "lookup":
+        command.extend(["--id", args.id])
     if args.tool in {"abduct", "quick"} and args.n is not None:
         command.extend(["--n", str(args.n)])
     return subprocess.run(command, cwd=ROOT, check=False).returncode

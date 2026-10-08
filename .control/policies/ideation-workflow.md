@@ -6,7 +6,7 @@ Codex, or another IDE. The research methods below remain in scope; none is silen
 ## Contract
 
 The public product CLI in `src/animedex/cli.py` owns all model calls and private writes.
-`scripts/animedex_agent.py` is the host-neutral agent entrypoint. Its `tools` and `status`
+`scripts/animedex_agent.py` is the host-neutral agent entrypoint. Its `tools`, `status`, and `lookup`
 commands are read-only JSON. `scan`, `abduct`, and `quick` call the existing product CLI.
 Run them in that order. A human chooses the sourced gap and then the passing frame. The agent
 may show candidates and verdicts, but must not silently make either creative choice.
@@ -14,6 +14,9 @@ may show candidates and verdicts, but must not silently make either creative cho
 The scan is evidence of discussion on a fetched page, not proof of a genre-wide gap. The frame
 gate can reject a fusion before card scoring. A gate result is a model judgment, not proof of
 originality. A live source and a human reading are needed before calling a premise fresh.
+The IDE entrypoint challenges the three reasoning hypotheses with unanswered supporting and
+falsifying questions before frames are drafted. `make export` derives node and edge CSVs from
+private records; `lookup --id` traces an ID to its sources without creating another store.
 
 ## Research methods in scope
 

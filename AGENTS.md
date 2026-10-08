@@ -10,8 +10,8 @@ to these and ask nothing else:
 
 For an IDE agent, `python3 scripts/animedex_agent.py tools` prints the shared tool contract as JSON;
 `python3 scripts/animedex_agent.py status` reads the latest local scan and frames without model calls.
-The same script accepts `scan`, `abduct --scan PATH --gap ID`, and
-`quick --frames-file PATH --frame-id ID`. It invokes the product CLI from the repo root, so the
+The same script accepts `scan`, `abduct --scan PATH --gap ID`,
+`quick --frames-file PATH --frame-id ID`, and `lookup --id ID`. It invokes the product CLI from the repo root, so the
 same commands work in Claude, Codex, and any IDE with a terminal. See
 `.control/policies/ideation-workflow.md` for the human gate and the research methods in scope.
 
@@ -19,12 +19,13 @@ same commands work in Claude, Codex, and any IDE with a terminal. See
 |---|---|
 | "add <show>", "study <show>", "ingest <list>" | `make ingest LIST=<file, one show per line>`: one Sonnet call per 3 shows, about 30 s per show; shows with a note are skipped; notes in `notes/` |
 | "find current anime gaps" | `python3 scripts/animedex_agent.py scan`: saves sourced candidate gaps in `notes/_scans/` |
-| "frame gap G1" | `python3 scripts/animedex_agent.py abduct --scan <scan file> --gap G1`: retrieves premises, runs three reasoning lenses, compares frames, adapts rejected frames, then gates them |
+| "frame gap G1" | `python3 scripts/animedex_agent.py abduct --scan <scan file> --gap G1`: retrieves premises, challenges competing explanations with supporting and falsifying questions, compares frames, adapts rejected frames, then gates them |
 | "build frame F1" | After the owner selects a passing frame: `python3 scripts/animedex_agent.py quick --frames-file <frames file> --frame-id F1` |
 | "ideas from …", "cards from <seed>", "what could <fight image> become" | `make quick SEED="<text>" [SHOWS="a, b, c"] [N=6]`: at most 4 calls, under 10 minutes; cards in `build/quick/` |
 | "check this concept: …" | `make diagnose TEXT="…"` (or `FILE=path`): 2 calls; the verdicts are in the output and `data/diagnose/` |
 | "what's covered", "gaps", "lanes" | `make analyze` (report in `build/reports/analysis.md`) |
 | "spreadsheet", "export" | `make export` (`build/exports/notes.csv`, `cards.csv`) |
+| "trace ID", "where did this come from" | `python3 scripts/animedex_agent.py lookup --id <node ID>`; `make export` also writes private `ideation_nodes.csv` and `ideation_edges.csv` |
 | "review", "rate", "the packet" | `make review` (localhost rating page), then `make review-report` |
 | "back up" | `make data-push` |
 | anything about the old deep pipeline or the gold titles | tag `heavy-final`; follow `legacy/README.md` |

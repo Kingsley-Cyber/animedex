@@ -263,18 +263,49 @@ def lens_problems(out: dict[str, Any], note_ids: list[str]) -> list[str]:
     return problems
 
 
-def research_frames_schema() -> dict[str, Any]:
-    frame = _obj({"frame_sentence": TEXT, "explanation": TEXT, "new_concept": TEXT,
-                  "lens_refs": _arr({"type": "string", "enum": list(LENSES)})})
+def hypothesis_schema(note_ids: list[str]) -> dict[str, Any]:
+    item = _obj({"lens": {"type": "string", "enum": list(LENSES)}, "claim": TEXT,
+                 "supporting_question": TEXT, "falsifying_question": TEXT,
+                 "premise_ids": _arr({"type": "string", "enum": note_ids})})
+    return _obj({"hypotheses": _arr(item)})
+
+
+def hypothesis_problems(out: dict[str, Any], note_ids: list[str]) -> list[str]:
+    items = out.get("hypotheses") or []
+    problems = [] if sorted(item.get("lens") for item in items) == sorted(LENSES) else [
+        "give one competing hypothesis for each reasoning lens"]
+    claims = [str(item.get("claim") or "").strip().casefold() for item in items]
+    if not all(claims) or len(set(claims)) != len(claims):
+        problems.append("hypotheses need distinct, nonempty causal claims")
+    for i, item in enumerate(items):
+        if not str(item.get("supporting_question") or "").strip() or not str(item.get("falsifying_question") or "").strip():
+            problems.append(f"hypotheses[{i}]: ask what would support and falsify the claim")
+        refs = item.get("premise_ids") or []
+        if not refs or any(ref not in note_ids for ref in refs):
+            problems.append(f"hypotheses[{i}].premise_ids: cite indexed comparison premises")
+    return problems
+
+
+def research_frames_schema(hypothesis_refs: list[str] | None = None) -> dict[str, Any]:
+    fields = {"frame_sentence": TEXT, "explanation": TEXT, "new_concept": TEXT,
+              "lens_refs": _arr({"type": "string", "enum": list(LENSES)})}
+    if hypothesis_refs is not None:
+        fields["hypothesis_refs"] = _arr({"type": "string", "enum": hypothesis_refs})
+    frame = _obj(fields)
     return _obj({"frames": _arr(frame)})
 
 
-def research_frame_problems(out: dict[str, Any], n: int) -> list[str]:
+def research_frame_problems(out: dict[str, Any], n: int,
+                            hypothesis_refs: list[str] | None = None) -> list[str]:
     problems = frame_problems(out, n)
     for i, frame in enumerate(out.get("frames") or []):
         refs = frame.get("lens_refs") or []
         if not refs or len(set(refs)) != len(refs) or any(ref not in LENSES for ref in refs):
             problems.append(f"frames[{i}].lens_refs: cite contributing reasoning lenses")
+        if hypothesis_refs is not None:
+            cited = frame.get("hypothesis_refs") or []
+            if not cited or len(set(cited)) != len(cited) or any(ref not in hypothesis_refs for ref in cited):
+                problems.append(f"frames[{i}].hypothesis_refs: cite distinct challenge hypotheses")
     return problems
 
 
@@ -348,7 +379,8 @@ def _research_gate(paths: Paths, *, client: LLMClient, key: str, context: str,
 
 def _state_graph(gap: dict[str, Any], premises: dict[str, Any], lenses: dict[str, dict[str, Any]],
                  candidates: dict[str, dict[str, Any]], suspension: dict[str, Any],
-                 frames: dict[str, dict[str, Any]], revised_from: dict[str, str]) -> dict[str, Any]:
+                 frames: dict[str, dict[str, Any]], revised_from: dict[str, str],
+                 hypotheses: dict[str, dict[str, Any]] | None = None) -> dict[str, Any]:
     nodes: list[dict[str, Any]] = [{"id": "gap", "kind": "observation", "text": gap["anomaly"],
                                    "source_url": gap["source_url"]}]
     edges: list[dict[str, str]] = []
@@ -362,10 +394,21 @@ def _state_graph(gap: dict[str, Any], premises: dict[str, Any], lenses: dict[str
                           "to": node_id, "relation": "informs"})
             edges.extend({"from": f"premise:{slug}", "to": node_id, "relation": "cites"}
                          for slug in step["premise_ids"])
+    for ref, hypothesis in (hypotheses or {}).items():
+        nodes.append({"id": f"hypothesis:{ref}", "kind": "hypothesis", "text": hypothesis["claim"],
+                      "supporting_question": hypothesis["supporting_question"],
+                      "falsifying_question": hypothesis["falsifying_question"], "status": "untested"})
+        mode = hypothesis["lens"]
+        edges.append({"from": f"reason:{mode}:{len(lenses[mode]['steps'])}",
+                      "to": f"hypothesis:{ref}", "relation": "proposes"})
+        edges.extend({"from": f"premise:{slug}", "to": f"hypothesis:{ref}", "relation": "compares"}
+                     for slug in hypothesis["premise_ids"])
     for ref, frame in candidates.items():
         nodes.append({"id": f"frame:{ref}", "kind": "candidate", "text": frame["frame_sentence"]})
         edges.extend({"from": f"reason:{mode}:{len(lenses[mode]['steps'])}", "to": f"frame:{ref}",
                       "relation": "informs"} for mode in frame["lens_refs"])
+        edges.extend({"from": f"hypothesis:{hypothesis_ref}", "to": f"frame:{ref}",
+                      "relation": "frames"} for hypothesis_ref in frame.get("hypothesis_refs") or [])
     for i, comparison in enumerate(suspension["comparisons"], start=1):
         node_id = f"comparison:{i}"
         nodes.append({"id": node_id, "kind": "comparison", "text": comparison["reason"],
@@ -376,6 +419,8 @@ def _state_graph(gap: dict[str, Any], premises: dict[str, Any], lenses: dict[str
         if ref not in candidates:
             nodes.append({"id": f"frame:{ref}", "kind": "revision" if ref in revised_from else "synthesis",
                           "text": frame["frame_sentence"]})
+            edges.extend({"from": f"hypothesis:{hypothesis_ref}", "to": f"frame:{ref}",
+                          "relation": "frames"} for hypothesis_ref in frame.get("hypothesis_refs") or [])
             if ref in revised_from:
                 edges.append({"from": f"frame:{revised_from[ref]}", "to": f"frame:{ref}",
                               "relation": "revises"})
@@ -402,7 +447,8 @@ def _state_graph(gap: dict[str, Any], premises: dict[str, Any], lenses: dict[str
 
 def run_research_abduct(paths: Paths, *, scan_file: str | Path, gap_id: str, n: int,
                         clients: dict[str, LLMClient], run_id: str,
-                        now: datetime | None = None) -> tuple[Path, dict[str, Any]]:
+                        now: datetime | None = None,
+                        hypothesis_check: bool = False) -> tuple[Path, dict[str, Any]]:
     """Sourced gap -> premise chain -> three independent lenses -> suspended frames -> gate -> revision."""
     file, scan, gap = load_gap(paths, scan_file, gap_id)
     notes = read_notes(paths)
@@ -424,12 +470,24 @@ def run_research_abduct(paths: Paths, *, scan_file: str | Path, gap_id: str, n: 
                          "reason_lens.md", user, lens_schema(selected),
                          lambda out: _raise(lens_problems(out, selected)))
         lenses[mode] = done.data
+    hypotheses: dict[str, dict[str, Any]] = {}
+    if hypothesis_check:
+        challenge_user = "\n".join([context, *(f"{mode} reasoning: {json.dumps(trace, ensure_ascii=False)}"
+                                                 for mode, trace in lenses.items())])
+        challenged = _complete(paths, clients["generate"], "HYPOTHESIS_CHALLENGE", key,
+                               "hypothesis_challenge.md", challenge_user, hypothesis_schema(selected),
+                               lambda out: _raise(hypothesis_problems(out, selected)))
+        hypotheses = {f"H{i}": {**item, "status": "untested"}
+                      for i, item in enumerate(challenged.data["hypotheses"], start=1)}
+    hypothesis_refs = list(hypotheses) if hypothesis_check else None
     frame_user = "\n".join([context, f"frames: {n}",
                             *(f"{mode} hypothesis: {json.dumps(trace, ensure_ascii=False)}"
-                              for mode, trace in lenses.items())])
+                              for mode, trace in lenses.items()),
+                            *(f"challenge {ref}: {json.dumps(item, ensure_ascii=False)}"
+                              for ref, item in hypotheses.items())])
     generated = _complete(paths, clients["generate"], "RESEARCH_FRAMES", key, "research_frames.md",
-                          frame_user, research_frames_schema(),
-                          lambda out: _raise(research_frame_problems(out, n)))
+                          frame_user, research_frames_schema(hypothesis_refs),
+                          lambda out: _raise(research_frame_problems(out, n, hypothesis_refs)))
     candidates = {f"F{i}": frame for i, frame in enumerate(generated.data["frames"], start=1)}
     suspension_user = "\n".join([context,
                                  *(f"frame {ref}: {json.dumps(frame, ensure_ascii=False)}"
@@ -440,7 +498,13 @@ def run_research_abduct(paths: Paths, *, scan_file: str | Path, gap_id: str, n: 
     suspension = suspended.data
     all_candidates = dict(candidates)
     for i, frame in enumerate(suspension["syntheses"], start=1):
+        if hypothesis_check:
+            frame["hypothesis_refs"] = list(dict.fromkeys(
+                ref for parent in frame["parents"] for ref in candidates[parent]["hypothesis_refs"]))
         all_candidates[f"S{i}"] = frame
+    if hypothesis_check:
+        context += "\n" + "\n".join(f"challenge {ref}: {json.dumps(item, ensure_ascii=False)}"
+                                      for ref, item in hypotheses.items())
     verdicts = _research_gate(paths, client=clients["check"], key=f"{key}:initial", context=context,
                               candidates=all_candidates, notes=notes, lenses=lenses)
     frames = {ref: {**frame, "gate": verdicts[ref], "accepted": passes_research_gate(verdicts[ref])}
@@ -454,8 +518,8 @@ def run_research_abduct(paths: Paths, *, scan_file: str | Path, gap_id: str, n: 
                             for ref, frame in rejected.items()),
                           f"replacement frames: {len(rejected)}"])
         adapted = _complete(paths, clients["generate"], "ADAPT_FRAMES", key, "adapt_frames.md", user,
-                            research_frames_schema(),
-                            lambda out: _raise(research_frame_problems(out, len(rejected))))
+                            research_frames_schema(hypothesis_refs),
+                            lambda out: _raise(research_frame_problems(out, len(rejected), hypothesis_refs)))
         revisions = {f"R{i}": frame for i, frame in enumerate(adapted.data["frames"], start=1)}
         revised_from = dict(zip(revisions, rejected, strict=True))
         revised_verdicts = _research_gate(paths, client=clients["check"], key=f"{key}:adapt",
@@ -463,7 +527,7 @@ def run_research_abduct(paths: Paths, *, scan_file: str | Path, gap_id: str, n: 
         frames.update({ref: {**frame, "gate": revised_verdicts[ref],
                              "accepted": passes_research_gate(revised_verdicts[ref])}
                        for ref, frame in revisions.items()})
-    graph = _state_graph(gap, premises, lenses, candidates, suspension, frames, revised_from)
+    graph = _state_graph(gap, premises, lenses, candidates, suspension, frames, revised_from, hypotheses)
     now = now or datetime.now(UTC)
     record_id = f"{now.strftime('%Y%m%d_%H%M%S')}_{sha256_text(key).split(':')[-1][:8]}"
     while (paths.quick / "_frames" / f"{record_id}.json").exists():
@@ -471,6 +535,7 @@ def run_research_abduct(paths: Paths, *, scan_file: str | Path, gap_id: str, n: 
     record = {"id": record_id, "workflow": "research_v1", "run_id": run_id,
               "created_at": now.isoformat(), "scan_file": str(file.relative_to(paths.root)),
               "gap": gap, "premise_retrieval": premises, "reasoning_graphs": lenses,
+              "hypotheses": hypotheses,
               "suspension": suspension, "controller": {"direction": direction or "stop: no rejected frames",
                                                  "revised_from": revised_from},
               "state_graph": graph, "frames": frames,

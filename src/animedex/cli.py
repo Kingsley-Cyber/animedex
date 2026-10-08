@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from typing import Any
 
@@ -88,7 +89,8 @@ def scan() -> None:
 def abduct(scan_file: str = typer.Option(..., "--scan", help="A scan JSON path from animedex scan."),
            gap: str = typer.Option(..., "--gap", help="Gap ID printed by the scan, such as G1."),
            n: int = typer.Option(None, "--n", help="Candidate frames (default quick.cards)."),
-           research: bool = typer.Option(False, "--research", help="Use the premise, reasoning, suspension, and feedback workflow.")) -> None:
+           research: bool = typer.Option(False, "--research", help="Use the premise, reasoning, suspension, and feedback workflow."),
+           hypothesis_check: bool = typer.Option(False, "--hypothesis-check", help="Challenge competing explanations before framing (research mode).")) -> None:
     """Turn a sourced gap into frames, then reject fusions before card scoring."""
     from animedex.light.abduction import (
         AbductionError,
@@ -98,13 +100,17 @@ def abduct(scan_file: str = typer.Option(..., "--scan", help="A scan JSON path f
     )
 
     paths = _paths()
+    if hypothesis_check and not research:
+        typer.echo("--hypothesis-check requires --research", err=True)
+        raise typer.Exit(2)
     settings = load_settings(paths)
     clients, runlog = _clients(paths, settings, ("generate", "check"))
     try:
         runner = run_research_abduct if research else run_abduct
+        kwargs = {"hypothesis_check": True} if hypothesis_check else {}
         path, record = runner(paths, scan_file=scan_file, gap_id=gap,
                               n=int(n if n is not None else settings.section("quick").get("cards", 6)),
-                              clients=clients, run_id=runlog.run_id)
+                              clients=clients, run_id=runlog.run_id, **kwargs)
     except (AbductionError, AbductionPaused) as exc:
         typer.echo(str(exc), err=True)
         raise typer.Exit(3 if isinstance(exc, AbductionPaused) else 1) from exc
@@ -214,12 +220,26 @@ def analyze() -> None:
 
 @app.command()
 def export() -> None:
-    """Spreadsheets: build/exports/notes.csv (one row per note) and cards.csv (every quick card)."""
+    """Spreadsheets: notes, cards, and linked ideation nodes and edges in build/exports/."""
     from animedex.light.counts import export as run_export
+    from animedex.light.lookup import export_lookup
 
     paths = _paths()
-    for f in run_export(paths):
+    for f in [*run_export(paths), *export_lookup(paths)]:
         typer.echo(f"wrote {f.relative_to(paths.root)}")
+
+
+@app.command()
+def lookup(id: str = typer.Option(..., "--id", help="A node ID from ideation_nodes.csv.")) -> None:
+    """Show a private record, its direct links, and its source lineage by stable ID."""
+    from animedex.light.lookup import lookup as find
+
+    try:
+        result = find(_paths(), id)
+    except KeyError:
+        typer.echo(f"unknown ID: {id}", err=True)
+        raise typer.Exit(1) from None
+    typer.echo(json.dumps(result, indent=2, ensure_ascii=False))
 
 
 @app.command()
