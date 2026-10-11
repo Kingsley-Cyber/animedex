@@ -5,8 +5,9 @@ Ephemeral, read-only sandbox, `--ignore-user-config` (skips ~/.codex/config.toml
 defaults), `--ignore-rules`, run from an empty scratch dir, schema-constrained final message via
 `--output-schema`, JSONL events via `--json`. The shell, browser, apps, plugins, image and
 multi-agent features are switched off per call, as are the environment-context and permissions
-blocks. codex exec has no system-prompt flag, so the pass prompt leads the prompt. Commands the
-agent runs anyway are reported (they should be none).
+blocks. An explicitly web-enabled profile keeps code_mode_host available for Codex's web-search
+tool while shell execution remains disabled. codex exec has no system-prompt flag, so the pass
+prompt leads the prompt. Commands the agent runs anyway are reported (they should be none).
 
 Checked with `codex debug prompt-input` (2026-09-27, codex-cli 0.157.1): one user-level item still
 reaches the model and cannot be switched off per call without moving CODEX_HOME (which holds the
@@ -32,24 +33,30 @@ from animedex.providers.cli_common import (
     run,
     timed_events,
 )
+from animedex.textutil import blocked_source
 
 CLI = "codex_cli"
 
 
 def codex_timing(timed: list[tuple[float | None, dict[str, Any]]], wall_s: float | None) -> dict[str, Any]:
-    """Where one call's wall time went (seconds): startup until codex's first event, model until its
-    last (no tools run here), other for shutdown. Without event times only the wall time is known."""
+    """Split measured call time between startup, model, completed web tools, and shutdown."""
     out: dict[str, Any] = {"wall_s": round(wall_s, 2) if wall_s is not None else None}
     times = [ts for ts, _ in timed]
     if wall_s is None or not times or None in times:
         return out
     first, last = min(times), max(times)  # type: ignore[type-var]
-    return {**out, "startup_s": round(first, 2), "model_s": round(last - first, 2),
-            "web_s": 0.0, "tools_s": 0.0, "other_s": round(max(0.0, wall_s - last), 2)}
+    web_s = sum(max(0.0, ts - timed[i - 1][0]) for i, (ts, event) in enumerate(timed) if i
+                and event.get("type") == "item.completed"
+                and (event.get("item") or {}).get("type") == "web_search")
+    return {**out, "startup_s": round(first, 2), "model_s": round(max(0.0, last - first - web_s), 2),
+            "web_s": round(web_s, 2), "tools_s": 0.0, "other_s": round(max(0.0, wall_s - last), 2)}
 PREFIX = ("You are answering one structured-output request. Do not run commands, read files, or browse. "
           "Reply only with the final JSON object.\n\n## Instructions\n")
+WEB_PREFIX = ("You are answering one structured-output request. Use live web search and open each page "
+              "used as evidence. Do not run commands or read files. Reply only with the final JSON object."
+              "\n\n## Instructions\n")
 _MODEL_LINE = re.compile(r"^\s*model:\s*(\S+)", re.M)
-# Features that add tools or instructions to an agent turn; off for every extraction call.
+# Features that add tools or instructions to an agent turn; off by default.
 DISABLED_FEATURES = (
     "shell_tool", "unified_exec", "unified_exec_tty", "shell_snapshot", "apps", "plugins", "remote_plugin",
     "skill_search", "skill_mcp_dependency_install", "tool_suggest", "image_generation", "view_image", "browser_use",
@@ -64,12 +71,39 @@ CONFIG_OVERRIDES = (
 USER_LEVEL_LEAKS = ("~/.codex/AGENTS.md",)
 
 
+def codex_web_evidence(events: list[dict[str, Any]]) -> dict[str, Any]:
+    """Keep opened-page URLs, never snippets or page text, from Codex web-search events."""
+    queries: list[str] = []
+    found: set[str] = set()
+    fetched: set[str] = set()
+    fetch_count = 0
+    for event in events:
+        item = event.get("item") or {}
+        if event.get("type") != "item.completed" or item.get("type") != "web_search":
+            continue
+        action = item.get("action") or {}
+        if action.get("type") == "search":
+            queries.append(str(action.get("query") or item.get("query") or ""))
+        for result in item.get("results") or []:
+            if not isinstance(result, dict) or not result.get("url"):
+                continue
+            url = str(result["url"])
+            if action.get("type") == "search":
+                found.add(url)
+            elif action.get("type") == "open_page" or re.search(r"view\d+$", str(result.get("ref_id") or "")):
+                fetched.add(url)
+                fetch_count += 1
+    return {"searches": len(queries), "fetches": fetch_count, "queries": queries,
+            "fetched": sorted(fetched), "found": sorted(found), "urls": sorted(fetched | found)}
+
+
 class CodexCliProvider:
     live = True
     billing = "subscription"
 
     def __init__(self, name: str = CLI, *, binary: str = "codex", send_params: list[str] | None = None,
-                 timeout_s: float = 900.0, runner: Runner | None = None, version: str | None = None):
+                 timeout_s: float = 900.0, runner: Runner | None = None, version: str | None = None,
+                 allow_web: bool = False):
         import subprocess
 
         self.name = name
@@ -80,6 +114,7 @@ class CodexCliProvider:
         self.version = version or cli_version(binary, self._runner)
         self.identity = f"{CLI}@{self.version}"
         self.last_init: dict[str, Any] = {}
+        self.allow_web = allow_web
 
     def args(self, cwd: str, schema_path: str, out_path: str, params: dict[str, Any]) -> list[str]:
         args = [
@@ -89,8 +124,12 @@ class CodexCliProvider:
             "-C", cwd, "--output-schema", schema_path, "-o", out_path,
         ]
         for feature in DISABLED_FEATURES:
+            if params.get("web") and feature == "code_mode_host":
+                continue
             args += ["--disable", feature]
         for override in CONFIG_OVERRIDES:
+            if params.get("web") and override == 'web_search="disabled"':
+                override = 'web_search="live"'
             args += ["-c", override]
         model = str(params.get("model") or "default")
         if model != "default":
@@ -100,14 +139,15 @@ class CodexCliProvider:
         return args + ["-"]
 
     def generate(self, system: str, user: str, json_schema: dict[str, Any], params: dict[str, Any]) -> ProviderResponse:
-        if params.get("web"):
-            raise ProviderError(f"{self.name}: native web search is wired for claude_cli only (models.verify)")
+        if params.get("web") and not self.allow_web:
+            raise ProviderError(f"{self.name}: native web search is wired for claude_cli only in this profile (models.verify)")
         with tempfile.TemporaryDirectory(prefix="animedex-call-") as cwd, \
                 tempfile.TemporaryDirectory(prefix="animedex-io-") as io_dir:
             schema_path = str(Path(io_dir) / "schema.json")
             out_path = str(Path(io_dir) / "last_message.json")
             Path(schema_path).write_text(json.dumps(json_schema, sort_keys=True), encoding="utf-8")
-            proc = run(self.args(cwd, schema_path, out_path, params), input_text=f"{PREFIX}{system}\n\n## Input\n{user}",
+            prefix = WEB_PREFIX if params.get("web") else PREFIX
+            proc = run(self.args(cwd, schema_path, out_path, params), input_text=f"{prefix}{system}\n\n## Input\n{user}",
                        cwd=cwd, timeout_s=self.timeout_s, runner=self._runner)
             last = Path(out_path).read_text(encoding="utf-8") if Path(out_path).is_file() else ""
         timed = timed_events(proc)
@@ -135,6 +175,13 @@ class CodexCliProvider:
         if proc.returncode != 0 or failures or not last.strip():
             detail = " ".join(json.dumps(f) for f in failures) + " " + (proc.stderr or "")[-600:]
             raise classify(self.name, detail)
+        web = codex_web_evidence(events) if params.get("web") else None
+        if web is not None:
+            limits = params["web"]
+            if (web["searches"] > int(limits["max_searches"])
+                    or web["fetches"] > int(limits["max_fetches"])
+                    or any(blocked_source(url) for url in web["fetched"])):
+                raise ProviderError(f"{self.name}: web search exceeded limits or opened a blocked source")
         return ProviderResponse(
             text=last,
             usage=Usage(int(usage.get("input_tokens", 0) or 0), int(usage.get("output_tokens", 0) or 0),
@@ -143,7 +190,8 @@ class CodexCliProvider:
             stop_reason="completed",
             request_id=self.last_init["thread"],
             meta={"cli": CLI, "cli_version": self.version, "shadow_cost_usd": None, "init": self.last_init,
-                  "billing": self.billing, "timing": codex_timing(timed, getattr(proc, "wall_s", None))},
+                  "billing": self.billing, "timing": codex_timing(timed, getattr(proc, "wall_s", None)),
+                  **({"web": web} if web is not None else {})},
         )
 
     def resolve_model(self, model_id: str) -> str:

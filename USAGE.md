@@ -1,6 +1,14 @@
 # Using ANIMEDEX
 
-ANIMEDEX keeps a short study note for every show you add, and turns a seed into idea cards checked against those notes and your steering rules. Everything it writes is private: it goes to your data repo, never the public one.
+ANIMEDEX finds candidate gaps in live anime discourse, proposes story frames, and builds idea cards from a frame you select. Study notes and your steering rules check those cards. The scan, frames, notes, and cards are private data; `make data-push` backs them up to your private data repo.
+
+## Main ideation loop
+
+1. `make scan` fetches current discourse. It prints a private scan path and gap IDs, each with a model-extracted publication date and fetched source URL. Inspect the page before treating a gap as a broader pattern.
+2. `make abduct SCAN="notes/_scans/<scan>.json" GAP=G1` samples relevant indexed premises, asks independent abductive, deductive, and inductive questions, compares candidate frames, and revises rejected ones once using the gate's reasons. It prints a private frames path and marks each frame ready or rejected. The private record includes the premise chain and a reasoning state graph. The gate needs at least three indexed shows for its contrasts.
+3. Pick a ready frame and run `make quick FRAMES="build/quick/_frames/<frames>.json" FRAME=F1`. In this path, only a passing frame can reach card generation and scoring. Read the cards, then decide which frame is worth developing.
+
+The command output provides the actual paths and IDs to use. `make scan` uses live web search through Codex with GPT-5.6 Terra; the later commands use their existing model slots. A scan that cannot cite an opened, dated page stops rather than inventing a gap. The research methods are software adaptations: the controller uses gate feedback rather than a trained critic, the reasoning lenses do not calculate calibrated Bayesian confidence, and frame comparison does not run on quantum hardware.
 
 ## 1. Study shows
 
@@ -33,7 +41,17 @@ make quick SEED="a cold-open feral scaled transformation mid-fight"
 - At most 4 calls, under 10 minutes. The cards land in `build/quick/<time>_<seed>.md`, best first, each with its biggest weakness and its sources. Cards that fail the consequence test or your hard rule (R1) are listed as dropped.
 - The same seed a second time skips the research call.
 
-## 3. Check your own concept
+## 3. Start from a surprising observation
+
+To start from an observation that surprised you, use `ANOMALY` instead of `SEED`:
+
+```bash
+make quick ANOMALY="I expected a stronger hero to remove tension, but each victory makes their allies trust them less"
+```
+
+Each resulting card states a possible explanation, then builds a story from it. The check drops cards whose explanation does not account for the observation. ANIMEDEX treats your observation as unverified; you decide whether it is accurate and worth exploring. The existing show comparison, steering rules, consequence test, and prior-art check still apply.
+
+## 4. Check your own concept
 
 ```bash
 make diagnose TEXT="your concept in a sentence or two"
@@ -41,16 +59,16 @@ make diagnose TEXT="your concept in a sentence or two"
 
 Or put a longer concept in a file and use `FILE=path`. Two calls: it writes your concept as a note, then checks it against the nearest notes and `steering/rules.yaml`. Each failed check comes with a fix. The report is in `data/diagnose/`.
 
-## 4. Look at the index
+## 5. Look at the index
 
 - `make analyze`: which story-engine lanes the notes cover, which power combinations no note holds (ranked by how surprising the gap is), and unadapted print titles. Report: `build/reports/analysis.md`.
 - `make export`: spreadsheets in `build/exports/`: `notes.csv` (one row per show) and `cards.csv` (every quick card).
 
-## 5. The blind packet
+## 6. The blind packet
 
 `make review` opens the rating page for the existing blind packet on this computer; `make review-report` shows the result once every card is rated.
 
-## 6. Back up
+## 7. Back up
 
 ```bash
 make data-push

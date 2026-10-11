@@ -34,7 +34,7 @@ def build_provider(name: str, settings: Settings, *, runner: Callable[..., Any] 
                                  timeout_s=profile.timeout_s, runner=runner)
     if profile.type == "codex_cli":
         return CodexCliProvider(name, binary=profile.binary or "codex", send_params=profile.send_params,
-                                timeout_s=profile.timeout_s, runner=runner)
+                                timeout_s=profile.timeout_s, runner=runner, allow_web=profile.allow_web)
     raise ProviderConfigError(f"providers.{name}: a {profile.type} profile serves embeddings only")
 
 

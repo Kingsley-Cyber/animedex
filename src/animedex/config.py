@@ -25,6 +25,7 @@ class ProviderProfile(BaseModel):
     structured_output: Literal["json_schema", "json_object", "prompt"] = "json_schema"
     timeout_s: float = 300.0
     send_params: list[str] = Field(default_factory=list)
+    allow_web: bool = False  # explicit opt-in for a Codex CLI profile that gathers source evidence
 
 
 class ModelSpec(BaseModel):
