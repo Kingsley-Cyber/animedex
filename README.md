@@ -20,3 +20,9 @@ A notes index of shows, and idea cards checked against it. Every show gets a sho
 
 ## Where things live
 `notes/` is the one store. Notes, quick cards (`build/quick/`), diagnoses (`data/diagnose/`), the steering rules and your seeds are private: git-ignored here and mirrored to `Kingsley-Cyber/animedex-data` by `make data-push`. Model calls go through the `claude` and `codex` subscription CLIs; no API keys.
+
+## Forking
+Fork it, then point `data_repo.remote` in `config/settings.yaml` at a private repo of your own before running `make data-push`. Your notes, seeds, steering rules and cards stay git-ignored in your fork too.
+
+## License
+MIT. See `LICENSE`.

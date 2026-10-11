@@ -206,7 +206,7 @@ def _series_folder(series: str) -> Path:
 
 
 @app.command("bible-snapshot")
-def bible_snapshot(series: str = typer.Argument(..., help="A series folder, e.g. seeds/unkept.")) -> None:
+def bible_snapshot(series: str = typer.Argument(..., help="A series folder, e.g. seeds/<series>.")) -> None:
     """Record a series folder's current files as canon, before a bible run writes into it."""
     from animedex.light.bible_check import read_manifest, snapshot
 
@@ -216,7 +216,7 @@ def bible_snapshot(series: str = typer.Argument(..., help="A series folder, e.g.
 
 
 @app.command("bible-check")
-def bible_check(series: str = typer.Argument(..., help="A series folder, e.g. seeds/unkept."),
+def bible_check(series: str = typer.Argument(..., help="A series folder, e.g. seeds/<series>."),
                 spec: str = typer.Option("lite", "--spec", help="lite (4 files) or full (the whole template).")) -> None:
     """Check a bible run's output against the spec, with no model call; exit 1 if any check fails."""
     from animedex.light.bible_check import SPECS, check
